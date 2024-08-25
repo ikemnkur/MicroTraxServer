@@ -69,47 +69,6 @@ router.put('/profile', authenticateToken, async (req, res) => {
   }
 });
 
-// router.put('/profile', authenticateToken, async (req, res) => {
-//   const { username, email, firstName, lastName, phoneNumber, birthDate } = req.body;
-
-//   try {
-//     const connection = await db.getConnection();
-//     await connection.beginTransaction();
-
-//     try {
-//       // Update user information
-//       await connection.query(
-//         'UPDATE users SET username = ?, email = ?, firstName = ?, lastName = ?, phoneNumber = ?, birthDate = ? WHERE id = ?',
-//         [username, email, firstName, lastName, phoneNumber, birthDate, req.user.id]
-//       );
-
-//       // If you're allowing users to update their account tier, you'd handle that here
-//       // For example:
-//       if (accountTier) {
-//         await connection.query(
-//           'UPDATE user_tiers SET end_date = CURRENT_TIMESTAMP WHERE user_id = ? AND end_date IS NULL',
-//           [req.user.id]
-//         );
-//         await connection.query(
-//           'INSERT INTO user_tiers (user_id, tier_id, start_date) VALUES (?, ?, CURRENT_TIMESTAMP)',
-//           [req.user.id, accountTier]
-//         );
-//       }
-
-//       await connection.commit();
-//       res.json({ message: 'Profile updated successfully' });
-//     } catch (error) {
-//       await connection.rollback();
-//       throw error;
-//     } finally {
-//       connection.release();
-//     }
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ message: 'Server error' });
-//   }
-// });
-
 
 router.get('/dashboard', authenticateToken, async (req, res) => {
   try {
