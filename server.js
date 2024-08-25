@@ -7,21 +7,19 @@ const transactionRoutes = require('./routes/transactions');
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+// CORS configuration
+const corsOptions = {
+  origin: 'http://localhost:3000', // Replace with your frontend URL
+  credentials: true,
+  optionsSuccessStatus: 200
+};
 
-// app.use('/api/auth', authRoutes);
-// app.use('/api/user', userRoutes);
+app.use(cors(corsOptions));
+app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/transactions', transactionRoutes);
-
-
-app.use(cors({
-    origin: 'http://localhost:3000', // or your frontend URL
-    credentials: true
-}));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

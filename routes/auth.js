@@ -20,29 +20,65 @@ router.post('/register', async (req, res) => {
   const { username, email, password } = req.body;
   
   try {
-    const [existingUsers] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
-    if (existingUsers.length > 0) {
-      return res.status(400).json({ message: 'User already exists' });
+    const connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      const [existingUsers] = await connection.query('SELECT * FROM users WHERE email = ?', [email]);
+      if (existingUsers.length > 0) {
+        await connection.rollback();
+        return res.status(400).json({ message: 'User already exists' });
+      }
+
+      const { salt, hash } = hashPassword(password);
+      const accountId = `ACC${Date.now()}`;
+
+      // Insert user
+      const [userResult] = await connection.query(
+        'INSERT INTO users (username, email, password, salt, account_id) VALUES (?, ?, ?, ?, ?)',
+        [username, email, hash, salt, accountId]
+      );
+      const userId = userResult.insertId;
+
+      // Insert account with default balance
+      const defaultBalance = 0; // or any other default balance you want to set
+      await connection.query(
+        'INSERT INTO accounts (user_id, account_id, balance) VALUES (?, ?, ?)',
+        [userId, accountId, defaultBalance]
+      );
+
+      // Check if the default tier exists
+      const defaultTierId = 1;
+      const [tiers] = await connection.query('SELECT id FROM account_tiers WHERE id = ?', [defaultTierId]);
+      
+      if (tiers.length === 0) {
+        throw new Error('Default account tier does not exist');
+      }
+
+      // Insert default account tier
+      await connection.query(
+        'INSERT INTO user_tiers (user_id, tier_id, start_date) VALUES (?, ?, CURRENT_DATE())',
+        [userId, defaultTierId]
+      );
+
+      await connection.commit();
+
+      const token = jwt.sign({ id: userId, accountId }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      res.status(201).json({ token, user: { id: userId, username, email, accountId } });
+
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
     }
-
-    const { salt, hash } = hashPassword(password);
-    const accountId = `ACC${Date.now()}`;
-
-    const [result] = await db.query(
-      'INSERT INTO users (username, email, password, salt, account_id) VALUES (?, ?, ?, ?, ?)',
-      [username, email, hash, salt, accountId]
-    );
-
-    await db.query('INSERT INTO accounts (user_id, account_id) VALUES (?, ?)', [result.insertId, accountId]);
-
-    const token = jwt.sign({ id: result.insertId, accountId }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
-    res.status(201).json({ token, user: { id: result.insertId, username, email, accountId } });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', details: error.message });
   }
 });
+
+
 
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
