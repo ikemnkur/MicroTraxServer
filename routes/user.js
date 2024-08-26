@@ -120,6 +120,104 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
   }
 });
 
+
+// 1. GET /user/:userId/profile - Fetch user profile
+router.get('/:userId/profile', authenticateToken, async (req, res) => {
+  try {
+    console.log("ID: ", req.user.id)
+    const [users] = await db.query(
+      `SELECT u.id, u.username, u.email, u.firstName, u.lastName, u.phoneNumber, u.birthDate, 
+              a.balance, at.name as accountTier, at.daily_transaction_limit, at.monthly_fee,
+              u.favorites
+       FROM users u
+       LEFT JOIN accounts a ON u.id = a.user_id
+       LEFT JOIN user_tiers ut ON u.id = ut.user_id AND ut.end_date IS NULL
+       LEFT JOIN account_tiers at ON ut.tier_id = at.id
+       WHERE u.id = ?`,
+      // [req.params.userId]
+      [req.user.id]
+    );
+    
+    if (users.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const user = users[0];
+    
+    // Check if the viewed user is in the current user's favorites
+    const isFavorite = user.favorites ? JSON.parse(user.favorites).includes(req.user.id) : false;
+
+    // Remove sensitive information before sending
+    delete user.password;
+    delete user.salt;
+
+    res.json({ ...user, isFavorite });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// 2. PUT /user/:userId/favorite - Update favorite status
+router.put('/:userId/favorite', authenticateToken, async (req, res) => {
+  const { isFavorite } = req.body;
+  const favoriteUserId = req.params.userId;
+
+  try {
+    const connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // Get current user's favorites
+      const [users] = await connection.query('SELECT favorites FROM users WHERE id = ?', [req.user.id]);
+      let favorites = users[0].favorites ? JSON.parse(users[0].favorites) : [];
+
+      if (isFavorite) {
+        // Add to favorites if not already present
+        if (!favorites.includes(favoriteUserId)) {
+          favorites.push(favoriteUserId);
+        }
+      } else {
+        // Remove from favorites
+        favorites = favorites.filter(id => id !== favoriteUserId);
+      }
+
+      // Update favorites
+      await connection.query('UPDATE users SET favorites = ? WHERE id = ?', [JSON.stringify(favorites), req.user.id]);
+
+      await connection.commit();
+      res.json({ message: isFavorite ? 'User added to favorites' : 'User removed from favorites' });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// 3. POST /user/:userId/report - Submit a report
+router.post('/:userId/report', authenticateToken, async (req, res) => {
+  const { reportMessage } = req.body;
+  const reportedUserId = req.params.userId;
+
+  try {
+    await db.query(
+      'INSERT INTO user_reports (reporter_id, reported_user_id, report_message) VALUES (?, ?, ?)',
+      [req.user.id, reportedUserId, reportMessage]
+    );
+
+    res.status(201).json({ message: 'Report submitted successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
 // // In routes/user.js
 // router.get('/dashboard', authenticateToken, async (req, res) => {
 //   try {
