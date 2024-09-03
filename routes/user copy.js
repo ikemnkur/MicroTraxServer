@@ -8,9 +8,11 @@ router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const [users] = await db.query(
       `SELECT u.id, u.username, u.email, u.firstName, u.lastName, u.phoneNumber, u.birthDate, 
-              u.accountTier, a.balance, u.bio, u.encryptionKey
+              a.balance, at.name as accountTier, at.daily_transaction_limit, at.monthly_fee
        FROM users u
        LEFT JOIN accounts a ON u.id = a.user_id
+       LEFT JOIN user_tiers ut ON u.id = ut.user_id AND ut.end_date IS NULL
+       LEFT JOIN account_tiers at ON ut.tier_id = at.id
        WHERE u.id = ?`,
       [req.user.id]
     );
@@ -20,7 +22,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
     }
     
     const user = users[0];
-    console.log("Get.Body: ", user);
+    console.log("Get.Body: " , user)
     res.json(user);
   } catch (error) {
     console.error(error);
@@ -30,7 +32,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
 
 router.put('/profile', authenticateToken, async (req, res) => {
   const { username, email, firstName, lastName, phoneNumber, birthDate, accountTier, encryptionKey, profilePic } = req.body;
-  console.log("Put.Body: ", req.body);
+  console.log("Put.Body: " , req.body)
   try {
     const connection = await db.getConnection();
     await connection.beginTransaction();
@@ -41,7 +43,19 @@ router.put('/profile', authenticateToken, async (req, res) => {
         'UPDATE users SET username = ?, email = ?, firstName = ?, lastName = ?, phoneNumber = ?, birthDate = ?, encryptionKey = ?, profilePic = ?, accountTier = ? WHERE id = ?',
         [username, email, firstName, lastName, phoneNumber, birthDate, encryptionKey, profilePic, accountTier, req.user.id]
       );
-      console.log()
+
+      // If account tier is provided, update it
+      if (accountTier !== undefined) {
+        await connection.query(
+          'UPDATE user_tiers SET end_date = CURRENT_TIMESTAMP WHERE user_id = ? AND end_date IS NULL',
+          [req.user.id]
+        );
+        await connection.query(
+          'INSERT INTO user_tiers (user_id, tier_id, start_date) VALUES (?, ?, CURRENT_TIMESTAMP)',
+          [req.user.id, accountTier]
+        );
+      }
+
       await connection.commit();
       res.json({ message: 'Profile updated successfully' });
     } catch (error) {
@@ -56,14 +70,19 @@ router.put('/profile', authenticateToken, async (req, res) => {
   }
 });
 
+
 router.get('/dashboard', authenticateToken, async (req, res) => {
   try {
     console.log('User ID from token:', req.user.id);
     const [userData] = await db.query(
-      `SELECT u.id, a.balance, u.accountTier
+      `SELECT u.id, a.balance, at.id as accountTierId, at.daily_transaction_limit as dailyLimit
        FROM users u
        LEFT JOIN accounts a ON u.id = a.user_id
-       WHERE u.id = ?`,
+       LEFT JOIN user_tiers ut ON u.id = ut.user_id
+       LEFT JOIN account_tiers at ON ut.tier_id = at.id
+       WHERE u.id = ? AND (ut.end_date IS NULL OR ut.end_date > CURRENT_DATE())
+       ORDER BY ut.start_date DESC
+       LIMIT 1`,
       [req.user.id]
     );
     console.log('User Data:', userData);
@@ -83,21 +102,21 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
     );
     console.log('Transactions:', transactions);
 
-    // Define daily limits based on account tier
-    const dailyLimits = {
-      1: 100,   // Basic
-      2: 500,   // Standard
-      3: 1000,  // Premium
-      4: 5000,  // Gold
-      5: 10000, // Platinum
-      6: 50000, // Diamond
-      7: 100000 // Ultimate
+    // Map accountTierId to a number between 1 and 7
+    const accountTierMap = {
+      1: 1, // Basic
+      2: 2, // Standard
+      3: 3, // Premium
+      4: 4, // Gold
+      5: 5, // Platinum
+      6: 6, // Diamond
+      7: 7  // Ultimate
     };
 
     const dashboardData = {
       balance: userData[0].balance ?? 0,
-      accountTier: userData[0].accountTier ?? 1,
-      dailyLimit: dailyLimits[userData[0].accountTier] ?? 100, // Default to 100 if not found
+      accountTier: accountTierMap[userData[0].accountTierId] ?? 1, // Default to 1 if not found
+      dailyLimit: userData[0].dailyLimit ?? 0,
       sentTransactions: transactions[0].sentTransactions || 0,
       receivedTransactions: transactions[0].receivedTransactions || 0
     };
@@ -109,44 +128,31 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
-// 1. GET /user/:userIdOrUsername/profile - Fetch user profile
-router.get('/:userIdOrUsername/profile', authenticateToken, async (req, res) => {
+
+
+// 1. GET /user/:userId/profile - Fetch user profile
+router.get('/:userId/profile', authenticateToken, async (req, res) => {
   try {
-    const { userIdOrUsername } = req.params;
-    let query, params;
-    console.log(userIdOrUsername);
-
-    // Check if the parameter is a number (userId) or a string (username)
-    if (/^\d+$/.test(userIdOrUsername)) {
-      // It's a userId
-      query = `
-        SELECT u.id, u.username, u.email, u.firstName, u.lastName, u.phoneNumber, u.birthDate,
-               a.balance, u.accountTier, u.favorites, u.bio
-        FROM users u
-        LEFT JOIN accounts a ON u.id = a.user_id
-        WHERE u.id = ?
-      `;
-      params = [userIdOrUsername];
-    } else {
-      // It's a username
-      query = `
-        SELECT u.id, u.username, u.email, u.firstName, u.lastName, u.phoneNumber, u.birthDate,
-               a.balance, u.accountTier, u.favorites, u.bio
-        FROM users u
-        LEFT JOIN accounts a ON u.id = a.user_id
-        WHERE u.username = ?
-      `;
-      params = [userIdOrUsername];
-    }
-
-    const [users] = await db.query(query, params);
-
+    console.log("ID: ", req.user.id)
+    const [users] = await db.query(
+      `SELECT u.id, u.username, u.email, u.firstName, u.lastName, u.phoneNumber, u.birthDate, 
+              a.balance, at.name as accountTier, at.daily_transaction_limit, at.monthly_fee,
+              u.favorites
+       FROM users u
+       LEFT JOIN accounts a ON u.id = a.user_id
+       LEFT JOIN user_tiers ut ON u.id = ut.user_id AND ut.end_date IS NULL
+       LEFT JOIN account_tiers at ON ut.tier_id = at.id
+       WHERE u.id = ?`,
+      // [req.params.userId]
+      [req.user.id]
+    );
+    
     if (users.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
-
+    
     const user = users[0];
-
+    
     // Check if the viewed user is in the current user's favorites
     const isFavorite = user.favorites ? JSON.parse(user.favorites).includes(req.user.id) : false;
 
@@ -219,5 +225,6 @@ router.post('/:userId/report', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
 
 module.exports = router;
