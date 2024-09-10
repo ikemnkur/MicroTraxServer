@@ -6,11 +6,11 @@ const { v4: uuidv4 } = require('uuid');
 
 
 // Fetch content data
-router.get('/unlock-content/:username/:itemId', async (req, res) => {
+router.get('/unlock-content/:itemId', async (req, res) => {
     try {
         const [content] = await db.query(
-            'SELECT * FROM unlock_content WHERE host_username = ? AND id = ?',
-            [req.params.username, req.params.itemId]
+            'SELECT * FROM unlock_content WHERE id = ?',
+            [req.params.itemId]
         );
         if (content.length === 0) {
             return res.status(404).json({ message: 'Content not found' });
@@ -40,7 +40,7 @@ router.get('/user-balance', authenticateToken, async (req, res) => {
 // Unlock content
 router.post('/unlock-content', authenticateToken, async (req, res) => {
     const { contentId } = req.body;
-    console.log("Thing: "+ contentId)
+    console.log("Thing: " + contentId)
     const connection = await db.getConnection();
     await connection.beginTransaction();
 
@@ -64,23 +64,24 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
             await connection.rollback();
             return res.status(400).json({ message: 'Insufficient balance' });
         }
-
+        console.log("req.user.id: ", req.user.id)
         // Update user's balance
         await connection.query(
             'UPDATE accounts SET balance = balance - ? WHERE user_id = ?',
             [content[0].cost, req.user.id]
         );
-
+        console.log("rupdate ")
         // Update content host's balance
         await connection.query(
             'UPDATE accounts SET balance = balance + ? WHERE user_id = ?',
             [content[0].cost, content[0].host_user_id]
         );
 
+        console.log("insert--- Account: " + account[0].id + " Host: " + content[0].host_user_id + " cost: " + content[0].cost)
         // Record the transaction
         await connection.query(
             'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status) VALUES (?, ?, ?, ?, ?)',
-            [account[0].id, content[0].host_user_id, content[0].cost, 'unlock_content', 'completed']
+            [account[0].id, content[0].host_user_id, content[0].cost, 'unlock-content', 'completed']
         );
 
         // Increment unlock count
@@ -88,10 +89,11 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
             'UPDATE unlock_content SET unlocks = unlocks + 1 WHERE id = ?',
             [contentId]
         );
-
+        console.log("rupdate 2")
         await connection.commit();
         res.json({ message: 'Content unlocked successfully' });
     } catch (error) {
+        console.log("Error: "+error)
         await connection.rollback();
         res.status(500).json({ message: 'Server error' });
     } finally {
@@ -134,21 +136,21 @@ router.post('/add-content', authenticateToken, async (req, res) => {
 router.post('/edit-content', authenticateToken, async (req, res) => {
     const { title, cost, description, content, type, reference_id } = req.body;
     console.log("Editing content with reference_id:", reference_id);
-  
+
     try {
-      const result = await db.query(
-        'UPDATE unlock_content SET title = ?, cost = ?, description = ?, content = ?, type = ? WHERE reference_id = ?',
-        [title, cost, description, JSON.stringify(content), type, reference_id]
-      );
-  
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ message: 'Content not found' });
-      }
-  
-      res.status(200).json({ message: 'Content updated successfully' });
+        const result = await db.query(
+            'UPDATE unlock_content SET title = ?, cost = ?, description = ?, content = ?, type = ? WHERE reference_id = ?',
+            [title, cost, description, JSON.stringify(content), type, reference_id]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Content not found' });
+        }
+
+        res.status(200).json({ message: 'Content updated successfully' });
     } catch (error) {
-      console.error('Error updating content:', error);
-      res.status(500).json({ message: 'Server error', error: error.message });
+        console.error('Error updating content:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
     }
 });
 
