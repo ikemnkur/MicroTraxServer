@@ -80,8 +80,8 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
         console.log("insert--- Account: " + account[0].id + " Host: " + content[0].host_user_id + " cost: " + content[0].cost)
         // Record the transaction
         await connection.query(
-            'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status) VALUES (?, ?, ?, ?, ?)',
-            [account[0].id, content[0].host_user_id, content[0].cost, 'unlock-content', 'completed']
+            'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, reference_id) VALUES (?, ?, ?, ?, ?, ?)',
+            [account[0].id, content[0].host_user_id, content[0].cost, 'unlock-content', 'completed', content[0].reference_id]
         );
 
         // Increment unlock count

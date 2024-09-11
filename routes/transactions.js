@@ -6,7 +6,8 @@ const router = express.Router();
 
 router.post('/send', authenticateToken, async (req, res) => {
   const { recipientAccountId, amount } = req.body;
-
+  console.log("recipientAccountId: " + recipientAccountId)
+  console.log("Amount:  " + amount)
   try {
     const connection = await db.getConnection();
     await connection.beginTransaction();
@@ -24,6 +25,8 @@ router.post('/send', authenticateToken, async (req, res) => {
         await connection.rollback();
         return res.status(400).json({ message: 'Insufficient funds' });
       }
+
+      console.log("success in find accounts / verify suffiecent balance")
 
       await connection.query('UPDATE accounts SET balance = balance - ? WHERE id = ?', [amount, senderAccount[0].id]);
       await connection.query('UPDATE accounts SET balance = balance + ? WHERE id = ?', [amount, recipientAccount[0].id]);
