@@ -39,8 +39,8 @@ router.get('/user-balance', authenticateToken, async (req, res) => {
 
 // Unlock content
 router.post('/unlock-content', authenticateToken, async (req, res) => {
-    const { contentId } = req.body;
-    console.log("Thing: " + contentId)
+    const { contentId, msg } = req.body;
+    console.log("Thing: " + contentId + "Msg: " + msg)
     const connection = await db.getConnection();
     await connection.beginTransaction();
 
@@ -70,18 +70,18 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
             'UPDATE accounts SET balance = balance - ? WHERE user_id = ?',
             [content[0].cost, req.user.id]
         );
-        console.log("rupdate ")
+        console.log("update ")
         // Update content host's balance
         await connection.query(
             'UPDATE accounts SET balance = balance + ? WHERE user_id = ?',
             [content[0].cost, content[0].host_user_id]
         );
 
-        console.log("insert--- Account: " + account[0].id + " Host: " + content[0].host_user_id + " cost: " + content[0].cost)
+        console.log("insert--- Account: " + account[0].id + " Host: " + content[0].host_user_id + " cost: " + content[0].cost+ ", Msg: "+ message)
         // Record the transaction
         await connection.query(
-            'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, reference_id) VALUES (?, ?, ?, ?, ?, ?)',
-            [account[0].id, content[0].host_user_id, content[0].cost, 'unlock-content', 'completed', content[0].reference_id]
+            'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, reference_id, message) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [account[0].id, content[0].host_user_id, content[0].cost, 'unlock-content', 'completed', content[0].reference_id, msg]
         );
 
         // Increment unlock count
