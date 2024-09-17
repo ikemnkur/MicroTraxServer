@@ -40,7 +40,7 @@ router.get('/user-balance', authenticateToken, async (req, res) => {
 // Unlock content
 router.post('/unlock-content', authenticateToken, async (req, res) => {
     const { contentId, msg } = req.body;
-    console.log("Thing: " + contentId + "Msg: " + msg)
+    console.log("Content ID: " + contentId + " & Msg: " + msg)
     const connection = await db.getConnection();
     await connection.beginTransaction();
 
@@ -77,7 +77,7 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
             [content[0].cost, content[0].host_user_id]
         );
 
-        console.log("insert--- Account: " + account[0].id + " Host: " + content[0].host_user_id + " cost: " + content[0].cost+ ", Msg: "+ message)
+        console.log("insert--- Account: " + account[0].id + " Host: " + content[0].host_user_id + " cost: " + content[0].cost+ ", Msg: "+ msg)
         // Record the transaction
         await connection.query(
             'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, reference_id, message) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -120,12 +120,12 @@ router.get('/user-content', authenticateToken, async (req, res) => {
 
 // Add new content
 router.post('/add-content', authenticateToken, async (req, res) => {
-    const { title, cost, description, content, type } = req.body;
+    const { title, cost, description, content, type, username } = req.body;
     console.log("Req.Body: " + req.body)
     try {
         await db.query(
             'INSERT INTO unlock_content (title, cost, description, content, type, host_username, host_user_id, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [title, cost, description, JSON.stringify({ content }), type, req.user.username, req.user.id, uuidv4()]
+            [title, cost, description, JSON.stringify({ content }), type, username, req.user.id, uuidv4()]
         );
         res.status(201).json({ message: 'Content added successfully' });
     } catch (error) {

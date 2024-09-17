@@ -5,8 +5,9 @@ const authenticateToken = require('../middleware/auth');
 const router = express.Router();
 
 router.post('/send', authenticateToken, async (req, res) => {
-  const { recipientAccountId, amount } = req.body;
-  console.log("recipientAccountId: " + recipientAccountId)
+  const { recipientId,  amount } = req.body;
+  console.log("recipientAccountId: " + recipientId)
+  const recipientAccountId = recipientId;
   console.log("Amount:  " + amount)
   try {
     const connection = await db.getConnection();
@@ -14,7 +15,9 @@ router.post('/send', authenticateToken, async (req, res) => {
 
     try {
       const [senderAccount] = await connection.query('SELECT * FROM accounts WHERE user_id = ?', [req.user.id]);
-      const [recipientAccount] = await connection.query('SELECT * FROM accounts WHERE account_id = ?', [recipientAccountId]);
+      const [recipientAccount] = await connection.query('SELECT * FROM accounts WHERE user_id = ?', [recipientAccountId]);
+
+      console.log("RC: "+recipientAccount)
 
       if (senderAccount.length === 0 || recipientAccount.length === 0) {
         await connection.rollback();
@@ -50,8 +53,32 @@ router.post('/send', authenticateToken, async (req, res) => {
   }
 });
 
+router.get('/recieveHistory', authenticateToken, async (req, res) => {
+  try {
+    console.log("fetch recieve history id: ", req.user.id)
+    const [transactions] = await db.query(
+      `SELECT t.*,
+       s.account_id as sender_account_id,
+       r.account_id as recipient_account_id
+       FROM transactions t
+       JOIN accounts s ON t.sender_account_id = s.id
+       JOIN accounts r ON t.recipient_account_id = r.id
+       WHERE r.user_id = ?
+       ORDER BY t.created_at DESC`,
+      [req.user.id]
+    );
+    console.log("Trx: ", transactions)
+
+    res.json(transactions);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 router.get('/history', authenticateToken, async (req, res) => {
   try {
+    console.log("fetch history id: ", req.user.id)
     const [transactions] = await db.query(
       `SELECT t.*, 
               s.account_id as sender_account_id, 
@@ -63,6 +90,8 @@ router.get('/history', authenticateToken, async (req, res) => {
        ORDER BY t.created_at DESC`,
       [req.user.id, req.user.id]
     );
+
+    console.log("Trx: ", transactions)
 
     res.json(transactions);
   } catch (error) {
