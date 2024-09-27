@@ -56,6 +56,22 @@ router.put('/profile', authenticateToken, async (req, res) => {
   }
 });
 
+// Fetch user's balance
+router.get('/user-balance', authenticateToken, async (req, res) => {
+  try {
+      const [account] = await db.query(
+          'SELECT balance FROM accounts WHERE user_id = ?',
+          [req.user.id]
+      );
+      if (account.length === 0) {
+          return res.status(404).json({ message: 'Account not found' });
+      }
+      res.json({ balance: account[0].balance });
+  } catch (error) {
+      res.status(500).json({ message: 'Server error' });
+  }
+});
+
 router.get('/dashboard', authenticateToken, async (req, res) => {
   try {
     console.log('User ID from token:', req.user.id);
