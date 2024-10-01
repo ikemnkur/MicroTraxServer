@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const mysql = require('mysql2/promise');
-const authenticateToken = require('../middleware/authenticateToken'); // Assuming you have this middleware
+const authenticateToken = require('../middleware/auth'); // Assuming you have this middleware
 
 // Create a MySQL connection pool
 const pool = mysql.createPool({
