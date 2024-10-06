@@ -17,11 +17,30 @@ const unlockContent = require('./routes/unlock');
 const app = express();
 
 // CORS configuration
+// const corsOptions = {
+//   origin: 'http://localhost:3000', // Replace with your frontend URL
+//   credentials: true,
+//   optionsSuccessStatus: 200
+// };
+
+// CORS configuration
 const corsOptions = {
-  origin: 'http://localhost:3000', // Replace with your frontend URL
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'https://microtrax.netlify.app',
+      // Add any other origins you want to allow
+    ];
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   optionsSuccessStatus: 200
 };
+
 
 app.use(cors(corsOptions));
 app.use(express.json());
