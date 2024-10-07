@@ -16,12 +16,14 @@ const pool = mysql.createPool({
 
 // Get all subscriptions for a user
 router.get('/', authenticateToken, async (req, res) => {
+  console.log("Get Subscriptions- USER ID: ", req.user.id)
   try {
     const [rows] = await pool.query(
       'SELECT * FROM subscriptions WHERE user_id = ?',
-      [req.user.userId]
+      [req.user.id]
     );
     res.json(rows);
+    console.log("resulting rows: "+ rows)
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -30,10 +32,11 @@ router.get('/', authenticateToken, async (req, res) => {
 
 // Get a specific subscription
 router.get('/:id', authenticateToken, async (req, res) => {
+  console.log("Get Subscriptions- USE ID: ", req.user.id)
   try {
     const [rows] = await pool.query(
       'SELECT * FROM subscriptions WHERE id = ? AND user_id = ?',
-      [req.params.id, req.user.userId]
+      [req.params.id, req.user.id]
     );
     if (rows.length === 0) {
       return res.status(404).json({ message: 'Subscription not found' });
@@ -47,11 +50,12 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 // Add a new subscription
 router.post('/', authenticateToken, async (req, res) => {
-  const { page_id, status, end_date } = req.body;
+  const { sub_id, status, end_date } = req.body;
+  console.log("Sub ID: ", sub_id)
   try {
     const [result] = await pool.query(
-      'INSERT INTO subscriptions (user_id, page_id, status, start_date, end_date) VALUES (?, ?, ?, NOW(), ?)',
-      [req.user.userId, page_id, status, end_date]
+      'INSERT INTO subscriptions (user_id, sub_id, status, start_date, end_date) VALUES (?, ?, ?, NOW(), ?)',
+      [req.user.userId, sub_id, status, end_date]
     );
     res.status(201).json({ id: result.insertId, message: 'Subscription created successfully' });
   } catch (error) {
@@ -96,11 +100,11 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 
 // Check if a user has an active subscription for a specific page
-router.get('/check/:pageId', authenticateToken, async (req, res) => {
+router.get('/check/:subId', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT * FROM subscriptions WHERE user_id = ? AND page_id = ? AND status = "active" AND end_date > NOW()',
-      [req.user.userId, req.params.pageId]
+      'SELECT * FROM subscriptions WHERE user_id = ? AND sub_id = ? AND status = "active" AND end_date > NOW()',
+      [req.user.userId, req.params.subId]
     );
     res.json({ hasSubscription: rows.length > 0 });
   } catch (error) {
