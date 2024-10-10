@@ -5,7 +5,7 @@ const authenticateToken = require('../middleware/auth');
 const router = express.Router();
 
 router.post('/send', authenticateToken, async (req, res) => {
-  const { recipientId,  amount } = req.body;
+  const { recipientId,  amount, recipientUsername } = req.body;
   console.log("recipientAccountId: " + recipientId)
   const recipientAccountId = recipientId;
   console.log("Amount:  " + amount)
@@ -35,8 +35,8 @@ router.post('/send', authenticateToken, async (req, res) => {
       await connection.query('UPDATE accounts SET balance = balance + ? WHERE id = ?', [amount, recipientAccount[0].id]);
 
       await connection.query(
-        'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status) VALUES (?, ?, ?, ?, ?)',
-        [senderAccount[0].id, recipientAccount[0].id, amount, 'send', 'completed']
+        'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, recieving_user) VALUES (?, ?, ?, ?, ?, ?)',
+        [senderAccount[0].id, recipientAccount[0].id, amount, 'send', 'completed', recipientUsername]
       );
 
       await connection.commit();
