@@ -12,7 +12,7 @@ const wallet = require('./routes/wallet');
 const searchForUsers = require('./routes/searchForUsers');
 const messageRoutes = require('./routes/messages');
 const paymentRoutes = require('./routes/paymentRoutes');
-const unlockContent = require('./routes/unlock');
+const content = require('./routes/content');
 
 const app = express();
 
@@ -83,7 +83,7 @@ app.use('/api/wallet', wallet);
 app.use('/api/users', searchForUsers);
 app.use('/api/messages', messageRoutes);
 app.use('/api/payments', paymentRoutes);
-app.use('/api/unlock', unlockContent);
+app.use('/api/unlock', content);
 
 // Serve static files from a 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));

@@ -6,10 +6,25 @@ const { v4: uuidv4 } = require('uuid');
 
 
 // Fetch content data
+// router.get('/unlock-content/:itemId', async (req, res) => {
+//     try {
+//         const [content] = await db.query(
+//             'SELECT * FROM unlocked_content WHERE id = ?',
+//             [req.params.itemId]
+//         );
+//         if (content.length === 0) {
+//             return res.status(404).json({ message: 'Content not found' });
+//         }
+//         res.json(content[0]);
+//     } catch (error) {
+//         res.status(500).json({ message: 'Server error' });
+//     }
+// });
+
 router.get('/unlock-content/:itemId', async (req, res) => {
     try {
         const [content] = await db.query(
-            'SELECT * FROM unlock_content WHERE id = ?',
+            'SELECT * FROM unlocked_content WHERE reference_id = ?',
             [req.params.itemId]
         );
         if (content.length === 0) {
@@ -47,7 +62,7 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
     try {
         // Get content details
         const [content] = await connection.query(
-            'SELECT * FROM unlock_content WHERE id = ?',
+            'SELECT * FROM unlocked_content WHERE id = ?',
             [contentId]
         );
         if (content.length === 0) {
@@ -86,7 +101,7 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
 
         // Increment unlock count
         await connection.query(
-            'UPDATE unlock_content SET unlocks = unlocks + 1 WHERE id = ?',
+            'UPDATE unlocked_content SET unlocks = unlocks + 1 WHERE id = ?',
             [contentId]
         );
         console.log("rupdate 2")
@@ -109,7 +124,7 @@ router.get('/user-content', authenticateToken, async (req, res) => {
     console.log("get user content: " + JSON.stringify(req.user))
     try {
         const [content] = await db.query(
-            'SELECT * FROM unlock_content WHERE host_user_id = ?',
+            'SELECT * FROM unlocked_content WHERE host_user_id = ?',
             [req.user.id]
         );
         res.json(content);
@@ -124,7 +139,7 @@ router.post('/add-content', authenticateToken, async (req, res) => {
     console.log("Req.Body: " + req.body)
     try {
         await db.query(
-            'INSERT INTO unlock_content (title, cost, description, content, type, host_username, host_user_id, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO unlocked_content (title, cost, description, content, type, host_username, host_user_id, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             [title, cost, description, JSON.stringify({ content }), type, username, req.user.id, uuidv4()]
         );
         res.status(201).json({ message: 'Content added successfully' });
@@ -139,7 +154,7 @@ router.post('/edit-content', authenticateToken, async (req, res) => {
 
     try {
         const result = await db.query(
-            'UPDATE unlock_content SET title = ?, cost = ?, description = ?, content = ?, type = ? WHERE reference_id = ?',
+            'UPDATE unlocked_content SET title = ?, cost = ?, description = ?, content = ?, type = ? WHERE reference_id = ?',
             [title, cost, description, JSON.stringify(content), type, reference_id]
         );
 
@@ -158,7 +173,7 @@ router.post('/edit-content', authenticateToken, async (req, res) => {
 router.delete('/delete-content/:id', authenticateToken, async (req, res) => {
     try {
         await db.query(
-            'DELETE FROM unlock_content WHERE id = ? AND host_user_id = ?',
+            'DELETE FROM unlocked_content WHERE id = ? AND host_user_id = ?',
             [req.params.id, req.user.id]
         );
         res.json({ message: 'Content deleted successfully' });
