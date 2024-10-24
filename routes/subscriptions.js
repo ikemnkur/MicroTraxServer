@@ -19,7 +19,7 @@ router.get('/', authenticateToken, async (req, res) => {
   console.log("Get Subscriptions- USER ID: ", req.user.id)
   try {
     const [rows] = await pool.query(
-      'SELECT * FROM subscriptions WHERE user_id = ?',
+      'SELECT * FROM user_subscriptions WHERE user_id = ?',
       [req.user.id]
     );
     res.json(rows);
@@ -30,12 +30,12 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
-// Get a specific subscription
+// Get a specific public subscription, used when sharing a subscription service
 router.get('/:id', authenticateToken, async (req, res) => {
   console.log("Get Subscriptions- USE ID: ", req.user.id)
   try {
     const [rows] = await pool.query(
-      'SELECT * FROM subscriptions WHERE id = ? AND user_id = ?',
+      'SELECT * FROM public_subscriptions WHERE id = ? AND user_id = ?',
       [req.params.id, req.user.id]
     );
     if (rows.length === 0) {
@@ -48,13 +48,13 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Add a new subscription
+// A creates adds a new public subscription
 router.post('/', authenticateToken, async (req, res) => {
   const { sub_id, status, end_date } = req.body;
   console.log("Sub ID: ", sub_id)
   try {
     const [result] = await pool.query(
-      'INSERT INTO subscriptions (user_id, sub_id, status, start_date, end_date) VALUES (?, ?, ?, NOW(), ?)',
+      'INSERT INTO public_subscriptions (user_id, sub_id, status, start_date, end_date) VALUES (?, ?, ?, NOW(), ?)',
       [req.user.userId, sub_id, status, end_date]
     );
     res.status(201).json({ id: result.insertId, message: 'Subscription created successfully' });
@@ -64,12 +64,12 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
-// Edit a subscription
+// Edit a public subscription
 router.put('/:id', authenticateToken, async (req, res) => {
   const { status, end_date } = req.body;
   try {
     const [result] = await pool.query(
-      'UPDATE subscriptions SET status = ?, end_date = ? WHERE id = ? AND user_id = ?',
+      'UPDATE public_subscriptions SET status = ?, end_date = ? WHERE id = ? AND user_id = ?',
       [status, end_date, req.params.id, req.user.userId]
     );
     if (result.affectedRows === 0) {
@@ -82,11 +82,29 @@ router.put('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Delete a subscription
+// Delete a public subscription
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     const [result] = await pool.query(
-      'DELETE FROM subscriptions WHERE id = ? AND user_id = ?',
+      'DELETE FROM public subscriptions WHERE id = ? AND user_id = ?',
+      [req.params.id, req.user.userId]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Subscription not found or you do not have permission to delete it' });
+    }
+    res.json({ message: 'Subscription deleted successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
+// Delete a user subscription
+router.delete('/:id', authenticateToken, async (req, res) => {
+  try {
+    const [result] = await pool.query(
+      'DELETE FROM user_subscriptions WHERE id = ? AND user_id = ?',
       [req.params.id, req.user.userId]
     );
     if (result.affectedRows === 0) {
@@ -103,7 +121,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 router.get('/check/:subId', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT * FROM subscriptions WHERE user_id = ? AND sub_id = ? AND status = "active" AND end_date > NOW()',
+      'SELECT * FROM user_subscriptions WHERE user_id = ? AND sub_id = ? AND status = "active" AND end_date > NOW()',
       [req.user.userId, req.params.subId]
     );
     res.json({ hasSubscription: rows.length > 0 });

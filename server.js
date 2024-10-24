@@ -13,6 +13,7 @@ const searchForUsers = require('./routes/searchForUsers');
 const messageRoutes = require('./routes/messages');
 const paymentRoutes = require('./routes/paymentRoutes');
 const content = require('./routes/content');
+const unlock = require('./routes/content');
 
 const app = express();
 
@@ -28,6 +29,7 @@ const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = [
       'http://localhost:3000',
+      'http://localhost:5000',
       'https://microtrax.netlify.app',
       // Add any other origins you want to allow
     ];
@@ -83,7 +85,8 @@ app.use('/api/wallet', wallet);
 app.use('/api/users', searchForUsers);
 app.use('/api/messages', messageRoutes);
 app.use('/api/payments', paymentRoutes);
-app.use('/api/unlock', content);
+app.use('/api/unlock', unlock);
+app.use('/api/content', content);
 
 // Serve static files from a 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -112,7 +115,7 @@ app.get('/adminTemplate', (req, res) => {
 // Admin Dashboard route
 app.get('/admin', (req, res) => {
   const uptime = moment.duration(Date.now() - startTime).humanize();
-  
+
   let adminHtml = `
     <!DOCTYPE html>
     <html lang="en">
@@ -223,3 +226,61 @@ app.get('/admin', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+
+
+
+// This is your test secret API key.
+const stripe = require('stripe')('sk_test_51OPgiOEViYxfJNd2Mp4NrKUMHAqfoRBAtj5dKCxD1VWbHNSYZEIERtq6ZaRCUttKEyY9kvDWxVM4I4QcoK2Nikv600rOQZmvTh');
+// const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+// const express = require('express');
+// const app = express();
+app.use(express.static('public'));
+
+const YOUR_DOMAIN = 'http://localhost:3000';
+
+
+app.post('/create-checkout-session', async (req, res) => {
+  const { amount } = req.query
+  console.log("amount: ", amount)
+  
+  try {
+    
+const session = await stripe.checkout.sessions.create({
+    ui_mode: 'embedded',
+    line_items: [
+      {
+        // Provide the exact Price ID (for example, pr_1234) of the product you want to sell
+        price: 'price_1QBf9hEViYxfJNd2lG5GH62D',
+        quantity: amount || 1,
+      },
+    ],
+    mode: 'payment',
+    return_url: `${YOUR_DOMAIN}/return?session_id={CHECKOUT_SESSION_ID}&amount=${amount}`,
+  });
+
+  res.send({ clientSecret: session.client_secret });  } 
+  catch (error) {
+    res.send({ error: "Checkout failed." });
+  }
+  
+  
+});
+
+
+app.get('/session-status', async (req, res) => {
+  try {
+    const session = await stripe.checkout.sessions.retrieve(req.query.session_id);
+
+    res.send({
+      status: session.status,
+      customer_email: session.customer_details.email
+    });
+  } catch (error) {
+    console.log("Duplicate Order Scam Prevented")
+  }
+
+
+});
+
+app.listen(4242, () => console.log('Running on port 4242'));
