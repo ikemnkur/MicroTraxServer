@@ -101,14 +101,30 @@ router.post('/reload', authenticateToken, async (req, res) => {
 
 router.get('/', authenticateToken, async (req, res) => {
   try {
+    // const [walletData] = await db.query(
+    //   `SELECT a.balance, at.name as accountTier, at.daily_transaction_limit, at.spendable, at.redeemable,
+    //    FROM accounts a
+    //    JOIN user_tiers ut ON a.user_id = ut.user_id
+    //    JOIN account_tiers at ON ut.tier_id = at.id
+    //    WHERE a.user_id = ? AND ut.end_date IS NULL`,
+    //   [req.user.id]
+    // );
+
     const [walletData] = await db.query(
-      `SELECT a.balance, at.name as accountTier, at.daily_transaction_limit
+      `SELECT 
+         a.balance, 
+         a.spendable, 
+         a.redeemable,
+         at.name AS accountTier, 
+         at.daily_transaction_limit
+         
        FROM accounts a
        JOIN user_tiers ut ON a.user_id = ut.user_id
        JOIN account_tiers at ON ut.tier_id = at.id
        WHERE a.user_id = ? AND ut.end_date IS NULL`,
       [req.user.id]
     );
+    
 
     if (walletData.length === 0) {
       return res.status(404).json({ message: 'Wallet data not found' });
