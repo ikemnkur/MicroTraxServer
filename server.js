@@ -4,6 +4,7 @@ const cors = require('cors');
 const express = require('express');
 const geoip = require('geoip-lite');
 const moment = require('moment')
+const multer = require('multer')
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const transactionRoutes = require('./routes/transactions');
@@ -286,3 +287,54 @@ app.get('/session-status', async (req, res) => {
 });
 
 app.listen(4242, () => console.log('Running on port 4242'));
+
+// Serve static files from profile-images
+app.use('/profile-images', express.static(path.join(__dirname, 'profile-images')));
+
+// Multer storage configuration
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'profile-images'); // Destination folder
+  },
+  filename: function (req, file, cb) {
+    // Generate a unique filename using username and id
+    const username = req.body.username;
+    const id = req.body.id;
+    const ext = path.extname(file.originalname);
+    cb(null, `${username}-${id}-${Date.now()}${ext}`);
+  }
+});
+
+// File filter to accept only images
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = /jpeg|jpg|png|gif/;
+  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  const mimetype = allowedTypes.test(file.mimetype);
+  
+  if (mimetype && extname) {
+    return cb(null, true);
+  } else {
+    cb('Error: Images Only!');
+  }
+};
+
+// Initialize multer
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: fileFilter
+});
+
+// Endpoint to handle profile picture upload
+app.post('/upload-profile-picture', upload.single('profilePicture'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: 'No file uploaded or invalid file type.' });
+  }
+
+  // Construct the image URL
+  const imageUrl = `${req.protocol}://${req.get('host')}/profile-images/${req.file.filename}`;
+
+  // You can also save this URL to your database if needed
+
+  return res.status(200).json({ message: 'File uploaded successfully', url: imageUrl });
+});
