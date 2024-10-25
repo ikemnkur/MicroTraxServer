@@ -31,7 +31,8 @@ const corsOptions = {
       'http://localhost:3000',
       'http://localhost:5000',
       'https://microtrax.netlify.app',
-      "https://servers4sqldb.uc.r.appspot.com"
+      "https://servers4sqldb.uc.r.appspot.com",
+      "https://orca-app-j32vd.ondigitalocean.app"
       // Add any other origins you want to allow
     ];
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
