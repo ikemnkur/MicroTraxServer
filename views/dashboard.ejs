@@ -1,0 +1,12 @@
+<!-- views/dashboard.ejs -->
+<% layout('layout', { user: 'admin' }) -%>
+<h1 class="mb-4">Admin Dashboard</h1>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h5 class="card-title">Server Uptime</h5>
+    <p class="card-text"><%= uptime %> seconds</p>
+  </div>
+</div>
+
+<!-- Add additional dashboard components if needed -->

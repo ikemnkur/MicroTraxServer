@@ -3,58 +3,11 @@ const db = require('../config/db');
 const authenticateToken = require('../middleware/auth');
 
 const router = express.Router();
-
-// const express = require('express');
-// const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-// const db = require('../db');
-// const { authenticateToken } = require('../middleware/auth');
 
-// router.post('/reload', authenticateToken, async (req, res) => {
-//   const { username, amount, date, stripe } = req.body;
-//   console.log("reloading: ", amount);
-  
-//   try {
-//     // Check for duplicates
-//     const row = await db.query(
-//       'SELECT * FROM purchases WHERE username = ? AND amount = ? AND stripe = ? AND date = ?',
-//       [username, amount, stripe, date]
-//     );
-    
-//     console.log("Result: ", row);
-    
-//     if (row !== null)
-//       return
-
-//     // Start a transaction
-//     await db.query('START TRANSACTION');
-
-//     // Insert into purchases table
-//     await db.query(
-//       'INSERT INTO purchases (username, userid, amount, reference_code, stripe, date) VALUES (?, ?, ?, ?, ?, ?)',
-//       [username, req.user.id, amount, uuidv4(), stripe, date]
-//     );
-
-//     // Update user's coin balance
-//     await db.query(
-//       'UPDATE accounts SET balance = balance + ? WHERE user_id = ?',
-//       [amount, req.user.id]
-//     );
-
-//     // Commit the transaction
-//     await db.query('COMMIT');
-
-//     res.status(201).json({ message: 'Wallet reloaded successfully' });
-//   } catch (error) {
-//     // If there's an error, rollback the transaction
-//     await db.query('ROLLBACK');
-//     console.error('Error reloading wallet:', error);
-//     res.status(500).json({ message: 'Server error' });
-//   }
-// });
-
-router.post('/reload', authenticateToken, async (req, res) => {
+router.post('/stripe-reload', authenticateToken, async (req, res) => {
   const { username, amount, date, stripe, session_id } = req.body;
+  const data = req.body;
   console.log("Reloading amount: ", amount);
   console.log("Session ID: ", session_id);
   
@@ -77,9 +30,19 @@ router.post('/reload', authenticateToken, async (req, res) => {
 
     // Insert into purchases table
     await db.query(
-      'INSERT INTO purchases (username, userid, amount, reference_code, stripe, date, sessionID) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [username, req.user.id, amount, uuidv4(), stripe, date, session_id]
+      'INSERT INTO purchases (username, userid, amount, reference_code, date, sessionID, formdata, type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [username, req.user.id, amount, uuidv4(), date, session_id, formdata, "stripe", "Complete"]
     );
+
+    // const [recipientAccount] = await db.query('SELECT * FROM accounts WHERE user_id = ?', [req.user.id]);
+
+    const message = `${currency} order: ${amount}`
+
+    await db.query(
+      'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, recieving_user, message) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ["ACC00000000000", req.user.id, amount, 'purchase', 'complete', username, message]
+    );
+
 
     // Update user's coin balance
     await db.query(
@@ -89,8 +52,57 @@ router.post('/reload', authenticateToken, async (req, res) => {
 
     // Commit the transaction
     await db.query('COMMIT');
+    res.json({ message: 'Transaction successful', ok: true });
+    // res.status(201).json({ message: 'Wallet reloaded successfully' });
+  } catch (error) {
+    // If there's an error, rollback the transaction
+    await db.query('ROLLBACK');
+    console.error('Error reloading wallet:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
-    res.status(201).json({ message: 'Wallet reloaded successfully' });
+router.post('/crypto-reload', authenticateToken, async (req, res) => {
+  const { username, userId, amount, date, key, transactionId, currency, walletAdress, email, session_id } = req.body;
+  const data = req.body;
+  console.log("Reloading amount: ", amount);
+  console.log("userID: ", userId);
+  
+  try {
+    // Check for duplicates
+    const [rows, fields] = await db.query(
+      'SELECT * FROM purchases WHERE username = ? AND amount = ? AND transactionId = ?',
+      [username, amount, transactionId]
+    );
+    
+    console.log("Duplicate Check Result: ", rows);
+    
+    if (rows.length > 0) {
+      // Duplicate found, send a 409 Conflict response
+      return res.status(409).json({ message: 'Duplicate purchase detected' });
+    }
+
+    // Start a transaction
+    await db.query('START TRANSACTION');
+
+    // Insert into purchases table
+    await db.query(
+      'INSERT INTO purchases (username, userid, amount, reference_code, date, sessionID, transactionId, data, type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [username, req.user.id, amount, uuidv4(),  date, session_id, transactionId, JSON.stringify(data), currency, "Pending"]
+    );
+
+    // const [recipientAccount] = await db.query('SELECT * FROM accounts WHERE user_id = ?', [userId]);
+
+    const message = `${currency} order: ${amount}`
+
+    await db.query(
+      'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, recieving_user, message) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [0, userId, amount, 'purchase', 'pending', username, message]
+    );
+
+    // Commit the transaction
+    await db.query('COMMIT');
+    res.json({ message: 'Wallet order logged successfully' , ok: true});
   } catch (error) {
     // If there's an error, rollback the transaction
     await db.query('ROLLBACK');
@@ -137,35 +149,34 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
-// router.post('/reload', authenticateToken, async (req, res) => {
-  
-//   const { username, amount, date } = req.body;
-//   console.log("redloading: ", amount)
-//   try {
-
-//     await db.query(
-//       'INSERT INTO purchases (username, userid, amount, reference_code) VALUES (?, ?, ?, ?)',
-//       [username, req.user.id, amount, uuidv4()]
-//     );
-//     res.status(201).json({ message: 'Content added successfully' });
-
-//   } catch (error) {
-//     console.error('Error post purchase data:', error);
-//     res.status(500).json({ message: 'Server error' });
-//   }
-// });
-
 router.post('/withdraw', authenticateToken, async (req, res) => {
-  const { username, amount, date } = req.body;
-  console.log("withdrawing: ", amount)
+  const { username, amount, date, method } = req.body;
+  console.log("Withdraw Data: ", req.body)
+  const data = req.body;
   try {
 
     await db.query(
-      'INSERT INTO withdraws (username, userid, amount, reference_code) VALUES (?, ?, ?, ?)',
-      [username, req.user.id, amount, uuidv4()]
+      'INSERT INTO withdraws (username, userid, amount, reference_code, method, formdata) VALUES (?, ?, ?, ?, ?, ?)',
+      [username, req.user.id, amount, uuidv4(), method, JSON.stringify(data)]
     );
-    res.status(201).json({ message: 'Content added successfully' });
 
+    // const [recipientAccount] = await db.query('SELECT * FROM accounts WHERE user_id = ?', [req.user.id]);
+
+    const message = `${method} order: ${amount}`
+
+    await db.query(
+      'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, recieving_user, message) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ["ACC00000000000", req.user.id, amount, 'withdraw', 'pending', username, message]
+    );
+
+
+    // Update user's coin balance
+    await db.query(
+      'UPDATE accounts SET balance = balance - ? WHERE user_id = ?',
+      [amount, req.user.id]
+    );
+    res.status(201).json({ message: 'Content added successfully', ok: true });
+    res.json({ message: 'Transaction successful' });
   } catch (error) {
     console.error('Error post purchase data:', error);
     res.status(500).json({ message: 'Server error' });

@@ -1,0 +1,14 @@
+<!-- views/edit.ejs -->
+<% layout('layout', { user: 'admin' }) -%>
+<h1 class="mb-4">Edit Record - Table: <%= table %>, ID: <%= record.id %></h1>
+
+<form method="POST" action="/admin/edit/<%= table %>/<%= record.id %>">
+  <% Object.keys(record).forEach(field => { %>
+    <div class="mb-3">
+      <label for="<%= field %>" class="form-label"><%= field %></label>
+      <input type="text" class="form-control" name="<%= field %>" value="<%= record[field] %>">
+    </div>
+  <% }) %>
+  <button type="submit" class="btn btn-primary">Save Changes</button>
+  <a href="/admin/records/<%= table %>" class="btn btn-secondary">Cancel</a>
+</form>

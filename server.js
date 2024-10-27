@@ -2,6 +2,8 @@ require('dotenv').config();
 const path = require('path');
 const cors = require('cors');
 const express = require('express');
+// const session = require('express-session');
+const bodyParser = require('body-parser');
 const geoip = require('geoip-lite');
 const moment = require('moment')
 const multer = require('multer')
@@ -33,7 +35,8 @@ const corsOptions = {
       'http://localhost:5000',
       'https://microtrax.netlify.app',
       "https://servers4sqldb.uc.r.appspot.com",
-      "https://orca-app-j32vd.ondigitalocean.app"
+      "https://orca-app-j32vd.ondigitalocean.app",
+      "https://monkfish-app-mllt8.ondigitalocean.app/"
       // Add any other origins you want to allow
     ];
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
@@ -326,7 +329,8 @@ const upload = multer({
 });
 
 // Endpoint to handle profile picture upload
-app.post('/upload-profile-picture', upload.single('profilePicture'), (req, res) => {
+app.post('/api/upload-profile-picture', upload.single('profilePicture'), (req, res) => {
+ console.log("Image: ", req)
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded or invalid file type.' });
   }
@@ -338,3 +342,87 @@ app.post('/upload-profile-picture', upload.single('profilePicture'), (req, res) 
 
   return res.status(200).json({ message: 'File uploaded successfully', url: imageUrl });
 });
+
+
+
+// Mock database (you should use a real database)
+const orders = [];
+
+// Endpoint to handle order submissions
+app.post('/api/submit-order', async (req, res) => {
+  const {
+    name,
+    email,
+    walletAddress,
+    key,
+    transactionId,
+    amount,
+    currency,
+    cryptoAmount,
+  } = req.body;
+
+  // Basic validation
+  if (!name || !email || !walletAddress || !amount || !currency || !cryptoAmount) {
+    return res.status(400).json({ message: 'Invalid order data.' });
+  }
+
+  // Create an order object
+  const order = {
+    id: orders.length + 1, // Simple ID generation
+    name,
+    email,
+    walletAddress,
+    key, // Optional
+    transactionId, // Optional
+    amount,
+    currency,
+    cryptoAmount,
+    status: 'pending',
+    createdAt: new Date(),
+  };
+
+  // Store the order
+  orders.push(order)
+
+  const [rows, fields] = await db.query(
+    'SELECT * FROM purchases WHERE username = ? AND amount = ? AND sessionID = ?',
+    [username, amount, session_id]
+  );
+
+   // Insert into purchases table
+   await db.query(
+    'INSERT INTO purchases (username, userid, amount, reference_code, stripe, date, sessionID, formdata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [username, req.user.id, amount, uuidv4(), stripe, date, session_id, formdata]
+  );
+
+
+  // You might want to send a confirmation email here
+
+  return res.status(200).json({ message: 'Order received.' });
+});
+
+
+// Set EJS as templating engine
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
+// Middleware
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static('public')); // For serving static files (CSS, JS)
+// app.use(
+//   session({
+//     secret: 'your_secret_key', // Replace with a strong secret
+//     resave: false,
+//     saveUninitialized: true,
+//   })
+// );
+
+// Import routes
+const adminRoutes = require('./routes/admin');
+app.use('/admin', adminRoutes);
+
+// Start the server
+// const PORT = process.env.PORT || 3000;
+// app.listen(PORT, () => {
+//   console.log(`Server running on port ${PORT}`);
+// });

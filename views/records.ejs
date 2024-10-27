@@ -1,0 +1,64 @@
+<!-- views/records.ejs -->
+<% layout('layout', { user: 'admin' }) -%>
+<h1 class="mb-4"><%= table.charAt(0).toUpperCase() + table.slice(1) %> Records</h1>
+
+<form class="row g-3 mb-4">
+  <div class="col-md-3">
+    <input type="text" name="search" class="form-control" placeholder="Search..." value="<%= search || '' %>">
+  </div>
+  <div class="col-md-2">
+    <select name="timeframe" class="form-select">
+      <option value="">All Time</option>
+      <option value="12" <%= timeframe === '12' ? 'selected' : '' %>>Last 12 Hours</option>
+      <option value="24" <%= timeframe === '24' ? 'selected' : '' %>>Last 24 Hours</option>
+      <option value="48" <%= timeframe === '48' ? 'selected' : '' %>>Last 48 Hours</option>
+    </select>
+  </div>
+  <div class="col-md-2">
+    <select name="sortField" class="form-select">
+      <% if (records.length > 0) { %>
+        <% Object.keys(records[0]).forEach(field => { %>
+          <option value="<%= field %>" <%= sortField === field ? 'selected' : '' %>><%= field %></option>
+        <% }) %>
+      <% } %>
+    </select>
+  </div>
+  <div class="col-md-2">
+    <select name="sortOrder" class="form-select">
+      <option value="asc" <%= sortOrder === 'asc' ? 'selected' : '' %>>Ascending</option>
+      <option value="desc" <%= sortOrder === 'desc' ? 'selected' : '' %>>Descending</option>
+    </select>
+  </div>
+  <div class="col-md-2">
+    <button type="submit" class="btn btn-primary">Apply Filters</button>
+  </div>
+</form>
+
+<div class="table-container">
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <% if (records.length > 0) { %>
+          <% Object.keys(records[0]).forEach(field => { %>
+            <th><%= field %></th>
+          <% }) %>
+          <th>Actions</th>
+        <% } else { %>
+          <th>No records found.</th>
+        <% } %>
+      </tr>
+    </thead>
+    <tbody>
+      <% records.forEach(record => { %>
+        <tr>
+          <% Object.values(record).forEach(value => { %>
+            <td><%= value %></td>
+          <% }) %>
+          <td>
+            <a href="/admin/edit/<%= table %>/<%= record.id %>" class="btn btn-sm btn-primary">Edit</a>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
