@@ -17,6 +17,7 @@ const messageRoutes = require('./routes/messages');
 const paymentRoutes = require('./routes/paymentRoutes');
 const content = require('./routes/content');
 const unlock = require('./routes/content');
+const notifications = require('./routes/notifications');
 
 const app = express();
 
@@ -93,6 +94,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/unlock', unlock);
 app.use('/api/content', content);
+app.use('/api/notifications', notifications);
 
 // Serve static files from a 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));

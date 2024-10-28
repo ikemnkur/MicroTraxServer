@@ -17,7 +17,7 @@ router.post('/send', authenticateToken, async (req, res) => {
       const [senderAccount] = await connection.query('SELECT * FROM accounts WHERE user_id = ?', [req.user.id]);
       const [recipientAccount] = await connection.query('SELECT * FROM accounts WHERE user_id = ?', [recipientAccountId]);
 
-      console.log("RC: "+recipientAccount)
+      console.log("RC: "+JSON.stringify(recipientAccount[0]))
 
       if (senderAccount.length === 0 || recipientAccount.length === 0) {
         await connection.rollback();
@@ -36,7 +36,7 @@ router.post('/send', authenticateToken, async (req, res) => {
 
       await connection.query(
         'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, recieving_user) VALUES (?, ?, ?, ?, ?, ?)',
-        [senderAccount[0].id, recipientAccount[0].id, amount, 'send', 'completed', recipientUsername]
+        [req.user.id, recipientId, amount, 'send', 'completed', recipientUsername]
       );
 
       await connection.commit();
@@ -67,7 +67,7 @@ router.get('/recieveHistory', authenticateToken, async (req, res) => {
        ORDER BY t.created_at DESC`,
       [req.user.id]
     );
-    console.log("Trx: ", transactions)
+    // console.log("Trx: ", transactions)
 
     res.json(transactions);
   } catch (error) {
@@ -91,7 +91,7 @@ router.get('/history', authenticateToken, async (req, res) => {
     //   [req.user.id, req.user.id]
     // );
     const [transactions] = await db.query('SELECT * FROM transactions WHERE sender_account_id = ? OR recipient_account_id = ?', [req.user.id, req.user.id]);
-    console.log("Trx: ", transactions)
+    // console.log("Trx: ", transactions)
 
     res.json(transactions);
   } catch (error) {

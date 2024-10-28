@@ -23,7 +23,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
     }
     
     const user = users[0];
-    console.log("Get.Body: ", user);
+    // console.log("Get.Body: ", user);
     res.json(user);
   } catch (error) {
     console.error(error);
