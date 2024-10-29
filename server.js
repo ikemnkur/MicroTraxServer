@@ -10,13 +10,16 @@ const multer = require('multer')
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const transactionRoutes = require('./routes/transactions');
-const subscriptionRoutes = require('./routes/subscriptions');
+const userSubscriptionRoute = require('./routes/user_subscriptions');
+const publicSubscriptionRoute = require('./routes/public_subscriptions');
 const wallet = require('./routes/wallet');
 const searchForUsers = require('./routes/searchForUsers');
 const messageRoutes = require('./routes/messages');
 const paymentRoutes = require('./routes/paymentRoutes');
 const content = require('./routes/content');
-const unlock = require('./routes/content');
+const publicContent = require('./routes/public_content');
+const userContent = require('./routes/user_content');
+const unlock = require('./routes/unlock');
 const notifications = require('./routes/notifications');
 
 const app = express();
@@ -87,13 +90,16 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/transactions', transactionRoutes);
-app.use('/api/subscriptions', subscriptionRoutes);
+app.use('/api/user-subscriptions', userSubscriptionRoute);
+app.use('/api/public-subscriptions', publicSubscriptionRoute);
 app.use('/api/wallet', wallet);
 app.use('/api/users', searchForUsers);
 app.use('/api/messages', messageRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/unlock', unlock);
 app.use('/api/content', content);
+app.use('/api/public-content', publicContent);
+app.use('/api/user-content', userContent);
 app.use('/api/notifications', notifications);
 
 // Serve static files from a 'public' directory

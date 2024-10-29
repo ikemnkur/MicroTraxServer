@@ -11,7 +11,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const [users] = await db.query(
       `SELECT u.id, u.username, u.email, u.firstName, u.lastName, u.phoneNumber, u.birthDate, 
-              u.accountTier, a.balance, u.bio, u.encryptionKey
+              u.accountTier, a.balance, u.bio, u.encryptionKey, u.account_id
        FROM users u
        LEFT JOIN accounts a ON u.id = a.user_id
        WHERE u.id = ?`,

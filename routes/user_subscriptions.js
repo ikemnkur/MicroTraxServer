@@ -15,7 +15,7 @@ const pool = mysql.createPool({
 });
 
 // Get all subscriptions for a user
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/get', authenticateToken, async (req, res) => {
   console.log("Get Subscriptions- USER ID: ", req.user.id)
   try {
     const [rows] = await pool.query(
@@ -48,51 +48,18 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// A creates adds a new public subscription
-router.post('/', authenticateToken, async (req, res) => {
-  const { sub_id, status, end_date } = req.body;
-  console.log("Sub ID: ", sub_id)
+// Get a specific public subscription, used when sharing a subscription service
+router.get('/:id', authenticateToken, async (req, res) => {
+  console.log("Get Subscriptions- USE ID: ", req.user.id)
   try {
-    const [result] = await pool.query(
-      'INSERT INTO public_subscriptions (user_id, sub_id, status, start_date, end_date) VALUES (?, ?, ?, NOW(), ?)',
-      [req.user.userId, sub_id, status, end_date]
+    const [rows] = await pool.query(
+      'SELECT * FROM public_subscriptions WHERE id = ? AND user_id = ?',
+      [req.params.id, req.user.id]
     );
-    res.status(201).json({ id: result.insertId, message: 'Subscription created successfully' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Edit a public subscription
-router.put('/:id', authenticateToken, async (req, res) => {
-  const { status, end_date } = req.body;
-  try {
-    const [result] = await pool.query(
-      'UPDATE public_subscriptions SET status = ?, end_date = ? WHERE id = ? AND user_id = ?',
-      [status, end_date, req.params.id, req.user.userId]
-    );
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Subscription not found or you do not have permission to edit it' });
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Subscription not found' });
     }
-    res.json({ message: 'Subscription updated successfully' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Delete a public subscription
-router.delete('/:id', authenticateToken, async (req, res) => {
-  try {
-    const [result] = await pool.query(
-      'DELETE FROM public subscriptions WHERE id = ? AND user_id = ?',
-      [req.params.id, req.user.userId]
-    );
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Subscription not found or you do not have permission to delete it' });
-    }
-    res.json({ message: 'Subscription deleted successfully' });
+    res.json(rows[0]);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -100,17 +67,18 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 
 
-// Delete a user subscription
-router.delete('/:id', authenticateToken, async (req, res) => {
+// Delete a user subscription (user unsubscribing)
+router.delete('/delete/:id', authenticateToken, async (req, res) => {
   try {
     const [result] = await pool.query(
       'DELETE FROM user_subscriptions WHERE id = ? AND user_id = ?',
-      [req.params.id, req.user.userId]
+      [req.params.id, req.user.id]
     );
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Subscription not found or you do not have permission to delete it' });
     }
-    res.json({ message: 'Subscription deleted successfully' });
+    console.log("AR: ", result.affectedRows)
+    res.json({ message: 'Subscription deleted successfully', deleted: result.affectedRows});
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
