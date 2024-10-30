@@ -59,6 +59,34 @@ router.put('/profile', authenticateToken, async (req, res) => {
   }
 });
 
+router.put('/user-data', authenticateToken, async (req, res) => {
+  const { data } = req.body;
+  console.log("Put.Body: ", req.body);
+  try {
+    const connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // Update user information
+      await connection.query(
+        'UPDATE users SET data = ? WHERE id = ?',
+        [data, req.user.id]
+      );
+      console.log()
+      await connection.commit();
+      res.json({ message: 'Userdata updated successfully' });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Fetch user's balance
 router.get('/user-balance', authenticateToken, async (req, res) => {
   try {
