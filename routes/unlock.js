@@ -8,7 +8,7 @@ const { v4: uuidv4 } = require('uuid');
 router.get('/unlock-content/:itemId', async (req, res) => {
     try {
         const [content] = await db.query(
-            'SELECT * FROM user_content WHERE reference_id = ?',
+            'SELECT * FROM public_content WHERE reference_id = ?',
             [req.params.itemId]
         );
         if (content.length === 0) {
@@ -101,53 +101,53 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
 });
 
 
-// Add new content
-router.post('/add-content', authenticateToken, async (req, res) => {
-    const { title, cost, description, content, type, username } = req.body;
-    console.log("Req.Body: " + req.body)
-    try {
-        await db.query(
-            'INSERT INTO user_content (title, cost, description, content, type, host_username, host_user_id, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [title, cost, description, JSON.stringify({ content }), type, username, req.user.id, uuidv4()]
-        );
-        res.status(201).json({ message: 'Content added successfully' });
-    } catch (error) {
-        res.status(500).json({ message: 'Server error' });
-    }
-});
+// // Add new content
+// router.post('/add-content', authenticateToken, async (req, res) => {
+//     const { title, cost, description, content, type, username } = req.body;
+//     console.log("Req.Body: " + req.body)
+//     try {
+//         await db.query(
+//             'INSERT INTO user_content (title, cost, description, content, type, host_username, host_user_id, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+//             [title, cost, description, JSON.stringify({ content }), type, username, req.user.id, uuidv4()]
+//         );
+//         res.status(201).json({ message: 'Content added successfully' });
+//     } catch (error) {
+//         res.status(500).json({ message: 'Server error' });
+//     }
+// });
 
-router.post('/edit-content', authenticateToken, async (req, res) => {
-    const { title, cost, description, content, type, reference_id } = req.body;
-    console.log("Editing content with reference_id:", reference_id);
+// router.post('/edit-content', authenticateToken, async (req, res) => {
+//     const { title, cost, description, content, type, reference_id } = req.body;
+//     console.log("Editing content with reference_id:", reference_id);
 
-    try {
-        const result = await db.query(
-            'UPDATE user_content SET title = ?, cost = ?, description = ?, content = ?, type = ? WHERE reference_id = ?',
-            [title, cost, description, JSON.stringify(content), type, reference_id]
-        );
+//     try {
+//         const result = await db.query(
+//             'UPDATE user_content SET title = ?, cost = ?, description = ?, content = ?, type = ? WHERE reference_id = ?',
+//             [title, cost, description, JSON.stringify(content), type, reference_id]
+//         );
 
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'Content not found' });
-        }
+//         if (result.affectedRows === 0) {
+//             return res.status(404).json({ message: 'Content not found' });
+//         }
 
-        res.status(200).json({ message: 'Content updated successfully' });
-    } catch (error) {
-        console.error('Error updating content:', error);
-        res.status(500).json({ message: 'Server error', error: error.message });
-    }
-});
+//         res.status(200).json({ message: 'Content updated successfully' });
+//     } catch (error) {
+//         console.error('Error updating content:', error);
+//         res.status(500).json({ message: 'Server error', error: error.message });
+//     }
+// });
 
-// Delete content
-router.delete('/delete-content/:id', authenticateToken, async (req, res) => {
-    try {
-        await db.query(
-            'DELETE FROM user_content WHERE id = ? AND host_user_id = ?',
-            [req.params.id, req.user.id]
-        );
-        res.json({ message: 'Content deleted successfully' });
-    } catch (error) {
-        res.status(500).json({ message: 'Server error' });
-    }
-});
+// // Delete content
+// router.delete('/delete-content/:id', authenticateToken, async (req, res) => {
+//     try {
+//         await db.query(
+//             'DELETE FROM user_content WHERE id = ? AND host_user_id = ?',
+//             [req.params.id, req.user.id]
+//         );
+//         res.json({ message: 'Content deleted successfully' });
+//     } catch (error) {
+//         res.status(500).json({ message: 'Server error' });
+//     }
+// });
 
 module.exports = router;
