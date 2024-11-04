@@ -89,7 +89,7 @@ router.delete('/delete/:id', authenticateToken, async (req, res) => {
 router.get('/check/:subId', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT * FROM user_subscriptions WHERE user_id = ? AND sub_id = ? AND status = "active" AND end_date > NOW()',
+      'SELECT * FROM user_subscriptions WHERE user_id = ? AND reference_id = ? AND status = "active" AND end_date > NOW()',
       [req.user.userId, req.params.subId]
     );
     res.json({ hasSubscription: rows.length > 0 });

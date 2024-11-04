@@ -20,6 +20,7 @@ const content = require('./routes/content');
 const publicContent = require('./routes/public_content');
 const userContent = require('./routes/user_content');
 const unlock = require('./routes/unlock');
+const subscrybe = require('./routes/subscrybe');
 const notifications = require('./routes/notifications');
 
 const app = express();
@@ -97,6 +98,7 @@ app.use('/api/users', searchForUsers);
 app.use('/api/messages', messageRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/unlock', unlock);
+app.use('/api/subscribe', subscrybe);
 app.use('/api/content', content);
 app.use('/api/public-content', publicContent);
 app.use('/api/user-content', userContent);
@@ -427,6 +429,7 @@ app.use(express.static('public')); // For serving static files (CSS, JS)
 
 // Import routes
 const adminRoutes = require('./routes/admin');
+const { subscribe } = require('diagnostics_channel');
 app.use('/admin', adminRoutes);
 
 // Start the server

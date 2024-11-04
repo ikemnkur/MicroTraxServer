@@ -74,7 +74,7 @@ router.put('/user-data', authenticateToken, async (req, res) => {
       );
       console.log()
       await connection.commit();
-      res.json({ message: 'Userdata updated successfully' });
+      res.json({ message: 'User-Data updated successfully' });
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -156,6 +156,7 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
 // 1. GET /user/:userIdOrUsername/profile - Fetch user profile
 router.get('/:userIdOrUsername/profile', authenticateToken, async (req, res) => {
   try {

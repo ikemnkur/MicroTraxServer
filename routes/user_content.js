@@ -35,27 +35,44 @@ const pool = mysql.createPool({
 // });
 
 
-// Fetch user's content list
-router.get('/get', authenticateToken, async (req, res) => {
-    console.log("get user content: " + JSON.stringify(req.user))
-    try {
-        const [content] = await db.query(
-            'SELECT * FROM user_content WHERE onwer_id = ?',
-            [req.user.id]
-        );
-        console.log("UserId: ", req.user.id)
-        res.json(content);
-    } catch (error) {
-        res.status(500).json({ message: 'Server error' });
-    }
-});
+// // Fetch user's content list
+// router.get('/get', authenticateToken, async (req, res) => {
+//     console.log("get user content: " + JSON.stringify(req.user))
+//     try {
+//         const [content] = await db.query(
+//             'SELECT * FROM user_content WHERE onwer_id = ?',
+//             [req.user.id]
+//         );
+//         console.log("UserId: ", req.user.id)
+//         res.json(content);
+//     } catch (error) {
+//         res.status(500).json({ message: 'Server error' });
+//     }
+// });
 
+
+// Get all subscriptions for a user
+router.get('/get', authenticateToken, async (req, res) => {
+    console.log("Get Content - USER ID: ", req.user.id)
+    try {
+      const [rows] = await db.query(
+        'SELECT * FROM user_content WHERE owner_id = ?',
+        [req.user.id]
+      );
+      res.json(rows);
+      console.log("resulting rows: "+ rows)
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  });
+  
 
 // Delete user content
 router.delete('/delete/:id', authenticateToken, async (req, res) => {
     try {
         await db.query(
-            'DELETE FROM user_content WHERE id = ? AND host_user_id = ?',
+            'DELETE FROM user_content WHERE id = ? AND owner_id = ?',
             [req.params.id, req.user.id]
         );
         res.json({ message: 'Content deleted successfully' });
