@@ -34,7 +34,7 @@ router.get('/get', authenticateToken, async (req, res) => {
 });
 
 // Add new content
-router.post('/add', authenticateToken, async (req, res) => {
+router.post('/create', authenticateToken, async (req, res) => {
     const { title, cost, description, content, type, username } = req.body;
     console.log("Req.Body: " + req.body)
     try {
