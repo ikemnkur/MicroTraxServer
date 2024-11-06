@@ -54,19 +54,23 @@ router.post('/subscribe-to-user', authenticateToken, async (req, res) => {
             'UPDATE accounts SET balance = balance - ? WHERE user_id = ?',
             [content[0].cost, req.user.id]
         );
-        
+
         // Update content host's balance
         let resluts = await connection.query(
             'UPDATE accounts SET balance = balance + ? WHERE user_id = ?',
             [content[0].cost, content[0].host_user_id]
         );
         console.log("update host balance: ", resluts)
-        
-        console.log("insert--- Account: " + account[0].id + " Host: " + content[0].host_user_id + " cost: " + content[0].cost+ ", Msg: "+ msg)
+
+        console.log("insert--- Account: " + account[0].id + " Host: " + content[0].host_user_id + " cost: " + content[0].cost + ", Msg: " + msg)
         // Record the transaction
         await connection.query(
             'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, reference_id, message) VALUES (?, ?, ?, ?, ?, ?, ?)',
             [account[0].id, content[0].host_user_id, content[0].cost, 'subscribe', 'completed', content[0].reference_id, msg]
+        );
+        await connection.query(
+            'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, recieving_user) VALUES (?, ?, ?, ?, ?, ?)',
+            [recipientId, req.user.id, content[0].cost, 'new subscription', 'completed', recipientUsername]
         );
 
         // Increment unlock count
@@ -74,11 +78,17 @@ router.post('/subscribe-to-user', authenticateToken, async (req, res) => {
             'UPDATE public_subscriptions SET num_of_subs = num_of_subs + 1 WHERE id = ?',
             [contentId]
         );
+
+        await connection.query(
+            'UPDATE users SET subscriptions = subscriptions + 1 WHERE id = ?',
+            [req.user.id]
+        );
+
         console.log("rupdate 2")
         await connection.commit();
         res.json({ message: 'Content unlocked successfully' });
     } catch (error) {
-        console.log("Error: "+error)
+        console.log("Error: " + error)
         await connection.rollback();
         res.status(500).json({ message: 'Server error' });
     } finally {
@@ -91,7 +101,7 @@ router.post('/subscribe-to-user', authenticateToken, async (req, res) => {
 router.post('/add-like', authenticateToken, async (req, res) => {
     const { title, cost, description, content, type, username, subId } = req.body;
     console.log("Req.Body: " + req.body)
-    
+
     try {
         const [sub] = await connection.query(
             'SELECT * FROM public_subscriptions WHERE id = ?',

@@ -36,6 +36,8 @@ router.get('/user-balance', authenticateToken, async (req, res) => {
     }
 });
 
+
+
 // Unlock content
 router.post('/unlock-content', authenticateToken, async (req, res) => {
     const { contentId, msg } = req.body;
@@ -70,29 +72,49 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
             [content[0].cost, req.user.id]
         );
         console.log("update ")
+
         // Update content host's balance
         await connection.query(
             'UPDATE accounts SET balance = balance + ? WHERE user_id = ?',
             [content[0].cost, content[0].host_user_id]
         );
 
-        console.log("insert--- Account: " + account[0].id + " Host: " + content[0].host_user_id + " cost: " + content[0].cost+ ", Msg: "+ msg)
+        console.log("insert--- Account: " + account[0].id + " Host: " + content[0].host_user_id + " cost: " + content[0].cost + ", Msg: " + msg)
+
         // Record the transaction
         await connection.query(
             'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, reference_id, message) VALUES (?, ?, ?, ?, ?, ?, ?)',
             [account[0].id, content[0].host_user_id, content[0].cost, 'unlock-content', 'completed', content[0].reference_id, msg]
         );
 
+        // Record the transaction
+        await connection.query(
+            'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, reference_id, message) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [ content[0].host_user_id, account[0].id, content[0].cost, 'someone unlocked your content', 'completed', content[0].reference_id, msg]
+        );
+
         // Increment unlock count
         await connection.query(
-            'UPDATE user_content SET unlocks = unlocks + 1 WHERE id = ?',
+            'UPDATE public_content SET unlocks = unlocks + 1 WHERE id = ?',
             [contentId]
         );
+
+        await connection.query(
+            'UPDATE users SET unlocks = unlocks + 1 WHERE id = ?',
+            [req.user.id]
+        );
+
+        // Update content host's balance
+        await connection.query(
+            'UPDATE accounts SET balance = balance + ? WHERE user_id = ?',
+            [content[0].cost, content[0].host_user_id]
+        );
+
         console.log("rupdate 2")
         await connection.commit();
         res.json({ message: 'Content unlocked successfully' });
     } catch (error) {
-        console.log("Error: "+error)
+        console.log("Error: " + error)
         await connection.rollback();
         res.status(500).json({ message: 'Server error' });
     } finally {
@@ -101,53 +123,66 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
 });
 
 
-// // Add new content
-// router.post('/add-content', authenticateToken, async (req, res) => {
-//     const { title, cost, description, content, type, username } = req.body;
-//     console.log("Req.Body: " + req.body)
-//     try {
-//         await db.query(
-//             'INSERT INTO user_content (title, cost, description, content, type, host_username, host_user_id, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-//             [title, cost, description, JSON.stringify({ content }), type, username, req.user.id, uuidv4()]
-//         );
-//         res.status(201).json({ message: 'Content added successfully' });
-//     } catch (error) {
-//         res.status(500).json({ message: 'Server error' });
-//     }
-// });
+// Add new content
+router.post('/add-like', authenticateToken, async (req, res) => {
+    const { title, cost, description, content, type, username, subId } = req.body;
+    console.log("Req.Body: " + req.body)
 
-// router.post('/edit-content', authenticateToken, async (req, res) => {
-//     const { title, cost, description, content, type, reference_id } = req.body;
-//     console.log("Editing content with reference_id:", reference_id);
+    try {
+        const [sub] = await connection.query(
+            'SELECT * FROM public_content WHERE id = ?',
+            [subId]
+        );
+        await db.query(
+            'UPDATE public_content SET like = like + ? WHERE user_id = ?',
+            [1, subId]
+        );
+        res.status(201).json({ message: 'subscription liked successfully' });
+        // res.status(201).json({ message: 'subscription liked successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
 
-//     try {
-//         const result = await db.query(
-//             'UPDATE user_content SET title = ?, cost = ?, description = ?, content = ?, type = ? WHERE reference_id = ?',
-//             [title, cost, description, JSON.stringify(content), type, reference_id]
-//         );
+// Add new content
+router.post('/add-dislike', authenticateToken, async (req, res) => {
+    const { title, cost, description, content, type, username, subId } = req.body;
+    console.log("Req.Body: " + req.body)
+    try {
+        const [sub] = await connection.query(
+            'SELECT * FROM public_content WHERE id = ?',
+            [subId]
+        );
+        await db.query(
+            'UPDATE public_content SET dislike = dislike + ? WHERE user_id = ?',
+            [1, subId]
+        );
+        res.status(201).json({ message: 'subscription liked successfully' });
+        // res.status(201).json({ message: 'subscription liked successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
 
-//         if (result.affectedRows === 0) {
-//             return res.status(404).json({ message: 'Content not found' });
-//         }
 
-//         res.status(200).json({ message: 'Content updated successfully' });
-//     } catch (error) {
-//         console.error('Error updating content:', error);
-//         res.status(500).json({ message: 'Server error', error: error.message });
-//     }
-// });
-
-// // Delete content
-// router.delete('/delete-content/:id', authenticateToken, async (req, res) => {
-//     try {
-//         await db.query(
-//             'DELETE FROM user_content WHERE id = ? AND host_user_id = ?',
-//             [req.params.id, req.user.id]
-//         );
-//         res.json({ message: 'Content deleted successfully' });
-//     } catch (error) {
-//         res.status(500).json({ message: 'Server error' });
-//     }
-// });
+// Add new content
+router.post('/add-visit', authenticateToken, async (req, res) => {
+    const { title, cost, description, content, type, username, subId } = req.body;
+    console.log("Req.Body: " + req.body)
+    try {
+        const [sub] = await connection.query(
+            'SELECT * FROM public_content WHERE id = ?',
+            [subId]
+        );
+        await db.query(
+            'UPDATE public_content SET visits = visits + ? WHERE user_id = ?',
+            [1, subId]
+        );
+        res.status(201).json({ message: 'subscription liked successfully' });
+        // res.status(201).json({ message: 'subscription liked successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
 
 module.exports = router;

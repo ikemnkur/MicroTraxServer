@@ -10,7 +10,7 @@ const router = express.Router();
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const [users] = await db.query(
-      `SELECT u.id, u.username, u.email, u.firstName, u.lastName, u.phoneNumber, u.birthDate, 
+      `SELECT u.id, u.username, u.email, u.firstName, u.lastName, u.phoneNumber, u.birthDate, u.unlocks, u.subscriptions,
               u.accountTier, a.balance, u.bio, u.encryptionKey, u.account_id
        FROM users u
        LEFT JOIN accounts a ON u.id = a.user_id
@@ -44,6 +44,7 @@ router.put('/profile', authenticateToken, async (req, res) => {
         'UPDATE users SET username = ?, email = ?, firstName = ?, lastName = ?, phoneNumber = ?, birthDate = ?, encryptionKey = ?, profilePic = ?, accountTier = ? WHERE id = ?',
         [username, email, firstName, lastName, phoneNumber, birthDate, encryptionKey, profilePic, accountTier, req.user.id]
       );
+
       console.log()
       await connection.commit();
       res.json({ message: 'Profile updated successfully' });

@@ -5,7 +5,7 @@ const authenticateToken = require('../middleware/auth');
 const { v4: uuidv4 } = require('uuid');
 
 
-// Fetch content data
+// // Fetch content data
 // router.get('/unlock-content/:itemId', async (req, res) => {
 //     try {
 //         const [content] = await db.query(
