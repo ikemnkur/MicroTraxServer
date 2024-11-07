@@ -19,6 +19,28 @@ router.get('/get/:itemId', async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
+// Todo: Fix this
+// DELETE /api/notifications/delete/:id - Delete a notification
+router.delete('/delete/:id', authenticateToken, async (req, res) => {
+    const subId = req.params.id;
+  
+    try {
+      const [result] = await db.query(
+        'DELETE FROM user_subscriptions WHERE id = ? AND user_id = ?',
+        [subId, req.user.id]
+      );
+  
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ message: 'Notification not found or unauthorized' });
+      }
+  
+      res.json({ message: 'Notification deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  });
+  
 
 
 // subscribe to content
@@ -63,11 +85,13 @@ router.post('/subscribe-to-user', authenticateToken, async (req, res) => {
         console.log("update host balance: ", resluts)
 
         console.log("insert--- Account: " + account[0].id + " Host: " + content[0].host_user_id + " cost: " + content[0].cost + ", Msg: " + msg)
+
         // Record the transaction
         await connection.query(
             'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, reference_id, message) VALUES (?, ?, ?, ?, ?, ?, ?)',
             [account[0].id, content[0].host_user_id, content[0].cost, 'subscribe', 'completed', content[0].reference_id, msg]
         );
+
         await connection.query(
             'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, recieving_user) VALUES (?, ?, ?, ?, ?, ?)',
             [recipientId, req.user.id, content[0].cost, 'new subscription', 'completed', recipientUsername]
@@ -158,5 +182,7 @@ router.post('/add-visit', authenticateToken, async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
+
+
 
 module.exports = router;
