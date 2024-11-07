@@ -51,6 +51,9 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
             'SELECT * FROM user_content WHERE id = ?',
             [contentId]
         );
+
+        console.log("CT: ", content[0])
+
         if (content.length === 0) {
             await connection.rollback();
             return res.status(404).json({ message: 'Content not found' });
@@ -66,16 +69,29 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
             return res.status(400).json({ message: 'Insufficient balance' });
         }
         console.log("req.user.id: ", req.user.id)
+
         // Update user's balance
         await connection.query(
             'UPDATE accounts SET balance = balance - ? WHERE user_id = ?',
             [content[0].cost, req.user.id]
         );
+
+        // Update user's spendable balance
+        await connection.query(
+            'UPDATE accounts SET spendable = spendable - ? WHERE user_id = ?',
+            [content[0].cost, req.user.id]
+        );
+
         console.log("update ")
 
         // Update content host's balance
         await connection.query(
             'UPDATE accounts SET balance = balance + ? WHERE user_id = ?',
+            [content[0].cost, content[0].host_user_id]
+        );
+        // Update content host's balance redeemable
+        await connection.query(
+            'UPDATE accounts SET redeemable = redeemable + ? WHERE user_id = ?',
             [content[0].cost, content[0].host_user_id]
         );
 
@@ -90,7 +106,7 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
         // Record the transaction
         await connection.query(
             'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, reference_id, message) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [ content[0].host_user_id, account[0].id, content[0].cost, 'someone unlocked your content', 'completed', content[0].reference_id, msg]
+            [ content[0].host_user_id, account[0].id, content[0].cost, 'content sold', 'completed', content[0].reference_id, msg]
         );
 
         // Increment unlock count
@@ -122,6 +138,28 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
     }
 });
 
+
+// Todo: Fix this
+// DELETE /api/notifications/delete/:id - Delete a notification
+router.delete('/delete/:id', authenticateToken, async (req, res) => {
+    const subId = req.params.id;
+  
+    try {
+      const [result] = await db.query(
+        'DELETE FROM user_subscriptions WHERE id = ? AND user_id = ?',
+        [subId, req.user.id]
+      );
+  
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ message: 'Notification not found or unauthorized' });
+      }
+  
+      res.json({ message: 'Notification deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  });
 
 // Add new content
 router.post('/add-like', authenticateToken, async (req, res) => {

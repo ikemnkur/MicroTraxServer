@@ -32,7 +32,9 @@ router.post('/send', authenticateToken, async (req, res) => {
       console.log("success in find accounts / verify suffiecent balance")
 
       await connection.query('UPDATE accounts SET balance = balance - ? WHERE id = ?', [amount, senderAccount[0].id]);
+      await connection.query('UPDATE accounts SET spendable = spendable - ? WHERE id = ?', [amount, senderAccount[0].id]);
       await connection.query('UPDATE accounts SET balance = balance + ? WHERE id = ?', [amount, recipientAccount[0].id]);
+      await connection.query('UPDATE accounts SET redeemable = redeemable + ? WHERE id = ?', [amount, recipientAccount[0].id]);
 
       await connection.query(
         'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, recieving_user) VALUES (?, ?, ?, ?, ?, ?)',
