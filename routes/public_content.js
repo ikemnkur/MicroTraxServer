@@ -49,7 +49,7 @@ router.post('/create', authenticateToken, async (req, res) => {
 });
 
 // Edit public content
-router.post('/edit', authenticateToken, async (req, res) => {
+router.put('/edit', authenticateToken, async (req, res) => {
     const { title, cost, description, content, type, reference_id } = req.body;
     console.log("Editing content with reference_id:", reference_id);
 

@@ -11,7 +11,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const [users] = await db.query(
       `SELECT u.id, u.username, u.email, u.firstName, u.lastName, u.phoneNumber, u.birthDate, u.unlocks, u.subscriptions,
-              u.accountTier, a.balance, u.bio, u.encryptionKey, u.account_id
+              u.accountTier, a.balance, a.spendable, a.redeemable, u.bio, u.encryptionKey, u.account_id
        FROM users u
        LEFT JOIN accounts a ON u.id = a.user_id
        WHERE u.id = ?`,
@@ -88,27 +88,32 @@ router.put('/user-data', authenticateToken, async (req, res) => {
   }
 });
 
-// Fetch user's balance
+// Fetch user's balance and account ID
 router.get('/user-balance', authenticateToken, async (req, res) => {
   try {
-      const [account] = await db.query(
-          'SELECT balance FROM accounts WHERE user_id = ?',
-          [req.user.id]
-      );
-      if (account.length === 0) {
-          return res.status(404).json({ message: 'Account not found' });
-      }
-      res.json({ balance: account[0].balance });
+    const [account] = await db.query(
+      'SELECT balance, spendable, redeemable FROM accounts WHERE user_id = ?',
+      [req.user.id]
+    );
+    if (account.length === 0) {
+      return res.status(404).json({ message: 'Account not found' });
+    }
+    res.json({ balance: account[0].balance, spendable: account[0].spendable, redeemable: account[0].redeemable,  });
   } catch (error) {
-      res.status(500).json({ message: 'Server error' });
+    console.error('Error fetching user balance:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
 router.get('/dashboard', authenticateToken, async (req, res) => {
   try {
     console.log('User ID from token:', req.user.id);
+    console.log('req.user:', req.user);
+    
+    
+    // Fetch user data along with account ID
     const [userData] = await db.query(
-      `SELECT u.id, a.balance, u.accountTier
+      `SELECT u.id AS userId, a.id AS accountId, a.balance, u.accountTier
        FROM users u
        LEFT JOIN accounts a ON u.id = a.user_id
        WHERE u.id = ?`,
@@ -119,35 +124,102 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
     if (!userData || userData.length === 0) {
       return res.status(404).json({ message: 'User data not found' });
     }
+    
+    const id = userData[0].userId;
+    const accountId = userData[0].accountId;
+    if (!accountId) {
+      return res.status(404).json({ message: 'Account ID not found for the user' });
+    }
 
+    // Aggregate transaction data
     const [transactions] = await db.query(
       `SELECT
-         COUNT(CASE WHEN sender_account_id = ? THEN 1 END) as sentTransactions,
-         COUNT(CASE WHEN recipient_account_id = ? THEN 1 END) as receivedTransactions
+         COUNT(CASE 
+               WHEN (sender_account_id = ? OR recipient_account_id = ?) 
+                    AND created_at >= NOW() - INTERVAL 1 DAY 
+               THEN 1 
+             END) AS transactionsLast24Hours,
+         COUNT(CASE 
+               WHEN (sender_account_id = ? OR recipient_account_id = ?) 
+                    AND DATE(created_at) = CURDATE() 
+               THEN 1 
+             END) AS transactionsToday,
+         SUM(CASE 
+               WHEN (sender_account_id = ? OR recipient_account_id = ?) 
+                    AND DATE(created_at) = CURDATE() 
+               THEN amount 
+               ELSE 0 
+             END) AS totalAmountToday,
+         COUNT(CASE 
+               WHEN sender_account_id = ? 
+                    AND DATE(created_at) = CURDATE() 
+               THEN 1 
+             END) AS sentTransactions,
+         COUNT(CASE 
+               WHEN recipient_account_id = ? 
+                    AND DATE(created_at) = CURDATE() 
+               THEN 1 
+             END) AS receivedTransactions,
+         SUM(CASE
+               WHEN sender_account_id = ? AND created_at >= NOW() - INTERVAL 1 DAY
+               THEN amount ELSE 0
+             END) AS totalAmountSentLast24Hours,
+         SUM(CASE
+               WHEN recipient_account_id = ? AND created_at >= NOW() - INTERVAL 1 DAY
+               THEN amount ELSE 0
+             END) AS totalAmountReceivedLast24Hours,
+         SUM(CASE
+               WHEN sender_account_id = ? AND DATE(created_at) = CURDATE()
+               THEN amount ELSE 0
+             END) AS totalAmountSentToday,
+         SUM(CASE
+               WHEN recipient_account_id = ? AND DATE(created_at) = CURDATE()
+               THEN amount ELSE 0
+             END) AS totalAmountReceivedToday
        FROM transactions
-       WHERE (sender_account_id = ? OR recipient_account_id = ?)
-         AND DATE(created_at) = CURDATE()`,
-      [userData[0].id, userData[0].id, userData[0].id, userData[0].id]
+       WHERE (sender_account_id = ? OR recipient_account_id = ?)`,
+      [
+        accountId, accountId, // For transactionsLast24Hours
+        accountId, accountId, // For transactionsToday
+        accountId, accountId, // For totalAmountToday
+        accountId,            // For sentTransactions
+        accountId,            // For receivedTransactions
+        accountId,            // For totalAmountSentLast24Hours
+        accountId,            // For totalAmountReceivedLast24Hours
+        accountId,            // For totalAmountSentToday
+        accountId,            // For totalAmountReceivedToday
+        id, id  // For the WHERE clause
+      ]
     );
     console.log('Transactions:', transactions);
 
     // Define daily limits based on account tier
     const dailyLimits = {
-      1: 100,   // Basic
-      2: 500,   // Standard
-      3: 1000,  // Premium
-      4: 5000,  // Gold
-      5: 10000, // Platinum
-      6: 50000, // Diamond
-      7: 100000 // Ultimate
+      1: 100,    // Basic
+      2: 500,    // Standard
+      3: 1000,   // Premium
+      4: 5000,   // Gold
+      5: 10000,  // Platinum
+      6: 50000,  // Diamond
+      7: 100000  // Ultimate
     };
 
     const dashboardData = {
       balance: userData[0].balance ?? 0,
+      spendable: userData[0].spendable ?? 0,
+      redeemable: userData[0].redeemable ?? 0,
       accountTier: userData[0].accountTier ?? 1,
       dailyLimit: dailyLimits[userData[0].accountTier] ?? 100, // Default to 100 if not found
+      transactionsLast24Hours: transactions[0].transactionsLast24Hours || 0,
+      transactionsToday: transactions[0].transactionsToday || 0,
+      totalAmountToday: transactions[0].totalAmountToday ? parseFloat(transactions[0].totalAmountToday) : 0,
       sentTransactions: transactions[0].sentTransactions || 0,
-      receivedTransactions: transactions[0].receivedTransactions || 0
+      receivedTransactions: transactions[0].receivedTransactions || 0,
+      // New fields
+      totalAmountSentLast24Hours: transactions[0].totalAmountSentLast24Hours ? parseFloat(transactions[0].totalAmountSentLast24Hours) : 0,
+      totalAmountReceivedLast24Hours: transactions[0].totalAmountReceivedLast24Hours ? parseFloat(transactions[0].totalAmountReceivedLast24Hours) : 0,
+      totalAmountSentToday: transactions[0].totalAmountSentToday ? parseFloat(transactions[0].totalAmountSentToday) : 0,
+      totalAmountReceivedToday: transactions[0].totalAmountReceivedToday ? parseFloat(transactions[0].totalAmountReceivedToday) : 0
     };
 
     console.log('Dashboard Data:', dashboardData);
@@ -207,6 +279,34 @@ router.get('/:userIdOrUsername/profile', authenticateToken, async (req, res) => 
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Add rating
+router.post('/add-rating', authenticateToken, async (req, res) => {
+  const { rateduserId, rating } = req.body;
+  try {
+      // Update the average rating
+      await db.query(
+          'INSERT INTO user_ratings (rated_user_id, user_id, rating) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE rating = ?',
+          [rateduserId, req.user.id, rating, rating]
+      );
+
+      // Recalculate the average rating
+      const [rows] = await db.query(
+          'SELECT AVG(rating) as avgRating FROM content_ratings WHERE content_id = ?',
+          [rateduserId]
+      );
+      const avgRating = rows[0].avgRating;
+
+      await db.query(
+          'UPDATE users SET rating = ? WHERE id = ?',
+          [avgRating, rateduserId]
+      );
+
+      res.status(200).json({ message: 'Rating submitted', avgRating });
+  } catch (error) {
+      res.status(500).json({ message: 'Server error' });
   }
 });
 

@@ -5,7 +5,7 @@ const authenticateToken = require('../middleware/auth');
 const router = express.Router();
 
 router.post('/send', authenticateToken, async (req, res) => {
-  const { recipientId,  amount, recipientUsername } = req.body;
+  const { recipientId,  amount, recipientUsername, sendingUsername, message, reference_id } = req.body;
   console.log("recipientAccountId: " + recipientId)
   const recipientAccountId = recipientId;
   console.log("Amount:  " + amount)
@@ -24,7 +24,11 @@ router.post('/send', authenticateToken, async (req, res) => {
         return res.status(404).json({ message: 'Account not found' });
       }
 
-      if (senderAccount[0].balance < amount) {
+      // if (senderAccount[0].balance < amount) {
+      //   await connection.rollback();
+      //   return res.status(400).json({ message: 'Insufficient funds' });
+      // }
+      if (senderAccount[0].spendable < amount) {
         await connection.rollback();
         return res.status(400).json({ message: 'Insufficient funds' });
       }
@@ -37,8 +41,8 @@ router.post('/send', authenticateToken, async (req, res) => {
       await connection.query('UPDATE accounts SET redeemable = redeemable + ? WHERE id = ?', [amount, recipientAccount[0].id]);
 
       await connection.query(
-        'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, recieving_user) VALUES (?, ?, ?, ?, ?, ?)',
-        [req.user.id, recipientId, amount, 'send', 'completed', recipientUsername]
+        'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [req.user.id, recipientId, amount, 'send', 'completed', recipientUsername, sendingUsername, message, reference_id]
       );
 
       await connection.commit();
@@ -55,9 +59,9 @@ router.post('/send', authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/recieveHistory', authenticateToken, async (req, res) => {
+router.get('/receiveHistory', authenticateToken, async (req, res) => {
   try {
-    console.log("fetch recieve history id: ", req.user.id)
+    console.log("fetch receive history id: ", req.user.id)
     const [transactions] = await db.query(
       `SELECT t.*,
        s.account_id as sender_account_id,

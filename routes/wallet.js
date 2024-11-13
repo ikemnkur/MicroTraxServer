@@ -10,16 +10,16 @@ router.post('/stripe-reload', authenticateToken, async (req, res) => {
   const data = req.body;
   console.log("Reloading amount: ", amount);
   console.log("Session ID: ", session_id);
-  
+
   try {
     // Check for duplicates
     const [rows, fields] = await db.query(
       'SELECT * FROM purchases WHERE username = ? AND amount = ? AND sessionID = ?',
       [username, amount, session_id]
     );
-    
+
     console.log("Duplicate Check Result: ", rows);
-    
+
     if (rows.length > 0) {
       // Duplicate found, send a 409 Conflict response
       return res.status(409).json({ message: 'Duplicate purchase detected' });
@@ -39,14 +39,20 @@ router.post('/stripe-reload', authenticateToken, async (req, res) => {
     const message = `${currency} order: ${amount}`
 
     await db.query(
-      'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, recieving_user, message) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      ["ACC00000000000", req.user.id, amount, 'purchase', 'complete', username, message]
+      'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [0, req.user.id, amount, 'purchase', 'complete', "System", "You", message, uuidv4()]
     );
 
 
     // Update user's coin balance
     await db.query(
       'UPDATE accounts SET balance = balance + ? WHERE user_id = ?',
+      [amount, req.user.id]
+    );
+
+    // Update user's spendable coin balance
+    await db.query(
+      'UPDATE accounts SET spendable = spendable + ? WHERE user_id = ?',
       [amount, req.user.id]
     );
 
@@ -67,16 +73,16 @@ router.post('/crypto-reload', authenticateToken, async (req, res) => {
   const data = req.body;
   console.log("Reloading amount: ", amount);
   console.log("userID: ", userId);
-  
+
   try {
     // Check for duplicates
     const [rows, fields] = await db.query(
       'SELECT * FROM purchases WHERE username = ? AND amount = ? AND transactionId = ?',
       [username, amount, transactionId]
     );
-    
+
     console.log("Duplicate Check Result: ", rows);
-    
+
     if (rows.length > 0) {
       // Duplicate found, send a 409 Conflict response
       return res.status(409).json({ message: 'Duplicate purchase detected' });
@@ -88,7 +94,7 @@ router.post('/crypto-reload', authenticateToken, async (req, res) => {
     // Insert into purchases table
     await db.query(
       'INSERT INTO purchases (username, userid, amount, reference_code, date, sessionID, transactionId, data, type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [username, req.user.id, amount, uuidv4(),  date, session_id, transactionId, JSON.stringify(data), currency, "Pending"]
+      [username, req.user.id, amount, uuidv4(), date, session_id, transactionId, JSON.stringify(data), currency, "Pending"]
     );
 
     // const [recipientAccount] = await db.query('SELECT * FROM accounts WHERE user_id = ?', [userId]);
@@ -96,13 +102,20 @@ router.post('/crypto-reload', authenticateToken, async (req, res) => {
     const message = `${currency} order: ${amount}`
 
     await db.query(
-      'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, recieving_user, message) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [0, userId, amount, 'purchase', 'pending', username, message]
+      'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [0, userId, amount, 'purchase', 'pending', "System", "You", message, uuidv4()]
     );
+
+    // Update user's spendable coin balance
+    await db.query(
+      'UPDATE accounts SET spendable = spendable + ? WHERE user_id = ?',
+      [amount, req.user.id]
+    );
+
 
     // Commit the transaction
     await db.query('COMMIT');
-    res.json({ message: 'Wallet order logged successfully' , ok: true});
+    res.json({ message: 'Wallet order logged successfully', ok: true });
   } catch (error) {
     // If there's an error, rollback the transaction
     await db.query('ROLLBACK');
@@ -136,12 +149,12 @@ router.get('/', authenticateToken, async (req, res) => {
        WHERE a.user_id = ? AND ut.end_date IS NULL`,
       [req.user.id]
     );
-    
+
 
     if (walletData.length === 0) {
       return res.status(404).json({ message: 'Wallet data not found' });
     }
-
+    console.log("Wallet Data: ", walletData)
     res.json(walletData[0]);
   } catch (error) {
     console.error('Error fetching wallet data:', error);
@@ -165,8 +178,8 @@ router.post('/withdraw', authenticateToken, async (req, res) => {
     const message = `${method} order: ${amount}`
 
     await db.query(
-      'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, recieving_user, message) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      ["ACC00000000000", req.user.id, amount, 'withdraw', 'pending', username, message]
+      'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [0, req.user.id, amount, 'withdraw', 'pending', "You", "System", message, uuidv4()]
     );
 
 
@@ -175,6 +188,13 @@ router.post('/withdraw', authenticateToken, async (req, res) => {
       'UPDATE accounts SET balance = balance - ? WHERE user_id = ?',
       [amount, req.user.id]
     );
+
+    // Update user's coin redeemable balance
+    await db.query(
+      'UPDATE accounts SET redeemable = redeemable - ? WHERE user_id = ?',
+      [amount, req.user.id]
+    );
+
     res.status(201).json({ message: 'Content added successfully', ok: true });
     res.json({ message: 'Transaction successful' });
   } catch (error) {

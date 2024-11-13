@@ -70,7 +70,7 @@ router.get('/records/:table', isAuthenticated, async (req, res) => {
   if (search) {
     const searchFields = {
       accounts: ['user_id', 'account_status', 'account_id'],
-      transactions: ['transaction_type', 'status', 'message', 'reference_id', 'recieving_user'],
+      transactions: ['transaction_type', 'status', 'message', 'reference_id', 'receiving_user'],
       withdraws: ['username', 'userid', 'reference_code', 'method'],
       purchases: ['username', 'userid', 'reference_code', 'stripe', 'type', 'status', 'transactionId'],
     };

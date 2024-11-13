@@ -2,7 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
-
+const { v4: uuidv4 } = require('uuid');
 const router = express.Router();
 
 function hashPassword(password) {
@@ -32,19 +32,19 @@ router.post('/register', async (req, res) => {
 
       const { salt, hash } = hashPassword(password);
       const accountId = `ACC${Date.now()}`;
-
+      const user_Id = uuidv4()
       // Insert user
       const [userResult] = await connection.query(
-        'INSERT INTO users (username, email, password, salt, account_id) VALUES (?, ?, ?, ?, ?)',
-        [username, email, hash, salt, accountId]
+        'INSERT INTO users (username, email, password, salt, account_id, user_id) VALUES (?, ?, ?, ?, ?, ?)',
+        [username, email, hash, salt, accountId, user_Id]
       );
       const userId = userResult.insertId;
 
       // Insert account with default balance
-      const defaultBalance = 0; // or any other default balance you want to set
+      const defaultBalance = 25; // or any other default balance you want to set
       await connection.query(
-        'INSERT INTO accounts (user_id, account_id, balance) VALUES (?, ?, ?)',
-        [userId, accountId, defaultBalance]
+        'INSERT INTO accounts (user_id, account_id, balance, userId) VALUES (?, ?, ?, ?)',
+        [userId, accountId, defaultBalance, user_Id]
       );
 
       // Check if the default tier exists
