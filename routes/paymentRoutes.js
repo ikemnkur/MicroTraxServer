@@ -26,8 +26,8 @@ router.post('/confirm-payment', authenticateToken, async (req, res) => {
     if (paymentIntent.status === 'succeeded') {
       // Update user's balance in the database
       const amountInDollars = paymentIntent.amount / 100; // Convert cents to dollars
-      await db.query('UPDATE accounts SET balance = balance + ? WHERE user_id = ?', [amountInDollars, req.user.id]);
-      await db.query('UPDATE accounts SET spendable = spendable + ? WHERE user_id = ?', [amountInDollars, req.user.id]);
+      await db.query('UPDATE accounts SET balance = balance + ? WHERE user_id = ?', [amountInDollars, req.user.user_id]);
+      await db.query('UPDATE accounts SET spendable = spendable + ? WHERE user_id = ?', [amountInDollars, req.user.user_id]);
       res.json({ success: true, message: 'Payment confirmed and balance updated' });
     } else {
       res.status(400).json({ success: false, message: 'Payment not succeeded' });

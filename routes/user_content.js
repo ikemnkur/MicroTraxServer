@@ -19,11 +19,11 @@ const pool = mysql.createPool({
 
 // Get all subscriptions for a user
 router.get('/get', authenticateToken, async (req, res) => {
-    console.log("Get Content - USER ID: ", req.user.id)
+    console.log("Get Content - USER ID: ", req.user.user_id)
     try {
       const [rows] = await db.query(
         'SELECT * FROM user_content WHERE owner_id = ?',
-        [req.user.id]
+        [req.user.user_id]
       );
       res.json(rows);
       console.log("resulting rows: "+ rows)
@@ -39,7 +39,7 @@ router.delete('/delete/:id', authenticateToken, async (req, res) => {
     try {
         await db.query(
             'DELETE FROM user_content WHERE id = ? AND owner_id = ?',
-            [req.params.id, req.user.id]
+            [req.params.id, req.user.user_id]
         );
         res.json({ message: 'Content deleted successfully' });
     } catch (error) {

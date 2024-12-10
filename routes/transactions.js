@@ -14,7 +14,7 @@ router.post('/send', authenticateToken, async (req, res) => {
     await connection.beginTransaction();
 
     try {
-      const [senderAccount] = await connection.query('SELECT * FROM accounts WHERE user_id = ?', [req.user.id]);
+      const [senderAccount] = await connection.query('SELECT * FROM accounts WHERE user_id = ?', [req.user.user_id]);
       const [recipientAccount] = await connection.query('SELECT * FROM accounts WHERE user_id = ?', [recipientAccountId]);
 
       console.log("RC: "+JSON.stringify(recipientAccount[0]))
@@ -42,7 +42,7 @@ router.post('/send', authenticateToken, async (req, res) => {
 
       await connection.query(
         'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [req.user.id, recipientId, amount, 'send', 'completed', recipientUsername, sendingUsername, message, reference_id]
+        [req.user.user_id, recipientId, amount, 'send', 'completed', recipientUsername, sendingUsername, message, reference_id]
       );
 
       await connection.commit();
@@ -61,7 +61,7 @@ router.post('/send', authenticateToken, async (req, res) => {
 
 router.get('/receiveHistory', authenticateToken, async (req, res) => {
   try {
-    console.log("fetch receive history id: ", req.user.id)
+    console.log("fetch receive history id: ", req.user.user_id)
     const [transactions] = await db.query(
       `SELECT t.*,
        s.account_id as sender_account_id,
@@ -71,7 +71,7 @@ router.get('/receiveHistory', authenticateToken, async (req, res) => {
        JOIN accounts r ON t.recipient_account_id = r.id
        WHERE r.user_id = ?
        ORDER BY t.created_at DESC`,
-      [req.user.id]
+      [req.user.user_id]
     );
     // console.log("Trx: ", transactions)
 
@@ -84,7 +84,7 @@ router.get('/receiveHistory', authenticateToken, async (req, res) => {
 
 router.get('/history', authenticateToken, async (req, res) => {
   try {
-    console.log("fetch history id: ", req.user.id)
+    console.log("fetch history id: ", req.user.user_id)
     // const [transactions] = await db.query(
     //   `SELECT t.*, 
     //           s.account_id as sender_account_id, 
@@ -94,10 +94,15 @@ router.get('/history', authenticateToken, async (req, res) => {
     //    JOIN accounts r ON t.recipient_account_id = r.id
     //    WHERE s.user_id = ? OR r.user_id = ?
     //    ORDER BY t.created_at DESC`,
-    //   [req.user.id, req.user.id]
+    //   [req.user.user_id, req.user.user_id]
     // );
-    const [transactions] = await db.query('SELECT * FROM transactions WHERE sender_account_id = ? OR recipient_account_id = ?', [req.user.id, req.user.id]);
-    // console.log("Trx: ", transactions)
+    // const [transactions] = await db.query('SELECT * FROM transactions WHERE sender_account_id = ? OR recipient_account_id = ? OR recipient_account_id = ? sender_account_id = ? ', [req.user.user_id, req.user.user_id, req.user.id, req.user.id]);
+    const [transactions] = await db.query(
+      'SELECT * FROM transactions WHERE sender_account_id = ? OR recipient_account_id = ? OR recipient_account_id = ? OR sender_account_id = ?', 
+      [req.user.user_id, req.user.user_id, req.user.id, req.user.id]
+    );
+    
+    console.log("Trx: ", transactions)
 
     res.json(transactions);
   } catch (error) {

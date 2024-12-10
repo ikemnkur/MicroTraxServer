@@ -21,7 +21,7 @@ router.get('/get', authenticateToken, async (req, res) => {
   try {
     const [rows] = await db.query(
       'SELECT * FROM public_subscriptions WHERE hostuser_id = ?',
-      [req.user.id]
+      [req.user.user_id]
     );
     if (rows.length === 0) {
       return res.status(404).json({ message: 'Subscription not found' });
@@ -35,7 +35,7 @@ router.get('/get', authenticateToken, async (req, res) => {
 
 // // Get a specific public subscription, used when sharing a subscription service
 // router.get('/sub/:id', authenticateToken, async (req, res) => {
-//   console.log("Get Subscriptions - USE ID: ", req.user.id)
+//   console.log("Get Subscriptions - USE ID: ", req.user.user_id)
 //   try {
 //     const [rows] = await pool.query(
 //       'SELECT * FROM public_subscriptions WHERE reference_id = ?',
@@ -55,12 +55,12 @@ router.get('/get', authenticateToken, async (req, res) => {
 // Corrected the typo in 'frequency'
 // Create a public Subscription
 router.post('/create', authenticateToken, async (req, res) => {
-  const {hostuser_id, title, cost, frequency, description, content, type, reference_id } = req.body;
+  const {hostuser_id, host_username, title, cost, frequency, description, content, type, reference_id } = req.body;
   console.log("create sub: ", req.body);
   try {
     const [result] = await db.query(
-      'INSERT INTO public_subscriptions (hostuser_id, reference_id, description, content, cost, frequency, title, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [hostuser_id, reference_id, description, content, cost, frequency, title, type]
+      'INSERT INTO public_subscriptions (hostuser_id, host_username, reference_id, description, content, cost, frequency, title, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [hostuser_id, host_username, reference_id, description, content, cost, frequency, title, type]
     );
     res.status(201).json({ id: result.insertId, message: 'Subscription created successfully' });
   } catch (error) {
@@ -71,7 +71,7 @@ router.post('/create', authenticateToken, async (req, res) => {
 
 // // Get a specific public subscription, used when sharing a subscription service
 // router.get('/get', authenticateToken, async (req, res) => {
-//   console.log("Get Subscriptions- USE ID: ", req.user.id)
+//   console.log("Get Subscriptions- USE ID: ", req.user.user_id)
   
 // });
 
@@ -100,7 +100,7 @@ router.delete('/delete/:id', authenticateToken, async (req, res) => {
   try {
     const [result] = await db.query(
       'DELETE FROM public_subscriptions WHERE id = ? AND hostuser_id = ?',
-      [req.params.id, req.user.id]
+      [req.params.id, req.user.user_id]
     );
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Subscription not found or you do not have permission to delete it' });

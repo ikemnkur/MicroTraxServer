@@ -2,6 +2,7 @@ require('dotenv').config();
 const path = require('path');
 const cors = require('cors');
 const express = require('express');
+const db = require('./config/db');
 // const session = require('express-session');
 const bodyParser = require('body-parser');
 const geoip = require('geoip-lite');
@@ -94,7 +95,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/user-subscriptions', userSubscriptionRoute);
 app.use('/api/public-subscriptions', publicSubscriptionRoute);
 app.use('/api/wallet', wallet);
-app.use('/api/users', searchForUsers);
+app.use('/api/searchForUsers', searchForUsers);
 app.use('/api/messages', messageRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/unlock', unlock);
@@ -402,7 +403,7 @@ app.post('/api/submit-order', async (req, res) => {
    // Insert into purchases table
    await db.query(
     'INSERT INTO purchases (username, userid, amount, reference_code, stripe, date, sessionID, formdata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [username, req.user.id, amount, uuidv4(), stripe, date, session_id, formdata]
+    [username, req.user.user_id, amount, uuidv4(), stripe, date, session_id, formdata]
   );
 
 

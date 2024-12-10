@@ -14,7 +14,7 @@ router.get('/search', authenticateToken, async (req, res) => {
 
   try {
     const [users] = await db.query(
-      `SELECT id, username, profilePic
+      `SELECT id, username, profilePic, user_id, accountTier, rating
        FROM users
        WHERE username LIKE ?
        LIMIT 10`,
@@ -37,7 +37,7 @@ router.get('/users/search', authenticateToken, async (req, res) => {
 
   try {
     const [users] = await db.query(
-      `SELECT id, username, avatar
+      `SELECT id, username, avatar, user_id, rating, accountTier
        FROM users
        WHERE username LIKE ?
        LIMIT 10`,

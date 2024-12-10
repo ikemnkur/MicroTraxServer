@@ -21,7 +21,7 @@ router.get('/get', authenticateToken, async (req, res) => {
     try {
         const [rows] = await db.query(
             'SELECT * FROM public_content WHERE host_user_id = ?',
-            [req.user.id]
+            [req.user.user_id]
         );
         if (rows.length === 0) {
             return res.status(404).json({ message: 'Public Content not found' });
@@ -40,7 +40,7 @@ router.post('/create', authenticateToken, async (req, res) => {
     try {
         await db.query(
             'INSERT INTO public_content (title, cost, description, content, type, host_username, host_user_id, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [title, cost, description, JSON.stringify({ content }), type, username, req.user.id, uuidv4()]
+            [title, cost, description, JSON.stringify({ content }), type, username, req.user.user_id, uuidv4()]
         );
         res.status(201).json({ message: 'Content added successfully' });
     } catch (error) {
@@ -75,7 +75,7 @@ router.delete('/delete/:id', authenticateToken, async (req, res) => {
     try {
         await db.query(
             'DELETE FROM public_content WHERE id = ? AND host_user_id = ?',
-            [req.params.id, req.user.id]
+            [req.params.id, req.user.user_id]
         );
         res.json({ message: 'Content deleted successfully' });
     } catch (error) {

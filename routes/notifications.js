@@ -10,7 +10,7 @@ router.get('/', authenticateToken, async (req, res) => {
   try {
     const [notifications] = await db.query(
       'SELECT * FROM notifications WHERE recipient_user_id = ? ORDER BY created_at DESC',
-      [req.user.id]
+      [req.user.user_id]
     );
 
     res.json(notifications);
@@ -44,7 +44,7 @@ router.delete('/delete/:id', authenticateToken, async (req, res) => {
   try {
     const [result] = await db.query(
       'DELETE FROM notifications WHERE id = ? AND recipient_user_id = ?',
-      [notificationId, req.user.id]
+      [notificationId, req.user.user_id]
     );
 
     if (result.affectedRows === 0) {

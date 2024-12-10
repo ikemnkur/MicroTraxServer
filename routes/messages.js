@@ -8,14 +8,14 @@ router.get('/conversations', authenticateToken, async (req, res) => {
     try {
         const [conversations] = await db.query(`
             SELECT c.id, c.created_at, 
-                   GROUP_CONCAT(CASE WHEN u.id != ? THEN u.username END) AS other_participants
+                   GROUP_CONCAT(CASE WHEN u.user_id != ? THEN u.username END) AS other_participants
             FROM conversations c
             JOIN conversation_participants cp ON c.id = cp.conversation_id
-            JOIN users u ON cp.user_id = u.id
+            JOIN users u ON cp.user_id = u.user_id
             WHERE c.id IN (SELECT conversation_id FROM conversation_participants WHERE user_id = ?)
             GROUP BY c.id
             ORDER BY c.created_at DESC
-        `, [req.user.id, req.user.id]);
+        `, [req.user.user_id, req.user.user_id]);
 
         res.json(conversations);
     } catch (error) {
@@ -30,7 +30,7 @@ router.get('/conversations/:conversationId/messages', authenticateToken, async (
         const [messages] = await db.query(`
             SELECT m.id, m.content, m.created_at, u.username as sender_username
             FROM messages m
-            JOIN users u ON m.sender_id = u.id
+            JOIN users u ON m.sender_id = u.user_id
             WHERE m.conversation_id = ?
             ORDER BY m.created_at ASC
         `, [req.params.conversationId]);
@@ -49,7 +49,7 @@ router.post('/conversations/:conversationId/messages', authenticateToken, async 
 
     try {
         await db.query('INSERT INTO messages (conversation_id, sender_id, content) VALUES (?, ?, ?)', 
-            [conversationId, req.user.id, content]);
+            [conversationId, req.user.user_id, content]);
 
         res.status(201).json({ message: 'Message sent successfully' });
     } catch (error) {
@@ -82,7 +82,7 @@ router.post('/conversations', authenticateToken, async (req, res) => {
                 JOIN conversation_participants cp1 ON c.id = cp1.conversation_id
                 JOIN conversation_participants cp2 ON c.id = cp2.conversation_id
                 WHERE cp1.user_id = ? AND cp2.user_id = ?
-            `, [req.user.id, otherUserId]);
+            `, [req.user.user_id, otherUserId]);
 
             let conversationId;
 
@@ -95,7 +95,7 @@ router.post('/conversations', authenticateToken, async (req, res) => {
 
                 // Add participants
                 await connection.query('INSERT INTO conversation_participants (conversation_id, user_id) VALUES (?, ?), (?, ?)', 
-                    [conversationId, req.user.id, conversationId, otherUserId]);
+                    [conversationId, req.user.user_id, conversationId, otherUserId]);
             }
 
             await connection.commit();

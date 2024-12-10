@@ -28,7 +28,7 @@ router.get('/user-content', authenticateToken, async (req, res) => {
     try {
         const [content] = await db.query(
             'SELECT * FROM user_content WHERE onwer_id = ?',
-            [req.user.id]
+            [req.user.user_id]
         );
         res.json(content);
     } catch (error) {
@@ -43,7 +43,7 @@ router.post('/add-public-content', authenticateToken, async (req, res) => {
     try {
         await db.query(
             'INSERT INTO public_content (title, cost, description, content, type, host_username, host_user_id, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [title, cost, description, JSON.stringify({ content }), type, username, req.user.id, uuidv4()]
+            [title, cost, description, JSON.stringify({ content }), type, username, req.user.user_id, uuidv4()]
         );
         res.status(201).json({ message: 'Content added successfully' });
     } catch (error) {
@@ -77,7 +77,7 @@ router.delete('/delete-public-content/:id', authenticateToken, async (req, res) 
     try {
         await db.query(
             'DELETE FROM public_content WHERE id = ? AND host_user_id = ?',
-            [req.params.id, req.user.id]
+            [req.params.id, req.user.user_id]
         );
         res.json({ message: 'Content deleted successfully' });
     } catch (error) {
@@ -90,7 +90,7 @@ router.delete('/delete-your-content/:id', authenticateToken, async (req, res) =>
     try {
         await db.query(
             'DELETE FROM user_content WHERE id = ? AND host_user_id = ?',
-            [req.params.id, req.user.id]
+            [req.params.id, req.user.user_id]
         );
         res.json({ message: 'Content deleted successfully' });
     } catch (error) {

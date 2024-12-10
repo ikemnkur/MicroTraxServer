@@ -16,11 +16,11 @@ const pool = mysql.createPool({
 
 // Get all subscriptions for a user
 router.get('/get', authenticateToken, async (req, res) => {
-  console.log("Get Subscriptions- USER ID: ", req.user.id)
+  console.log("Get Subscriptions- USER ID: ", req.user.user_id)
   try {
     const [rows] = await pool.query(
       'SELECT * FROM user_subscriptions WHERE user_id = ?',
-      [req.user.id]
+      [req.user.user_id]
     );
     res.json(rows);
     console.log("resulting rows: "+ rows)
@@ -32,11 +32,11 @@ router.get('/get', authenticateToken, async (req, res) => {
 
 // Get a specific public subscription, used when sharing a subscription service
 router.get('/:id', authenticateToken, async (req, res) => {
-  console.log("Get Subscriptions- USE ID: ", req.user.id)
+  console.log("Get Subscriptions- USE ID: ", req.user.user_id)
   try {
     const [rows] = await pool.query(
       'SELECT * FROM public_subscriptions WHERE id = ? AND user_id = ?',
-      [req.params.id, req.user.id]
+      [req.params.id, req.user.user_id]
     );
     if (rows.length === 0) {
       return res.status(404).json({ message: 'Subscription not found' });
@@ -50,11 +50,11 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 // Get a specific public subscription, used when sharing a subscription service
 router.get('/:id', authenticateToken, async (req, res) => {
-  console.log("Get Subscriptions- USE ID: ", req.user.id)
+  console.log("Get Subscriptions- USE ID: ", req.user.user_id)
   try {
     const [rows] = await pool.query(
       'SELECT * FROM public_subscriptions WHERE id = ? AND user_id = ?',
-      [req.params.id, req.user.id]
+      [req.params.id, req.user.user_id]
     );
     if (rows.length === 0) {
       return res.status(404).json({ message: 'Subscription not found' });
@@ -72,7 +72,7 @@ router.delete('/delete/:id', authenticateToken, async (req, res) => {
   try {
     const [result] = await pool.query(
       'DELETE FROM user_subscriptions WHERE id = ? AND user_id = ?',
-      [req.params.id, req.user.id]
+      [req.params.id, req.user.user_id]
     );
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Subscription not found or you do not have permission to delete it' });

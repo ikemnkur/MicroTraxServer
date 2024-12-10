@@ -10,12 +10,12 @@ const router = express.Router();
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const [users] = await db.query(
-      `SELECT u.id, u.username, u.email, u.firstName, u.lastName, u.phoneNumber, u.birthDate, u.unlocks, u.subscriptions,
+      `SELECT u.user_id, u.username, u.email, u.user_id, u.firstName, u.lastName, u.phoneNumber, u.birthDate, u.unlocks, u.subscriptions,
               u.accountTier, a.balance, a.spendable, a.redeemable, u.bio, u.encryptionKey, u.account_id
        FROM users u
-       LEFT JOIN accounts a ON u.id = a.user_id
-       WHERE u.id = ?`,
-      [req.user.id]
+       LEFT JOIN accounts a ON u.user_id = a.user_id
+       WHERE u.user_id = ?`,
+      [req.user.user_id]
     );
     
     if (users.length === 0) {
@@ -41,8 +41,8 @@ router.put('/profile', authenticateToken, async (req, res) => {
     try {
       // Update user information
       await connection.query(
-        'UPDATE users SET username = ?, email = ?, firstName = ?, lastName = ?, phoneNumber = ?, birthDate = ?, encryptionKey = ?, profilePic = ?, accountTier = ? WHERE id = ?',
-        [username, email, firstName, lastName, phoneNumber, birthDate, encryptionKey, profilePic, accountTier, req.user.id]
+        'UPDATE users SET username = ?, email = ?, firstName = ?, lastName = ?, phoneNumber = ?, birthDate = ?, encryptionKey = ?, profilePic = ?, accountTier = ? WHERE user_id = ?',
+        [username, email, firstName, lastName, phoneNumber, birthDate, encryptionKey, profilePic, accountTier, req.user.user_id]
       );
 
       console.log()
@@ -70,8 +70,8 @@ router.put('/user-data', authenticateToken, async (req, res) => {
     try {
       // Update user information
       await connection.query(
-        'UPDATE users SET data = ? WHERE id = ?',
-        [data, req.user.id]
+        'UPDATE users SET data = ? WHERE user_id = ?',
+        [data, req.user.user_id]
       );
       console.log()
       await connection.commit();
@@ -93,7 +93,7 @@ router.get('/user-balance', authenticateToken, async (req, res) => {
   try {
     const [account] = await db.query(
       'SELECT balance, spendable, redeemable FROM accounts WHERE user_id = ?',
-      [req.user.id]
+      [req.user.user_id]
     );
     if (account.length === 0) {
       return res.status(404).json({ message: 'Account not found' });
@@ -107,17 +107,17 @@ router.get('/user-balance', authenticateToken, async (req, res) => {
 
 router.get('/dashboard', authenticateToken, async (req, res) => {
   try {
-    console.log('User ID from token:', req.user.id);
+    console.log('User ID from token:', req.user.user_id);
     console.log('req.user:', req.user);
     
     
     // Fetch user data along with account ID
     const [userData] = await db.query(
-      `SELECT u.id AS userId, a.id AS accountId, a.balance, u.accountTier
+      `SELECT u.user_id AS userId, a.id AS accountId, a.balance, u.accountTier
        FROM users u
-       LEFT JOIN accounts a ON u.id = a.user_id
-       WHERE u.id = ?`,
-      [req.user.id]
+       LEFT JOIN accounts a ON u.user_id = a.user_id
+       WHERE u.user_id = ?`,
+      [req.user.user_id]
     );
     console.log('User Data:', userData);
 
@@ -231,31 +231,71 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
 });
 
 // 1. GET /user/:userIdOrUsername/profile - Fetch user profile
-router.get('/:userIdOrUsername/profile', authenticateToken, async (req, res) => {
+router.get('/:username/profile', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.params;
+    let query, params;
+    console.log(username);
+
+    // Check if the parameter is a number (userId) or a string (username)
+    
+      // It's a username
+      query = `
+        SELECT u.user_id, u.username, u.email, u.accountTier, u.favorites, u.bio, u.rating, u.user_id
+        FROM users u
+        LEFT JOIN accounts a ON u.user_id = a.user_id
+        WHERE u.username = ?
+      `;
+      params = [username];
+    
+
+    const [users] = await db.query(query, params);
+
+    if (users.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const user = users[0];
+
+    // Check if the viewed user is in the current user's favorites
+    const isFavorite = user.favorites ? JSON.parse(user.favorites).includes(req.user.user_id) : false;
+
+    // Remove sensitive information before sending
+    delete user.password;
+    delete user.salt;
+
+    res.json({ ...user, isFavorite });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// 1. GET /user/:userIdOrUsername/profile - Fetch user profile
+router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) => {
   try {
     const { userIdOrUsername } = req.params;
     let query, params;
-    console.log(userIdOrUsername);
+    console.log("/id/:userIdOrUsername/profile: ", userIdOrUsername);
 
+  
     // Check if the parameter is a number (userId) or a string (username)
     if (/^\d+$/.test(userIdOrUsername)) {
       // It's a userId
       query = `
-        SELECT u.id, u.username, u.email, u.firstName, u.lastName, u.phoneNumber, u.birthDate,
-               a.balance, u.accountTier, u.favorites, u.bio
+        SELECT u.user_id, u.username, u.email, a.balance, u.accountTier, u.favorites, u.bio, u.rating, u.user_id
         FROM users u
-        LEFT JOIN accounts a ON u.id = a.user_id
-        WHERE u.id = ?
+        LEFT JOIN accounts a ON u.user_id = a.user_id
+        WHERE u.user_id = ?
       `;
       params = [userIdOrUsername];
     } else {
       // It's a username
       query = `
-        SELECT u.id, u.username, u.email, u.firstName, u.lastName, u.phoneNumber, u.birthDate,
-               a.balance, u.accountTier, u.favorites, u.bio
+         SELECT u.user_id, u.username, u.email, a.balance, u.accountTier, u.favorites, u.bio, u.rating, u.user_id
         FROM users u
-        LEFT JOIN accounts a ON u.id = a.user_id
-        WHERE u.username = ?
+        LEFT JOIN accounts a ON u.user_id = a.user_id
+        WHERE u.user_id = ?
       `;
       params = [userIdOrUsername];
     }
@@ -269,7 +309,7 @@ router.get('/:userIdOrUsername/profile', authenticateToken, async (req, res) => 
     const user = users[0];
 
     // Check if the viewed user is in the current user's favorites
-    const isFavorite = user.favorites ? JSON.parse(user.favorites).includes(req.user.id) : false;
+    const isFavorite = user.favorites ? JSON.parse(user.favorites).includes(req.user.user_id) : false;
 
     // Remove sensitive information before sending
     delete user.password;
@@ -284,14 +324,14 @@ router.get('/:userIdOrUsername/profile', authenticateToken, async (req, res) => 
 
 // Add rating
 router.post('/add-rating', authenticateToken, async (req, res) => {
-  const { rateduserId, rating } = req.body;
+  const { rateduserId, rating, user_id } = req.body;
   try {
       // Update the average rating
       await db.query(
           'INSERT INTO user_ratings (rated_user_id, user_id, rating) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE rating = ?',
-          [rateduserId, req.user.id, rating, rating]
+          [rateduserId, req.user.user_id, rating]
       );
-
+      console.log("Rating Posted: ", rating)
       // Recalculate the average rating
       const [rows] = await db.query(
           'SELECT AVG(rating) as avgRating FROM content_ratings WHERE content_id = ?',
@@ -321,7 +361,7 @@ router.put('/:userId/favorite', authenticateToken, async (req, res) => {
 
     try {
       // Get current user's favorites
-      const [users] = await connection.query('SELECT favorites FROM users WHERE id = ?', [req.user.id]);
+      const [users] = await connection.query('SELECT favorites FROM users WHERE id = ?', [req.user.user_id]);
       let favorites = users[0].favorites ? JSON.parse(users[0].favorites) : [];
 
       if (isFavorite) {
@@ -335,7 +375,7 @@ router.put('/:userId/favorite', authenticateToken, async (req, res) => {
       }
 
       // Update favorites
-      await connection.query('UPDATE users SET favorites = ? WHERE id = ?', [JSON.stringify(favorites), req.user.id]);
+      await connection.query('UPDATE users SET favorites = ? WHERE id = ?', [JSON.stringify(favorites), req.user.user_id]);
 
       await connection.commit();
       res.json({ message: isFavorite ? 'User added to favorites' : 'User removed from favorites' });
@@ -359,7 +399,7 @@ router.post('/:userId/report', authenticateToken, async (req, res) => {
   try {
     await db.query(
       'INSERT INTO user_reports (reporter_id, reported_user_id, report_message) VALUES (?, ?, ?)',
-      [req.user.id, reportedUserId, reportMessage]
+      [req.user.user_id, reportedUserId, reportMessage]
     );
 
     res.status(201).json({ message: 'Report submitted successfully' });

@@ -31,29 +31,29 @@ router.post('/stripe-reload', authenticateToken, async (req, res) => {
     // Insert into purchases table
     await db.query(
       'INSERT INTO purchases (username, userid, amount, reference_code, date, sessionID, formdata, type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [username, req.user.id, amount, uuidv4(), date, session_id, formdata, "stripe", "Complete"]
+      [username, req.user.user_id, amount, uuidv4(), date, session_id, formdata, "stripe", "Complete"]
     );
 
-    // const [recipientAccount] = await db.query('SELECT * FROM accounts WHERE user_id = ?', [req.user.id]);
+    // const [recipientAccount] = await db.query('SELECT * FROM accounts WHERE user_id = ?', [req.user.user_id]);
 
     const message = `${currency} order: ${amount}`
 
     await db.query(
       'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [0, req.user.id, amount, 'purchase', 'complete', "System", "You", message, uuidv4()]
+      [0, req.user.user_id, amount, 'purchase', 'complete', "System", "You", message, uuidv4()]
     );
 
 
     // Update user's coin balance
     await db.query(
       'UPDATE accounts SET balance = balance + ? WHERE user_id = ?',
-      [amount, req.user.id]
+      [amount, req.user.user_id]
     );
 
     // Update user's spendable coin balance
     await db.query(
       'UPDATE accounts SET spendable = spendable + ? WHERE user_id = ?',
-      [amount, req.user.id]
+      [amount, req.user.user_id]
     );
 
     // Commit the transaction
@@ -94,7 +94,7 @@ router.post('/crypto-reload', authenticateToken, async (req, res) => {
     // Insert into purchases table
     await db.query(
       'INSERT INTO purchases (username, userid, amount, reference_code, date, sessionID, transactionId, data, type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [username, req.user.id, amount, uuidv4(), date, session_id, transactionId, JSON.stringify(data), currency, "Pending"]
+      [username, req.user.user_id, amount, uuidv4(), date, session_id, transactionId, JSON.stringify(data), currency, "Pending"]
     );
 
     // const [recipientAccount] = await db.query('SELECT * FROM accounts WHERE user_id = ?', [userId]);
@@ -109,7 +109,7 @@ router.post('/crypto-reload', authenticateToken, async (req, res) => {
     // Update user's spendable coin balance
     await db.query(
       'UPDATE accounts SET spendable = spendable + ? WHERE user_id = ?',
-      [amount, req.user.id]
+      [amount, req.user.user_id]
     );
 
 
@@ -124,43 +124,86 @@ router.post('/crypto-reload', authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/', authenticateToken, async (req, res) => {
+// router.get('/', authenticateToken, async (req, res) => {
+//   try {
+
+//     let user_id = req.params.ud.user_id
+//     console.log("user_id: " , req.body)
+    
+//     // const [walletData] = await db.query(
+//     //   `SELECT a.balance, at.name as accountTier, at.daily_transaction_limit, at.spendable, at.redeemable,
+//     //    FROM accounts a
+//     //    JOIN user_tiers ut ON a.user_id = ut.user_id
+//     //    JOIN account_tiers at ON ut.tier_id = at.id
+//     //    WHERE a.user_id = ? AND ut.end_date IS NULL`,
+//     //   [req.user.user_id]
+//     // );
+
+//     // const [walletData] = await db.query(
+//     //   `SELECT 
+//     //      a.balance, 
+//     //      a.spendable, 
+//     //      a.redeemable,
+//     //      at.name AS accountTier, 
+//     //      at.daily_transaction_limit
+         
+//     //    FROM accounts a
+//     //    JOIN user_tiers ut ON a.user_id = ut.user_id
+//     //    JOIN account_tiers at ON ut.tier_id = at.id
+//     //    WHERE a.user_id = ? AND ut.end_date IS NULL`,
+//     //   [req.user.user_id]
+//     // );
+
+
+//     const [walletData] = await db.query(
+//       `SELECT 
+//          a.balance, 
+//          a.spendable, 
+//          a.redeemable,      
+//        WHERE a.user_id = ?`,
+//       [user_id]
+//     );
+
+
+
+//     if (walletData.length === 0) {
+//       return res.status(404).json({ message: 'Wallet data not found' });
+//     }
+//     console.log("Wallet Data: ", walletData)
+//     res.json(walletData[0]);
+//   } catch (error) {
+//     console.error('Error fetching wallet data:', error);
+//     res.status(500).json({ message: 'Server error' });
+//   }
+// });
+
+router.post('/', authenticateToken, async (req, res) => {
   try {
-    // const [walletData] = await db.query(
-    //   `SELECT a.balance, at.name as accountTier, at.daily_transaction_limit, at.spendable, at.redeemable,
-    //    FROM accounts a
-    //    JOIN user_tiers ut ON a.user_id = ut.user_id
-    //    JOIN account_tiers at ON ut.tier_id = at.id
-    //    WHERE a.user_id = ? AND ut.end_date IS NULL`,
-    //   [req.user.id]
-    // );
+    const { user_id } = req.body;
+    console.log("Received user_id:", req.user.user_id);
 
     const [walletData] = await db.query(
       `SELECT 
          a.balance, 
          a.spendable, 
-         a.redeemable,
-         at.name AS accountTier, 
-         at.daily_transaction_limit
-         
+         a.redeemable
        FROM accounts a
-       JOIN user_tiers ut ON a.user_id = ut.user_id
-       JOIN account_tiers at ON ut.tier_id = at.id
-       WHERE a.user_id = ? AND ut.end_date IS NULL`,
-      [req.user.id]
+       WHERE a.user_id = ?`,
+      [req.user.user_id]
     );
-
 
     if (walletData.length === 0) {
       return res.status(404).json({ message: 'Wallet data not found' });
     }
-    console.log("Wallet Data: ", walletData)
+
+    console.log("Wallet Data: ", walletData);
     res.json(walletData[0]);
   } catch (error) {
     console.error('Error fetching wallet data:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
+
 
 router.post('/withdraw', authenticateToken, async (req, res) => {
   const { username, amount, date, method } = req.body;
@@ -170,29 +213,29 @@ router.post('/withdraw', authenticateToken, async (req, res) => {
 
     await db.query(
       'INSERT INTO withdraws (username, userid, amount, reference_code, method, formdata) VALUES (?, ?, ?, ?, ?, ?)',
-      [username, req.user.id, amount, uuidv4(), method, JSON.stringify(data)]
+      [username, req.user.user_id, amount, uuidv4(), method, JSON.stringify(data)]
     );
 
-    // const [recipientAccount] = await db.query('SELECT * FROM accounts WHERE user_id = ?', [req.user.id]);
+    // const [recipientAccount] = await db.query('SELECT * FROM accounts WHERE user_id = ?', [req.user.user_id]);
 
     const message = `${method} order: ${amount}`
 
     await db.query(
       'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [0, req.user.id, amount, 'withdraw', 'pending', "You", "System", message, uuidv4()]
+      [0, req.user.user_id, amount, 'withdraw', 'pending', "You", "System", message, uuidv4()]
     );
 
 
     // Update user's coin balance
     await db.query(
       'UPDATE accounts SET balance = balance - ? WHERE user_id = ?',
-      [amount, req.user.id]
+      [amount, req.user.user_id]
     );
 
     // Update user's coin redeemable balance
     await db.query(
       'UPDATE accounts SET redeemable = redeemable - ? WHERE user_id = ?',
-      [amount, req.user.id]
+      [amount, req.user.user_id]
     );
 
     res.status(201).json({ message: 'Content added successfully', ok: true });
