@@ -88,7 +88,7 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
         // Get the username of the sender and receiver
         const [sending_user_rows] = await connection.query(
             'SELECT username FROM users WHERE user_id = ?',
-            [content.user_id]
+            [req.user.user_id]
         );
         // const sending_use = await connection.query(
         //     'SELECT username FROM users WHERE user_id = ?',
@@ -113,12 +113,12 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
 
         
         // Record the transactions
-        await connection.query(
-            'INSERT INTO transactions (username, userid, amount) VALUES (?, ?, ?)',
-            [sending_user, req.user.user_id, Math.floor(Math.random() * 100)]
-        );
+        // await connection.query(
+        //     'INSERT INTO transactions (username, userid, amount) VALUES (?, ?, ?)',
+        //     [sending_user, req.user.user_id, Math.floor(Math.random() * 100)]
+        // );
 
-        console.log("First transaction recorded");
+        // console.log("First transaction recorded");
 
         await connection.query(
             `INSERT INTO transactions 

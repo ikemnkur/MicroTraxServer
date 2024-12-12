@@ -177,6 +177,33 @@ router.post('/crypto-reload', authenticateToken, async (req, res) => {
 //   }
 // });
 
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    
+    console.log("Received user_id:", req.user.user_id);
+
+    const [walletData] = await db.query(
+      `SELECT 
+         a.balance, 
+         a.spendable, 
+         a.redeemable
+       FROM accounts a
+       WHERE a.user_id = ?`,
+      [req.user.user_id]
+    );
+
+    if (walletData.length === 0) {
+      return res.status(404).json({ message: 'Wallet data not found' });
+    }
+
+    console.log("Wallet Data: ", walletData);
+    res.json(walletData[0]);
+  } catch (error) {
+    console.error('Error fetching wallet data:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 router.post('/', authenticateToken, async (req, res) => {
   try {
     const { user_id } = req.body;
