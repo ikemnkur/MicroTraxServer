@@ -23,6 +23,7 @@ const userContent = require('./routes/user_content');
 const unlock = require('./routes/unlock');
 const subscrybe = require('./routes/subscrybe');
 const notifications = require('./routes/notifications');
+const crypto = require('./routes/crypto');
 
 const app = express();
 
@@ -104,6 +105,7 @@ app.use('/api/content', content);
 app.use('/api/public-content', publicContent);
 app.use('/api/user-content', userContent);
 app.use('/api/notifications', notifications);
+app.use('/api/crypto', crypto);
 
 // Serve static files from a 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));

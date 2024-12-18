@@ -102,7 +102,7 @@ router.get('/history', authenticateToken, async (req, res) => {
       [req.user.user_id, req.user.user_id, req.user.id, req.user.id]
     );
     
-    console.log("Trx: ", transactions)
+    // console.log("Trx: ", transactions)
 
     res.json(transactions);
   } catch (error) {

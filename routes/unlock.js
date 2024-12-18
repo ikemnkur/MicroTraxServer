@@ -111,12 +111,13 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
+        console.log("Unlock Content: ", content)
         
         // Record the transactions
-        // await connection.query(
-        //     'INSERT INTO transactions (username, userid, amount) VALUES (?, ?, ?)',
-        //     [sending_user, req.user.user_id, Math.floor(Math.random() * 100)]
-        // );
+        await connection.query(
+            'INSERT INTO user_content (owner_username, owner_id, title, cost, description, content, host_username, host_user_id, type, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [sending_user, req.user.user_id, content.title, content.cost, content.description, content.content, content.host_username, content.host_user_id, content.type, content.reference_id]
+        );
 
         // console.log("First transaction recorded");
 
@@ -125,7 +126,7 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
             (sender_account_id, recipient_account_id, amount, transaction_type, status, reference_id, message, receiving_user, sending_user) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-                account.id,
+                req.user.user_id,
                 content.host_user_id,
                 content.cost,
                 'unlock-content',
@@ -137,7 +138,7 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
             ]
         );
 
-        console.log("Second transaction recorded");
+        console.log(" transaction recorded");
 
         // Increment unlock count for the public content
         await connection.query(
@@ -428,7 +429,7 @@ router.post('/add-like', authenticateToken, async (req, res) => {
         } else {
             // No existing entry, insert new
             await db.query(
-                'INSERT INTO content_ratings (content_id, user_id, like_status) VALUES (?, ?, ?)',
+                'INSERT INTO content_ratings (content_id, user_id, like_status) VALUES (?, ?, ?, ?)',
                 [contentId, req.user.user_id, 1]
             );
             // Increment total likes
@@ -490,8 +491,8 @@ router.post('/add-dislike', authenticateToken, async (req, res) => {
         } else {
             // No existing entry, insert new
             await db.query(
-                'INSERT INTO content_ratings (content_id, user_id, like_status) VALUES (?, ?, ?)',
-                [contentId, req.user.user_id, -1]
+                'INSERT INTO content_ratings (content_id, userid, user_id, like_status) VALUES (?, ?, ?, ?)',
+                [contentId, req.user.id, req.user.user_id, -1]
             );
             // Increment total dislikes
             await db.query(
@@ -510,27 +511,29 @@ router.post('/add-dislike', authenticateToken, async (req, res) => {
 // Add rating
 router.post('/add-rating', authenticateToken, async (req, res) => {
     const { contentId, rating } = req.body;
-    try {
+    try {console.log("0")
         // Update the average rating
         await db.query(
-            'INSERT INTO content_ratings (content_id, user_id, rating) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE rating = ?',
-            [contentId, req.user.user_id, rating, rating]
+            'INSERT INTO content_ratings (content_id, userid, user_id, rating) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE rating = ?',
+            [contentId, req.user.id, req.user.user_id, rating, rating]
         );
-
+        console.log("1")
         // Recalculate the average rating
         const [rows] = await db.query(
             'SELECT AVG(rating) as avgRating FROM content_ratings WHERE content_id = ?',
             [contentId]
         );
         const avgRating = rows[0].avgRating;
-
+        console.log("rating: " , rating)
         await db.query(
             'UPDATE public_content SET rating = ? WHERE id = ?',
             [avgRating, contentId]
         );
-
+        console.log("3")
         res.status(200).json({ message: 'Rating submitted', avgRating });
+        console.log("4")
     } catch (error) {
+        console.log(error)
         res.status(500).json({ message: 'Server error' });
     }
 });
