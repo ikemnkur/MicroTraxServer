@@ -10,6 +10,49 @@ const router = express.Router();
 // e.g., 'http://localhost:3000/validate-payment' or wherever your microservice runs
 const VALIDATION_SERVICE_URL = 'http://localhost:6000/validate-payment';
 
+function validateTransaction(requestBody, validationData) {
+    const {
+        walletAddress,
+        transactionId,
+        cryptoAmount
+    } = requestBody;
+
+    // Convert the requested LTC amount to litoshis
+    const requiredLitoshis = Math.floor(parseFloat(cryptoAmount) * 1e8);
+
+    // Extract the transaction data from the validationData
+    // The structure: validationData.data.<txid>.transaction and validationData.data.<txid>.outputs
+    const txData = validationData.data && validationData.data[transactionId];
+    if (!txData) {
+        return { valid: false, message: "Transaction not found in API response." };
+    }
+
+    const { transaction, outputs } = txData;
+    if (!transaction || !outputs) {
+        return { valid: false, message: "Invalid transaction structure." };
+    }
+
+    // Check if transaction is confirmed (optional)
+    // For Litecoin on Blockchair, a confirmed transaction should have a block_id.
+    // If you want to ensure it has at least one confirmation, you can check if block_id is not null.
+    if (!transaction.block_id) {
+        return { valid: false, message: "Transaction not confirmed yet." };
+    }
+
+    // Look for an output that matches the user's walletAddress with enough funds
+    const matchingOutput = outputs.find(output =>
+        output.recipient === walletAddress && output.value >= requiredLitoshis
+    );
+
+    if (!matchingOutput) {
+        return { valid: false, message: "No matching output found with the required amount." };
+    }
+
+    // If we reach this point, we found a valid output that matches the address and amount
+    return { valid: true, message: "Transaction is valid and meets the required criteria." };
+}
+
+
 router.post('/validate-transaction', authenticateToken, async (req, res) => {
     /**
      * The data structure in req.body is something like:
@@ -50,78 +93,134 @@ router.post('/validate-transaction', authenticateToken, async (req, res) => {
     //    If your microservice uses subaddress indexes or additional fields,
     //    adapt accordingly.
 
-    let url;
-    let validationResponse;
+    // let url;
+    // let validationResponse;
 
     try {
-
-        if (currency = "LTC")
+        // Assuming currency and transactionId are defined and available
+        let url;
+    
+        if (currency === "LTC") {
             url = `https://api.blockchair.com/litecoin/dashboards/transaction/${transactionId}`;
-        if (currency = "XMR")
+        } else if (currency === "XMR") {
             url = `https://xmrchain.net/api/transaction/${transactionId}`;
-        if (currency = "BTC")
+        } else if (currency === "BTC") {
             url = `https://api.blockchair.com/bitcoin/dashboards/transaction/${transactionId}`;
+        } else {
+            throw new Error("Unsupported currency");
+        }
+    
+        // Perform the fetch using await
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Network response was not OK: ${response.statusText}`);
+        }
+    
+        const data = await response.json();
+    
+        console.log("Response: ", data.data);
+    
+        // If you need to store this in validationResponse or do something else with it:
+        // const validationResponse = data;
+    
+        // The validationData would be the JSON response from the Blockchair API shown above.
+        const validationData = data;
 
-        // const validationResponse = await axios.get(url)
+        // Call the function:
+        const result = validateTransaction(req.body, validationData);
+        console.log(result);
 
-        fetch(url)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Network response was not OK: ${response.statusText}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                // Display the JSON result
-                validationResponse = data
-            })
-            .catch(error => {
-                // document.getElementById('result').textContent = 'Error: ' + error.message;
-                console.log("Error: ", error)
-            });
-
-        console.log("Response: ", validationResponse)
-
-        //     , {
-        //     user_address: walletAddress,
-        //     amount_paid: cryptoAmount,          // in atomic units (piconeros) if your microservice expects that
-        //     tx_hash: transactionId,       // transaction ID
-        //     date: date
-        //     // If your microservice also expects subaddress_index or other fields, add them here
-        // });
-
-        // const validationResponse = await axios.post(VALIDATION_SERVICE_URL, {
-        //     user_address: walletAddress,
-        //     amount_paid: cryptoAmount,          // in atomic units (piconeros) if your microservice expects that
-        //     tx_hash: transactionId,       // transaction ID
-        //     date: date
-        //     // If your microservice also expects subaddress_index or other fields, add them here
-        // });
-
-        // The service we wrote previously returns JSON like:
-        // { status: 'ok', validated: boolean, details: {...} }
-
-        // const { validated, details } = validationResponse.data;
-
-
-        // // If not validated, stop here
+        // Proceed with additional logic using validationResponse
+        // For example:
+        // const validated = validationResponse.validated; // Adjust this based on the actual response structure
         // if (!validated) {
         //     return res.status(400).json({
         //         message: 'Transaction was not validated by the payment service.',
-        //         details
+        //         details: validationResponse
         //     });
         // }
-
-        // // If validated, proceed below
-        // console.log("Transaction validated by the Monero service:", details);
-
+    
+        // If validated, proceed
+        // console.log("Transaction validated:", validationResponse);
+    
     } catch (error) {
         console.error('Error calling validation service:', error.message);
         return res.status(500).json({
-            message: 'Failed to call the Monero validation service.',
+            message: 'Failed to call the validation service.',
             error: error.message
         });
     }
+    
+
+    // try {
+
+    //     if (currency = "LTC")
+    //         url = `https://api.blockchair.com/litecoin/dashboards/transaction/${transactionId}`;
+    //     if (currency = "XMR")
+    //         url = `https://xmrchain.net/api/transaction/${transactionId}`;
+    //     if (currency = "BTC")
+    //         url = `https://api.blockchair.com/bitcoin/dashboards/transaction/${transactionId}`;
+
+    //     // const validationResponse = await axios.get(url)
+
+    //     fetch(url)
+    //         .then(response => {
+    //             if (!response.ok) {
+    //                 throw new Error(`Network response was not OK: ${response.statusText}`);
+    //             }
+    //             return response.json();
+    //         })
+    //         .then(data => {
+    //             // Display the JSON result
+    //             validationResponse = data
+    //         })
+    //         .catch(error => {
+    //             // document.getElementById('result').textContent = 'Error: ' + error.message;
+    //             console.log("Error: ", error)
+    //         });
+
+    //     console.log("Response: ", validationResponse)
+
+    //     //     , {
+    //     //     user_address: walletAddress,
+    //     //     amount_paid: cryptoAmount,          // in atomic units (piconeros) if your microservice expects that
+    //     //     tx_hash: transactionId,       // transaction ID
+    //     //     date: date
+    //     //     // If your microservice also expects subaddress_index or other fields, add them here
+    //     // });
+
+    //     // const validationResponse = await axios.post(VALIDATION_SERVICE_URL, {
+    //     //     user_address: walletAddress,
+    //     //     amount_paid: cryptoAmount,          // in atomic units (piconeros) if your microservice expects that
+    //     //     tx_hash: transactionId,       // transaction ID
+    //     //     date: date
+    //     //     // If your microservice also expects subaddress_index or other fields, add them here
+    //     // });
+
+    //     // The service we wrote previously returns JSON like:
+    //     // { status: 'ok', validated: boolean, details: {...} }
+
+    //     // const { validated, details } = validationResponse.data;
+
+
+    //     // // If not validated, stop here
+    //     // if (!validated) {
+    //     //     return res.status(400).json({
+    //     //         message: 'Transaction was not validated by the payment service.',
+    //     //         details
+    //     //     });
+    //     // }
+
+    //     // // If validated, proceed below
+    //     // console.log("Transaction validated by the Monero service:", details);
+
+    // } catch (error) {
+    //     console.error('Error calling validation service:', error.message);
+    //     return res.status(500).json({
+    //         message: 'Failed to call the Monero validation service.',
+    //         error: error.message
+    //     });
+    // }
 
     // 2) Proceed with DB logic if the transaction is validated
     try {
@@ -152,7 +251,7 @@ router.post('/validate-transaction', authenticateToken, async (req, res) => {
                 amount,
                 uuidv4(),               // unique reference code
                 date,
-                session_id,
+                session_id, 
                 transactionId,
                 JSON.stringify(req.body),
                 currency,
@@ -168,7 +267,7 @@ router.post('/validate-transaction', authenticateToken, async (req, res) => {
         // Insert a record in "transactions" table
         await db.query(
             `INSERT INTO transactions 
-                (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) 
+                (sender_account_id, recipient_account_id, amount, transaction_type, status, sending_user, receiving_user, message, reference_id) 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 0,                // '0' if it's from system or external
