@@ -35,6 +35,7 @@ router.post('/create', authenticateToken, async (req, res) => {
     console.error('Error creating notification:', error);
     res.status(500).json({ message: 'Server error' });
   }
+  
 });
 
 // DELETE /api/notifications/delete/:id - Delete a notification

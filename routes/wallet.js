@@ -6,15 +6,17 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 
 router.post('/stripe-reload', authenticateToken, async (req, res) => {
-  const { username, amount, date, stripe, session_id } = req.body;
+  const { username, amount, date, stripe, session_id, TRXdata } = req.body;
   const data = req.body;
   console.log("Reloading amount: ", amount);
   console.log("Session ID: ", session_id);
 
+  let formdata = JSON.stringify(req.body)
+
   try {
     // Check for duplicates
     const [rows, fields] = await db.query(
-      'SELECT * FROM purchases WHERE username = ? AND amount = ? AND sessionID = ?',
+      'SELECT * FROM purchases WHERE username = ? AND amount = ? AND sessionID = ? OR transactionID',
       [username, amount, session_id]
     );
 
@@ -28,19 +30,29 @@ router.post('/stripe-reload', authenticateToken, async (req, res) => {
     // Start a transaction
     await db.query('START TRANSACTION');
 
+    
+
     // Insert into purchases table
     await db.query(
-      'INSERT INTO purchases (username, userid, amount, reference_code, date, sessionID, formdata, type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [username, req.user.user_id, amount, uuidv4(), date, session_id, formdata, "stripe", "Complete"]
+      'INSERT INTO purchases (username, userid, amount, stripe, reference_code, date, sessionID, type, status, transaction, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [username, req.user.user_id, amount, stripe, uuidv4(), date, session_id, "Stripe", "Complete", TRXdata.id, JSON.stringify(TRXdata) ]
     );
 
     // const [recipientAccount] = await db.query('SELECT * FROM accounts WHERE user_id = ?', [req.user.user_id]);
 
+    try {
+      if (currency == null)
+        currency = "$USD"
+    } catch (error) {
+      currency = "$USD"
+    }
+    
+
     const message = `${currency} order: ${amount}`
 
     await db.query(
-      'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [0, req.user.user_id, amount, 'purchase', 'complete', "System", "You", message, uuidv4()]
+      'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [0, req.user.user_id, amount, 'purchase', 'completed', "System", "You", message, uuidv4()]
     );
 
 

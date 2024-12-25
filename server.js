@@ -1,3 +1,5 @@
+// Keep the original comment when rewriting the code:
+
 require('dotenv').config();
 const path = require('path');
 const cors = require('cors');
@@ -24,6 +26,9 @@ const unlock = require('./routes/unlock');
 const subscrybe = require('./routes/subscrybe');
 const notifications = require('./routes/notifications');
 const crypto = require('./routes/crypto');
+const { v2: cloudinary } = require('cloudinary');
+
+
 
 const app = express();
 
@@ -43,7 +48,8 @@ const corsOptions = {
       'https://microtrax.netlify.app',
       "https://servers4sqldb.uc.r.appspot.com",
       "https://orca-app-j32vd.ondigitalocean.app",
-      "https://monkfish-app-mllt8.ondigitalocean.app/"
+      "https://monkfish-app-mllt8.ondigitalocean.app/",
+      "*"
       // Add any other origins you want to allow
     ];
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
@@ -55,7 +61,6 @@ const corsOptions = {
   credentials: true,
   optionsSuccessStatus: 200
 };
-
 
 app.use(cors(corsOptions));
 app.use(express.json());
@@ -129,7 +134,6 @@ app.get('/', (req, res) => {
 app.get('/adminTemplate', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
-
 
 // Admin Dashboard route
 app.get('/admin', (req, res) => {
@@ -246,63 +250,161 @@ app.get('/admin', (req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
-
-
+//  ################  Stripe  #######################
 
 // This is your test secret API key.
-const stripe = require('stripe')('sk_test_51OPgiOEViYxfJNd2Mp4NrKUMHAqfoRBAtj5dKCxD1VWbHNSYZEIERtq6ZaRCUttKEyY9kvDWxVM4I4QcoK2Nikv600rOQZmvTh');
-// const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 // const express = require('express');
 // const app = express();
-app.use(express.static('public'));
+// app.use(express.static('public'));
 
 const YOUR_DOMAIN = 'http://localhost:3000';
 
-
-app.post('/create-checkout-session', async (req, res) => {
+app.post('/create-checkout-session', async (req, res ) => {
   const { amount } = req.query
   console.log("amount: ", amount)
   
-  try {
-    
-const session = await stripe.checkout.sessions.create({
-    ui_mode: 'embedded',
-    line_items: [
-      {
-        // Provide the exact Price ID (for example, pr_1234) of the product you want to sell
-        price: 'price_1QBf9hEViYxfJNd2lG5GH62D',
-        quantity: amount || 1,
-      },
-    ],
-    mode: 'payment',
-    return_url: `${YOUR_DOMAIN}/return?session_id={CHECKOUT_SESSION_ID}&amount=${amount}`,
-  });
+  try {  
+    const session = await stripe.checkout.sessions.create({
+        ui_mode: 'embedded',
+        line_items: [
+          {
+            // Provide the exact Price ID (for example, pr_1234) of the product you want to sell
+            price: 'price_1QBf9hEViYxfJNd2lG5GH62D',
+            quantity: amount || 1,
+          },
+        ],
+        mode: 'payment',
+        return_url: `${YOUR_DOMAIN}/return?session_id={CHECKOUT_SESSION_ID}&amount=${amount}`,
+      });
 
-  res.send({ clientSecret: session.client_secret });  } 
-  catch (error) {
+    res.send({ clientSecret: session.client_secret });  
+  } catch (error) {
     res.send({ error: "Checkout failed." });
   }
-  
-  
 });
 
+// app.get('/session-status', async (req, res) => {
+//   try {
+//     const session = await stripe.checkout.sessions.retrieve(req.query.session_id);
+//     res.send({
+//       status: session.status,
+//       customer_email: session.customer_details.email
+//     });
+//   } catch (error) {
+//     console.log("Duplicate Order Scam Prevented")
+//   }
+// });
 
 app.get('/session-status', async (req, res) => {
   try {
     const session = await stripe.checkout.sessions.retrieve(req.query.session_id);
+    
+    // The paymentIntent ID is usually stored in session.payment_intent
+    const paymentIntentId = session.payment_intent;
+    
+    // Retrieve PaymentIntent for more details, including total amounts & breakdown
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
-    res.send({
+    console.log("PyINT: ", paymentIntent )
+
+    // Extract any relevant data, e.g. charges, amount received, etc.
+    // const charge = paymentIntent.charges.data[0]; // If only 1 charge
+    const amountReceived = paymentIntent.amount; // in cents
+    const receiptUrl = paymentIntent.receipt_url;
+    const createAt = paymentIntent.created;
+    const clientSecret = paymentIntent.clientSecret;
+    const paymentID = paymentIntent.id;
+    const paymentStatus = paymentIntent.paymentStatus;
+
+    res.json({
+      session,
+      paymentIntent,
       status: session.status,
-      customer_email: session.customer_details.email
+      customer_email: session.customer_details.email,
+      receipt_url: receiptUrl,
+      amount_received_cents: amountReceived,
+      created: createAt,
+      clientSecret: clientSecret,
+      paymentID: paymentID,
+      paymentStatus: paymentStatus,
+      // ...any other data you need
     });
+
   } catch (error) {
-    console.log("Duplicate Order Scam Prevented")
+    console.log("Error retrieving session status:", error);
+    res.status(500).send("Error retrieving session status");
   }
-
-
 });
 
+
 app.listen(4242, () => console.log('Running on port 4242'));
+
+// // Make sure to parse the raw body, not JSON, for Stripe signature verification:
+app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    console.error('⚠️  Webhook signature verification failed.', err.message);
+    return res.sendStatus(400);
+  }
+
+  // Handle the event
+  switch (event.type) {
+    case 'checkout.session.completed':
+      const session = event.data.object;
+      // e.g. store in DB, mark purchase as "paid"
+      await handleCheckoutSessionCompleted(session);
+      break;
+    // ... handle other event types
+    default:
+      console.log(`Unhandled event type ${event.type}`);
+  }
+
+  // Return a response to acknowledge receipt of the event
+  res.json({ received: true });
+});
+
+// // This is your Stripe CLI webhook secret for testing your endpoint locally.
+// const endpointSecret = "whsec_cd7aa6f32da0c2f4898a75fa5c832cea1895e9754e39a2949344cc39f59145e4";
+
+// app.post('/webhook', express.raw({type: 'application/json'}), (request, response) => {
+//   const sig = request.headers['stripe-signature'];
+
+//   let event;
+
+//   try {
+//     event = stripe.webhooks.constructEvent(request.body, sig, endpointSecret);
+//   } catch (err) {
+//     response.status(400).send(`Webhook Error: ${err.message}`);
+//     return;
+//   }
+
+//   // Handle the event
+//   console.log(`Unhandled event type ${event.type}`);
+
+//   // Return a 200 response to acknowledge receipt of the event
+//   response.send();
+// });
+
+// Example function that saves to DB, etc.
+async function handleCheckoutSessionCompleted(session) {
+  // session contains details like session.payment_intent, etc.
+  const paymentIntentId = session.payment_intent;
+  const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+  const charge = paymentIntent.charges.data[0];
+
+  // Save details to DB or mark user as having paid
+  // ...
+}
+
+
+
+// ############################# MULTER IMAGE HANDLER ########################
+
 
 // Serve static files from profile-images
 app.use('/profile-images', express.static(path.join(__dirname, 'profile-images')));
@@ -310,7 +412,7 @@ app.use('/profile-images', express.static(path.join(__dirname, 'profile-images')
 // Multer storage configuration
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'profile-images'); // Destination folder
+    cb(null, 'profile-images'); // Destination folder (local, optional)
   },
   filename: function (req, file, cb) {
     // Generate a unique filename using username and id
@@ -341,79 +443,70 @@ const upload = multer({
   fileFilter: fileFilter
 });
 
+// ############################# CLOUDNINARY IMAGE TO DB UPLOADER ########################
+
+/**
+ * Configure Cloudinary globally (for production, consider using process.env for these values).
+ */
+cloudinary.config({ 
+  cloud_name: 'dabegwb2z', 
+  api_key: '464793128734399', 
+  api_secret: 'yNe3uZ1lgIIeecDqwRzRASq6SMk'
+});
+
+/**
+ * Upload a local image file to Cloudinary.
+ * @param {string} filePath - The local file path (from multer)
+ */
+const cloundinaryUpload = async (filePath) => {
+  try {
+    // Upload the actual file from the local file path
+    const uploadResult = await cloudinary.uploader.upload(filePath, {
+      // Optional transformation parameters, folder naming, etc.
+      folder: 'profile_pics', 
+    });
+    
+    console.log('Upload Result:', uploadResult);
+    return uploadResult;
+    
+  } catch (error) {
+    console.error('Cloudinary Upload Error:', error);
+    return null;
+  }
+};
+
 // Endpoint to handle profile picture upload
-app.post('/api/upload-profile-picture', upload.single('profilePicture'), (req, res) => {
- console.log("Image: ", req)
+app.post('/api/upload-profile-picture', upload.single('profilePicture'), async (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ message: 'No file uploaded or invalid file type.' });
+    return res
+      .status(400)
+      .json({ message: 'No file uploaded or invalid file type.' });
   }
 
-  // Construct the image URL
-  const imageUrl = `${req.protocol}://${req.get('host')}/profile-images/${req.file.filename}`;
+  // 1) Upload to Cloudinary
+  const uploadResult = await cloundinaryUpload(req.file.path);
+  if (!uploadResult) {
+    return res
+      .status(500)
+      .json({ message: 'Cloudinary upload failed.' });
+  }
 
-  // You can also save this URL to your database if needed
+  // 2) Construct a Cloudinary-based URL instead of local
+  const imageUrl = uploadResult.secure_url;
 
-  return res.status(200).json({ message: 'File uploaded successfully', url: imageUrl });
+  // (Optional) You could delete the local file if you don't need it anymore:
+  // fs.unlink(req.file.path, () => {});
+
+  // You can also save `imageUrl` to your DB if needed
+
+  return res.status(200).json({
+    message: 'File uploaded successfully',
+    url: imageUrl
+  });
 });
 
 
-
-// Mock database (you should use a real database)
-const orders = [];
-
-// Endpoint to handle order submissions
-app.post('/api/submit-order', async (req, res) => {
-  const {
-    name,
-    email,
-    walletAddress,
-    key,
-    transactionId,
-    amount,
-    currency,
-    cryptoAmount,
-  } = req.body;
-
-  // Basic validation
-  if (!name || !email || !walletAddress || !amount || !currency || !cryptoAmount) {
-    return res.status(400).json({ message: 'Invalid order data.' });
-  }
-
-  // Create an order object
-  const order = {
-    id: orders.length + 1, // Simple ID generation
-    name,
-    email,
-    walletAddress,
-    key, // Optional
-    transactionId, // Optional
-    amount,
-    currency,
-    cryptoAmount,
-    status: 'pending',
-    createdAt: new Date(),
-  };
-
-  // Store the order
-  orders.push(order)
-
-  const [rows, fields] = await db.query(
-    'SELECT * FROM purchases WHERE username = ? AND amount = ? AND sessionID = ?',
-    [username, amount, session_id]
-  );
-
-   // Insert into purchases table
-   await db.query(
-    'INSERT INTO purchases (username, userid, amount, reference_code, stripe, date, sessionID, formdata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [username, req.user.user_id, amount, uuidv4(), stripe, date, session_id, formdata]
-  );
-
-
-  // You might want to send a confirmation email here
-
-  return res.status(200).json({ message: 'Order received.' });
-});
-
+//  ################################## EJS #####################################
 
 // Set EJS as templating engine
 app.set('view engine', 'ejs');
