@@ -40,11 +40,13 @@ router.post('/register', async (req, res) => {
       );
       const userId = userResult.insertId;
 
+
+
       // Insert account with default balance
       const defaultBalance = 25; // or any other default balance you want to set
       await connection.query(
         'INSERT INTO accounts (user_id, account_id, balance, userId) VALUES (?, ?, ?, ?)',
-        [userId, accountId, defaultBalance, user_Id]
+        [user_Id, accountId, defaultBalance, 0]
       );
 
       // Check if the default tier exists

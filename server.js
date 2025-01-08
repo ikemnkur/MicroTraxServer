@@ -11,6 +11,8 @@ const geoip = require('geoip-lite');
 const moment = require('moment')
 const multer = require('multer')
 const authRoutes = require('./routes/auth');
+const admin = require('./routes/admin');
+const adminPurchases = require('./routes/adminPurchases');
 const userRoutes = require('./routes/user');
 const transactionRoutes = require('./routes/transactions');
 const userSubscriptionRoute = require('./routes/user_subscriptions');
@@ -26,6 +28,9 @@ const unlock = require('./routes/unlock');
 const subscrybe = require('./routes/subscrybe');
 const notifications = require('./routes/notifications');
 const crypto = require('./routes/crypto');
+const coinbase = require('./routes/coinbase');
+const cashapp = require('./routes/cashapp');
+const uploadImage = require('./routes/uploadImage');
 const { v2: cloudinary } = require('cloudinary');
 
 
@@ -111,19 +116,25 @@ app.use('/api/public-content', publicContent);
 app.use('/api/user-content', userContent);
 app.use('/api/notifications', notifications);
 app.use('/api/crypto', crypto);
+app.use('/api/coinbase', coinbase);
+app.use('/api/cashapp', cashapp);
+app.use('/api/admin', admin);
+app.use('/api/adminp', adminPurchases);
+
+// app.use('/api/uploadImage', uploadImage);
 
 // Serve static files from a 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Admin route
-app.get('/api/admin', (req, res) => {
-  const uptime = Date.now() - startTime;
-  res.json({
-    pageVisits: pageVisits,
-    recentRequests: recentRequests,
-    uptime: uptime
-  });
-});
+// // Admin route
+// app.get('/api/admin', (req, res) => {
+//   const uptime = Date.now() - startTime;
+//   res.json({
+//     pageVisits: pageVisits,
+//     recentRequests: recentRequests,
+//     uptime: uptime
+//   });
+// });
 
 // Root route
 app.get('/', (req, res) => {
@@ -131,121 +142,122 @@ app.get('/', (req, res) => {
 });
 
 // Root route
-app.get('/adminTemplate', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-});
+// app.get('/adminTemplate', (req, res) => {
+//   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+// });
 
 // Admin Dashboard route
-app.get('/admin', (req, res) => {
-  const uptime = moment.duration(Date.now() - startTime).humanize();
 
-  let adminHtml = `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Admin Dashboard</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-        <style>
-            body { padding-top: 20px; }
-            .table-container { max-height: 400px; overflow-y: auto; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1 class="mb-4">Admin Dashboard</h1>
+// app.get('/admin', (req, res) => {
+//   const uptime = moment.duration(Date.now() - startTime).humanize();
+
+//   let adminHtml = `
+//     <!DOCTYPE html>
+//     <html lang="en">
+//     <head>
+//         <meta charset="UTF-8">
+//         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+//         <title>Admin Dashboard</title>
+//         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+//         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+//         <style>
+//             body { padding-top: 20px; }
+//             .table-container { max-height: 400px; overflow-y: auto; }
+//         </style>
+//     </head>
+//     <body>
+//         <div class="container">
+//             <h1 class="mb-4">Admin Dashboard</h1>
             
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h5 class="card-title">Server Uptime</h5>
-                    <p class="card-text">${uptime}</p>
-                </div>
-            </div>
+//             <div class="card mb-4">
+//                 <div class="card-body">
+//                     <h5 class="card-title">Server Uptime</h5>
+//                     <p class="card-text">${uptime}</p>
+//                 </div>
+//             </div>
 
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h5 class="card-title">Page Visits</h5>
-                    <input type="text" id="visitFilter" class="form-control mb-3" placeholder="Filter visits...">
-                    <div class="table-container">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Count</th>
-                                    <th>URL</th>
-                                    <th>Time</th>
-                                    <th>IP</th>
-                                    <th>Location</th>
-                                </tr>
-                            </thead>
-                            <tbody id="visitsTableBody">
-                                ${pageVisits.map(visit => `
-                                    <tr>
-                                        <td>${visit.count}</td>
-                                        <td>${visit.url}</td>
-                                        <td>${visit.time}</td>
-                                        <td>${visit.ip}</td>
-                                        <td>${visit.location}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+//             <div class="card mb-4">
+//                 <div class="card-body">
+//                     <h5 class="card-title">Page Visits</h5>
+//                     <input type="text" id="visitFilter" class="form-control mb-3" placeholder="Filter visits...">
+//                     <div class="table-container">
+//                         <table class="table table-striped">
+//                             <thead>
+//                                 <tr>
+//                                     <th>Count</th>
+//                                     <th>URL</th>
+//                                     <th>Time</th>
+//                                     <th>IP</th>
+//                                     <th>Location</th>
+//                                 </tr>
+//                             </thead>
+//                             <tbody id="visitsTableBody">
+//                                 ${pageVisits.map(visit => `
+//                                     <tr>
+//                                         <td>${visit.count}</td>
+//                                         <td>${visit.url}</td>
+//                                         <td>${visit.time}</td>
+//                                         <td>${visit.ip}</td>
+//                                         <td>${visit.location}</td>
+//                                     </tr>
+//                                 `).join('')}
+//                             </tbody>
+//                         </table>
+//                     </div>
+//                 </div>
+//             </div>
 
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h5 class="card-title">Recent Requests</h5>
-                    <div class="table-container">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Method</th>
-                                    <th>URL</th>
-                                    <th>Time</th>
-                                    <th>IP</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${recentRequests.map(request => `
-                                    <tr>
-                                        <td>${request.method}</td>
-                                        <td>${request.url}</td>
-                                        <td>${request.time}</td>
-                                        <td>${request.ip}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+//             <div class="card mb-4">
+//                 <div class="card-body">
+//                     <h5 class="card-title">Recent Requests</h5>
+//                     <div class="table-container">
+//                         <table class="table table-striped">
+//                             <thead>
+//                                 <tr>
+//                                     <th>Method</th>
+//                                     <th>URL</th>
+//                                     <th>Time</th>
+//                                     <th>IP</th>
+//                                 </tr>
+//                             </thead>
+//                             <tbody>
+//                                 ${recentRequests.map(request => `
+//                                     <tr>
+//                                         <td>${request.method}</td>
+//                                         <td>${request.url}</td>
+//                                         <td>${request.time}</td>
+//                                         <td>${request.ip}</td>
+//                                     </tr>
+//                                 `).join('')}
+//                             </tbody>
+//                         </table>
+//                     </div>
+//                 </div>
+//             </div>
 
-            <button id="refreshButton" class="btn btn-primary">Refresh Data</button>
-        </div>
+//             <button id="refreshButton" class="btn btn-primary">Refresh Data</button>
+//         </div>
 
-        <script>
-            document.getElementById('visitFilter').addEventListener('input', function() {
-                const filter = this.value.toLowerCase();
-                const rows = document.querySelectorAll('#visitsTableBody tr');
-                rows.forEach(row => {
-                    const text = row.textContent.toLowerCase();
-                    row.style.display = text.includes(filter) ? '' : 'none';
-                });
-            });
+//         <script>
+//             document.getElementById('visitFilter').addEventListener('input', function() {
+//                 const filter = this.value.toLowerCase();
+//                 const rows = document.querySelectorAll('#visitsTableBody tr');
+//                 rows.forEach(row => {
+//                     const text = row.textContent.toLowerCase();
+//                     row.style.display = text.includes(filter) ? '' : 'none';
+//                 });
+//             });
 
-            document.getElementById('refreshButton').addEventListener('click', function() {
-                location.reload();
-            });
-        </script>
-    </body>
-    </html>
-  `;
+//             document.getElementById('refreshButton').addEventListener('click', function() {
+//                 location.reload();
+//             });
+//         </script>
+//     </body>
+//     </html>
+//   `;
 
-  res.send(adminHtml);
-});
+//   res.send(adminHtml);
+// });
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
@@ -254,31 +266,28 @@ app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 // This is your test secret API key.
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-// const express = require('express');
-// const app = express();
-// app.use(express.static('public'));
 
 const YOUR_DOMAIN = 'http://localhost:3000';
 
-app.post('/create-checkout-session', async (req, res ) => {
+app.post('/create-checkout-session', async (req, res) => {
   const { amount } = req.query
   console.log("amount: ", amount)
-  
-  try {  
-    const session = await stripe.checkout.sessions.create({
-        ui_mode: 'embedded',
-        line_items: [
-          {
-            // Provide the exact Price ID (for example, pr_1234) of the product you want to sell
-            price: 'price_1QBf9hEViYxfJNd2lG5GH62D',
-            quantity: amount || 1,
-          },
-        ],
-        mode: 'payment',
-        return_url: `${YOUR_DOMAIN}/return?session_id={CHECKOUT_SESSION_ID}&amount=${amount}`,
-      });
 
-    res.send({ clientSecret: session.client_secret });  
+  try {
+    const session = await stripe.checkout.sessions.create({
+      ui_mode: 'embedded',
+      line_items: [
+        {
+          // Provide the exact Price ID (for example, pr_1234) of the product you want to sell
+          price: 'price_1QBf9hEViYxfJNd2lG5GH62D',
+          quantity: amount || 1,
+        },
+      ],
+      mode: 'payment',
+      return_url: `${YOUR_DOMAIN}/return?session_id={CHECKOUT_SESSION_ID}&amount=${amount}`,
+    });
+
+    res.send({ clientSecret: session.client_secret });
   } catch (error) {
     res.send({ error: "Checkout failed." });
   }
@@ -299,14 +308,14 @@ app.post('/create-checkout-session', async (req, res ) => {
 app.get('/session-status', async (req, res) => {
   try {
     const session = await stripe.checkout.sessions.retrieve(req.query.session_id);
-    
+
     // The paymentIntent ID is usually stored in session.payment_intent
     const paymentIntentId = session.payment_intent;
-    
+
     // Retrieve PaymentIntent for more details, including total amounts & breakdown
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
-    console.log("PyINT: ", paymentIntent )
+    console.log("PyINT: ", paymentIntent)
 
     // Extract any relevant data, e.g. charges, amount received, etc.
     // const charge = paymentIntent.charges.data[0]; // If only 1 charge
@@ -341,32 +350,32 @@ app.get('/session-status', async (req, res) => {
 app.listen(4242, () => console.log('Running on port 4242'));
 
 // // Make sure to parse the raw body, not JSON, for Stripe signature verification:
-app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  let event;
+// app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+//   const sig = req.headers['stripe-signature'];
+//   let event;
 
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-  } catch (err) {
-    console.error('⚠️  Webhook signature verification failed.', err.message);
-    return res.sendStatus(400);
-  }
+//   try {
+//     event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+//   } catch (err) {
+//     console.error('⚠️  Webhook signature verification failed.', err.message);
+//     return res.sendStatus(400);
+//   }
 
-  // Handle the event
-  switch (event.type) {
-    case 'checkout.session.completed':
-      const session = event.data.object;
-      // e.g. store in DB, mark purchase as "paid"
-      await handleCheckoutSessionCompleted(session);
-      break;
-    // ... handle other event types
-    default:
-      console.log(`Unhandled event type ${event.type}`);
-  }
+//   // Handle the event
+//   switch (event.type) {
+//     case 'checkout.session.completed':
+//       const session = event.data.object;
+//       // e.g. store in DB, mark purchase as "paid"
+//       await handleCheckoutSessionCompleted(session, req.body);
+//       break;
+//     // ... handle other event types
+//     default:
+//       console.log(`Unhandled event type ${event.type}`);
+//   }
 
-  // Return a response to acknowledge receipt of the event
-  res.json({ received: true });
-});
+//   // Return a response to acknowledge receipt of the event
+//   res.json({ received: true });
+// });
 
 // // This is your Stripe CLI webhook secret for testing your endpoint locally.
 // const endpointSecret = "whsec_cd7aa6f32da0c2f4898a75fa5c832cea1895e9754e39a2949344cc39f59145e4";
@@ -391,17 +400,17 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 // });
 
 // Example function that saves to DB, etc.
-async function handleCheckoutSessionCompleted(session) {
-  // session contains details like session.payment_intent, etc.
-  const paymentIntentId = session.payment_intent;
-  const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-  const charge = paymentIntent.charges.data[0];
+// async function handleCheckoutSessionCompleted(session, body) {
+//   // session contains details like session.payment_intent, etc.
+//   const paymentIntentId = session.payment_intent;
+//   const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+//   const charge = paymentIntent.charges.data[0];
 
-  // Save details to DB or mark user as having paid
-  // ...
-}
+//   // Save details to DB or mark user as having paid
+//   // ...
+//   console.log("Body: ", body)
 
-
+// }
 
 // ############################# MULTER IMAGE HANDLER ########################
 
@@ -425,10 +434,10 @@ const storage = multer.diskStorage({
 
 // File filter to accept only images
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|gif/;
+  const allowedTypes = /jpeg|jpg|png|webp|gif/;
   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
   const mimetype = allowedTypes.test(file.mimetype);
-  
+
   if (mimetype && extname) {
     return cb(null, true);
   } else {
@@ -443,48 +452,34 @@ const upload = multer({
   fileFilter: fileFilter
 });
 
-// ############################# CLOUDNINARY IMAGE TO DB UPLOADER ########################
 
-/**
- * Configure Cloudinary globally (for production, consider using process.env for these values).
- */
-cloudinary.config({ 
-  cloud_name: 'dabegwb2z', 
-  api_key: '464793128734399', 
-  api_secret: 'yNe3uZ1lgIIeecDqwRzRASq6SMk'
-});
 
-/**
- * Upload a local image file to Cloudinary.
- * @param {string} filePath - The local file path (from multer)
- */
-const cloundinaryUpload = async (filePath) => {
-  try {
-    // Upload the actual file from the local file path
-    const uploadResult = await cloudinary.uploader.upload(filePath, {
-      // Optional transformation parameters, folder naming, etc.
-      folder: 'profile_pics', 
-    });
-    
-    console.log('Upload Result:', uploadResult);
-    return uploadResult;
-    
-  } catch (error) {
-    console.error('Cloudinary Upload Error:', error);
-    return null;
-  }
-};
+// ######################## POST PROFILE PIC ###############################
 
 // Endpoint to handle profile picture upload
 app.post('/api/upload-profile-picture', upload.single('profilePicture'), async (req, res) => {
+  console.log("REQ.FILE:", req.file);
+  console.log("REQ.BODY:", req.body);
+
+  const { username, date } = req.body;
+  const { userId } = req.body;
+  const filePath = req.file.path;
+
+
   if (!req.file) {
     return res
       .status(400)
       .json({ message: 'No file uploaded or invalid file type.' });
   }
 
+  // // Use UPDATE when modifying an existing row
+  // await db.query(
+  //   'UPDATE users SET profilePic = ? WHERE user_id = ?',
+  //   [filePath, userId]
+  // );
+
   // 1) Upload to Cloudinary
-  const uploadResult = await cloundinaryUpload(req.file.path);
+  const uploadResult = await cloundinaryUpload(req.file.path, userId);
   if (!uploadResult) {
     return res
       .status(500)
@@ -506,6 +501,47 @@ app.post('/api/upload-profile-picture', upload.single('profilePicture'), async (
 });
 
 
+// ############################# CLOUDNINARY IMAGE TO DB UPLOADER ########################
+
+/**
+ * Configure Cloudinary globally (for production, consider using process.env for these values).
+ */
+cloudinary.config({
+  cloud_name: 'dabegwb2z',
+  api_key: '464793128734399',
+  api_secret: 'yNe3uZ1lgIIeecDqwRzRASq6SMk'
+});
+
+/**
+ * Upload a local image file to Cloudinary.
+ * @param {string} filePath - The local file path (from multer)
+ */
+const cloundinaryUpload = async (filePath, userId) => {
+  try {
+    // Upload the actual file from the local file path
+    const uploadResult = await cloudinary.uploader.upload(filePath, {
+      // Optional transformation parameters, folder naming, etc.
+      folder: 'profile_pics',
+    });
+
+    console.log('Upload Result:', uploadResult);
+
+    // Use UPDATE when modifying an existing row
+    await db.query(
+      'UPDATE users SET profilePic = ? WHERE user_id = ?',
+      [uploadResult.secure_url, userId]
+    );
+
+    return uploadResult;
+
+  } catch (error) {
+    console.error('Cloudinary Upload Error:', error);
+    return null;
+  }
+};
+
+
+
 //  ################################## EJS #####################################
 
 // Set EJS as templating engine
@@ -515,21 +551,11 @@ app.set('views', path.join(__dirname, 'views'));
 // Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public')); // For serving static files (CSS, JS)
-// app.use(
-//   session({
-//     secret: 'your_secret_key', // Replace with a strong secret
-//     resave: false,
-//     saveUninitialized: true,
-//   })
-// );
+
 
 // Import routes
 const adminRoutes = require('./routes/admin');
 const { subscribe } = require('diagnostics_channel');
+const { Console } = require('console');
+const { request } = require('https');
 app.use('/admin', adminRoutes);
-
-// Start the server
-// const PORT = process.env.PORT || 3000;
-// app.listen(PORT, () => {
-//   console.log(`Server running on port ${PORT}`);
-// });

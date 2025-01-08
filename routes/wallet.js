@@ -16,7 +16,7 @@ router.post('/stripe-reload', authenticateToken, async (req, res) => {
   try {
     // Check for duplicates
     const [rows, fields] = await db.query(
-      'SELECT * FROM purchases WHERE username = ? AND amount = ? AND sessionID = ? OR transactionID',
+      'SELECT * FROM purchases WHERE username = ? AND amount = ? AND sessionID = ? OR username = ? AND amount = ? AND transactionID',
       [username, amount, session_id]
     );
 
@@ -34,7 +34,7 @@ router.post('/stripe-reload', authenticateToken, async (req, res) => {
 
     // Insert into purchases table
     await db.query(
-      'INSERT INTO purchases (username, userid, amount, stripe, reference_code, date, sessionID, type, status, transaction, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO purchases (username, userid, amount, stripe, reference_code, date, sessionID, type, status, transactionId, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [username, req.user.user_id, amount, stripe, uuidv4(), date, session_id, "Stripe", "Complete", TRXdata.id, JSON.stringify(TRXdata) ]
     );
 

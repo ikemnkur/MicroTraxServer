@@ -1,13 +1,16 @@
 const express = require('express');
 const db = require('../config/db');
 const authenticateToken = require('../middleware/auth');
-
+const app = express();
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-
+const path = require('path');
+const moment = require('moment')
+const multer = require('multer')
+const { v2: cloudinary } = require('cloudinary');
 
 // Serve static files from profile-images
-router.use('/profile-images', express.static(path.join(__dirname, 'profile-images')));
+app.use('/profile-images', express.static(path.join(__dirname, 'profile-images')));
 
 // Multer storage configuration
 const storage = multer.diskStorage({

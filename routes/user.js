@@ -11,7 +11,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const [users] = await db.query(
       `SELECT u.user_id, u.username, u.email, u.user_id, u.firstName, u.lastName, u.phoneNumber, u.birthDate, u.unlocks, u.subscriptions,
-              u.accountTier, a.balance, a.spendable, a.redeemable, u.bio, u.encryptionKey, u.account_id
+              u.accountTier, u.timezone, a.balance, a.spendable, a.redeemable, u.bio, u.encryptionKey, u.account_id, u.profilePic
        FROM users u
        LEFT JOIN accounts a ON u.user_id = a.user_id
        WHERE u.user_id = ?`,
@@ -32,7 +32,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
 });
 
 router.put('/profile', authenticateToken, async (req, res) => {
-  const { username, email, firstName, lastName, phoneNumber, birthDate, accountTier, encryptionKey, profilePic } = req.body;
+  const { username, email, firstName, lastName, phoneNumber, birthDate, accountTier, encryptionKey, profilePic, timezone } = req.body;
   console.log("Put.Body: ", req.body);
   try {
     const connection = await db.getConnection();
@@ -41,8 +41,8 @@ router.put('/profile', authenticateToken, async (req, res) => {
     try {
       // Update user information
       await connection.query(
-        'UPDATE users SET username = ?, email = ?, firstName = ?, lastName = ?, phoneNumber = ?, birthDate = ?, encryptionKey = ?, profilePic = ?, accountTier = ? WHERE user_id = ?',
-        [username, email, firstName, lastName, phoneNumber, birthDate, encryptionKey, profilePic, accountTier, req.user.user_id]
+        'UPDATE users SET username = ?, email = ?, firstName = ?, lastName = ?, phoneNumber = ?, birthDate = ?, encryptionKey = ?, accountTier = ?, timezone = ? WHERE user_id = ?',
+        [username, email, firstName, lastName, phoneNumber, birthDate, encryptionKey, accountTier, timezone,  req.user.user_id]
       );
 
       console.log()
@@ -230,7 +230,7 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
   }
 });
 
-// 1. GET /user/:userIdOrUsername/profile - Fetch user profile
+// 1. GET /user/:userIdOrUsername/profile - Fetch any user profile by username
 router.get('/:username/profile', authenticateToken, async (req, res) => {
   try {
     const { username } = req.params;
@@ -241,7 +241,7 @@ router.get('/:username/profile', authenticateToken, async (req, res) => {
     
       // It's a username
       query = `
-        SELECT u.user_id, u.username, u.email, u.accountTier, u.favorites, u.bio, u.rating, u.user_id
+        SELECT u.user_id, u.username, u.created_at, u.email, u.accountTier, u.favorites, u.bio, u.rating, u.user_id, u.profilePic
         FROM users u
         LEFT JOIN accounts a ON u.user_id = a.user_id
         WHERE u.username = ?
@@ -271,7 +271,7 @@ router.get('/:username/profile', authenticateToken, async (req, res) => {
   }
 });
 
-// 1. GET /user/:userIdOrUsername/profile - Fetch user profile
+// 1. GET /user/:userIdOrUsername/profile - Fetch other user profile by ID or Username
 router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) => {
   try {
     const { userIdOrUsername } = req.params;
@@ -283,7 +283,7 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
     if (/^\d+$/.test(userIdOrUsername)) {
       // It's a userId
       query = `
-        SELECT u.user_id, u.username, u.email, a.balance, u.accountTier, u.favorites, u.bio, u.rating, u.user_id
+        SELECT u.user_id, u.username, u.created_at, u.email, a.balance, u.accountTier, u.favorites, u.bio, u.rating, u.user_id
         FROM users u
         LEFT JOIN accounts a ON u.user_id = a.user_id
         WHERE u.user_id = ?
@@ -292,7 +292,7 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
     } else {
       // It's a username
       query = `
-         SELECT u.user_id, u.username, u.email, a.balance, u.accountTier, u.favorites, u.bio, u.rating, u.user_id
+         SELECT u.user_id, u.username, u.created_at, u.email, a.balance, u.accountTier, u.favorites, u.bio, u.rating, u.user_id
         FROM users u
         LEFT JOIN accounts a ON u.user_id = a.user_id
         WHERE u.user_id = ?
