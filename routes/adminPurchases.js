@@ -54,7 +54,17 @@ router.get('/user-info/:username', async (req, res) => {
       'SELECT * FROM users WHERE username = ?',
       [username]
     );
+
+    console.log("UR: ", userRows)
+
+    // Fetch user details
+    const [userAccRows] = await db.query(
+      'SELECT * FROM accounts WHERE user_id = ?',
+      [userRows[0].user_id]
+    );
+
     const user = userRows.length ? userRows[0] : null;
+    const userAcc = userAccRows.length ? userAccRows[0] : null;
 
     // Fetch transactions involving the user as sender or receiver
     const [transactionRows] = await db.query(
@@ -64,7 +74,7 @@ router.get('/user-info/:username', async (req, res) => {
       [username, username]
     );
 
-    res.json({ user, transactions: transactionRows });
+    res.json({ user, transactions: transactionRows, account: userAcc });
   } catch (error) {
     console.error('Error fetching user info:', error);
     res.sendStatus(500);

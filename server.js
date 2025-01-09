@@ -347,7 +347,7 @@ app.get('/session-status', async (req, res) => {
 });
 
 
-app.listen(4242, () => console.log('Running on port 4242'));
+// app.listen(4242, () => console.log('Running on port 4242'));
 
 // // Make sure to parse the raw body, not JSON, for Stripe signature verification:
 // app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
