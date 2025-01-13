@@ -37,12 +37,12 @@ router.post('/stripe-reload', authenticateToken, async (req, res) => {
     // Start a transaction
     await db.query('START TRANSACTION');
 
-    
+
 
     // Insert into purchases table
     await db.query(
       'INSERT INTO purchases (username, userid, amount, stripe, reference_code, date, sessionID, type, status, transactionId, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [username, req.user.user_id, amount, stripe, uuidv4(), date, session_id, "Stripe", "Complete", TRXdata.id, JSON.stringify(TRXdata) ]
+      [username, req.user.user_id, amount, stripe, uuidv4(), date, session_id, "Stripe", "Complete", TRXdata.id, JSON.stringify(TRXdata)]
     );
 
     // const [recipientAccount] = await db.query('SELECT * FROM accounts WHERE user_id = ?', [req.user.user_id]);
@@ -53,13 +53,13 @@ router.post('/stripe-reload', authenticateToken, async (req, res) => {
     } catch (error) {
       currency = "$USD"
     }
-    
+
 
     const message = `${currency} order: ${amount}`
 
     await db.query(
       'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [0, req.user.user_id, amount, 'purchase', 'completed', "System", "You", message, uuidv4()]
+      [0, req.user.user_id, amount, 'purchase', 'completed', "System", "You", message, uuidv4()]
     );
 
 
@@ -148,7 +148,7 @@ router.post('/crypto-reload', authenticateToken, async (req, res) => {
 
 //     let user_id = req.params.ud.user_id
 //     console.log("user_id: " , req.body)
-    
+
 //     // const [walletData] = await db.query(
 //     //   `SELECT a.balance, at.name as accountTier, at.daily_transaction_limit, at.spendable, at.redeemable,
 //     //    FROM accounts a
@@ -165,7 +165,7 @@ router.post('/crypto-reload', authenticateToken, async (req, res) => {
 //     //      a.redeemable,
 //     //      at.name AS accountTier, 
 //     //      at.daily_transaction_limit
-         
+
 //     //    FROM accounts a
 //     //    JOIN user_tiers ut ON a.user_id = ut.user_id
 //     //    JOIN account_tiers at ON ut.tier_id = at.id
@@ -198,7 +198,7 @@ router.post('/crypto-reload', authenticateToken, async (req, res) => {
 
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    
+
     console.log("Received user_id:", req.user.user_id);
 
     const [walletData] = await db.query(
@@ -255,7 +255,24 @@ router.post('/withdraw', authenticateToken, async (req, res) => {
   const { username, amount, date, method } = req.body;
   console.log("Withdraw Data: ", req.body)
   const data = req.body;
+  console.log('req.user:', req.user);
   try {
+
+    // / Fetch user data along with account ID
+    const [userData] = await db.query(
+      `SELECT u.user_id AS userId, a.id AS accountId, a.balance, u.accountTier, a.spendable, a.redeemable
+       FROM users u
+       LEFT JOIN accounts a ON u.user_id = a.user_id
+       WHERE u.user_id = ?`,
+      [req.user.user_id]
+    );
+    console.log('User Data:', userData);
+
+    if (userData[0].redeemable < amount) {
+      console.log("Insuffiecent redeemable balance for withdraw");
+      console.error('Error purchase data:', error);
+      return res.status(500).json({ message: 'Server error: Insuffiecent redeemable balance for withdraw' });
+    }
 
     await db.query(
       'INSERT INTO withdraws (username, userid, amount, reference_code, method, formdata) VALUES (?, ?, ?, ?, ?, ?)',
@@ -284,8 +301,11 @@ router.post('/withdraw', authenticateToken, async (req, res) => {
       [amount, req.user.user_id]
     );
 
-    res.status(201).json({ message: 'Content added successfully', ok: true });
-    res.json({ message: 'Transaction successful' });
+    // res.status(201).json({ message: 'Content added successfully', ok: true });
+    // res.json({ message: 'Transaction successful' });
+
+    // Send the success response one time only
+    return res.status(201).json({ message: 'Content added successfully', ok: true, details: 'Transaction successful' });
   } catch (error) {
     console.error('Error post purchase data:', error);
     res.status(500).json({ message: 'Server error' });

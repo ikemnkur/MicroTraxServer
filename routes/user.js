@@ -113,7 +113,7 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
     
     // Fetch user data along with account ID
     const [userData] = await db.query(
-      `SELECT u.user_id AS userId, a.id AS accountId, a.balance, u.accountTier
+      `SELECT u.user_id AS userId, a.id AS accountId, a.balance, u.accountTier, a.spendable, a.redeemable
        FROM users u
        LEFT JOIN accounts a ON u.user_id = a.user_id
        WHERE u.user_id = ?`,
@@ -125,8 +125,9 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'User data not found' });
     }
     
-    const id = userData[0].userId;
-    const accountId = userData[0].accountId;
+    const id = req.user.user_id;
+    const accountId = req.user.accountId;
+    
     if (!accountId) {
       return res.status(404).json({ message: 'Account ID not found for the user' });
     }

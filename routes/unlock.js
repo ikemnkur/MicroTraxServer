@@ -38,11 +38,25 @@ router.get('/user-balance', authenticateToken, async (req, res) => {
 
 // Unlock content
 router.post('/unlock-content', authenticateToken, async (req, res) => {
-    const { contentId, message,  } = req.body;
+    const { contentId, message, } = req.body;
     console.log("Content ID: " + contentId + " & message: " + message);
     const connection = await db.getConnection();
     await connection.beginTransaction();
+    // / Fetch user data along with account ID
+    const [userData] = await db.query(
+        `SELECT u.user_id AS userId, a.id AS accountId, a.balance, u.accountTier, a.spendable, a.redeemable
+     FROM users u
+     LEFT JOIN accounts a ON u.user_id = a.user_id
+     WHERE u.user_id = ?`,
+        [req.user.user_id]
+    );
+    console.log('User Data:', userData);
 
+    if (userData[0].spendable < amount) {
+        console.log("Insuffiecent spendable balance for unlocking content");
+        console.error('Unlock money data error:', error);
+        return res.status(500).json({ message: 'Server error: Insuffiecent spendable balance for unlocking Peer Content' });
+    }
     try {
         // Get content details
         const [contentRows] = await connection.query(
@@ -103,7 +117,7 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
 
         const sending_user = sending_user_rows.length > 0 ? sending_user_rows[0].username : null;
         const receiving_user = receiving_user_rows.length > 0 ? receiving_user_rows[0].username : null;
-        
+
         console.log("Usernames retrieved: ", sending_user, receiving_user);
 
         if (!sending_user || !receiving_user) {
@@ -112,7 +126,7 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
         }
 
         console.log("Unlock Content: ", content)
-        
+
         // Record the transactions
         await connection.query(
             'INSERT INTO user_content (owner_username, owner_id, title, cost, description, content, host_username, host_user_id, type, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -357,7 +371,8 @@ router.post('/add-dislike', authenticateToken, async (req, res) => {
 // Add rating
 router.post('/add-rating', authenticateToken, async (req, res) => {
     const { contentId, rating } = req.body;
-    try {console.log("0")
+    try {
+        console.log("0")
         // Update the average rating
         await db.query(
             'INSERT INTO content_ratings (content_id, userid, user_id, rating) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE rating = ?',
@@ -370,7 +385,7 @@ router.post('/add-rating', authenticateToken, async (req, res) => {
             [contentId]
         );
         const avgRating = rows[0].avgRating;
-        console.log("rating: " , rating)
+        console.log("rating: ", rating)
         await db.query(
             'UPDATE public_content SET rating = ? WHERE id = ?',
             [avgRating, contentId]
