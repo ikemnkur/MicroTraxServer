@@ -13,6 +13,7 @@ const multer = require('multer')
 const authRoutes = require('./routes/auth');
 const admin = require('./routes/admin');
 const adminPurchases = require('./routes/adminPurchases');
+const adminWithdraws = require('./routes/adminWithdraws');
 const userRoutes = require('./routes/user');
 const transactionRoutes = require('./routes/transactions');
 const userSubscriptionRoute = require('./routes/user_subscriptions');
@@ -120,6 +121,7 @@ app.use('/api/coinbase', coinbase);
 app.use('/api/cashapp', cashapp);
 app.use('/api/admin', admin);
 app.use('/api/adminp', adminPurchases);
+app.use('/api/adminw', adminWithdraws);
 
 // app.use('/api/uploadImage', uploadImage);
 

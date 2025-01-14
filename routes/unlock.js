@@ -52,11 +52,11 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
     );
     console.log('User Data:', userData);
 
-    if (userData[0].spendable < amount) {
-        console.log("Insuffiecent spendable balance for unlocking content");
-        console.error('Unlock money data error:', error);
-        return res.status(500).json({ message: 'Server error: Insuffiecent spendable balance for unlocking Peer Content' });
-    }
+    // if (userData[0].spendable < amount) {
+    //     console.log("Insuffiecent spendable balance for unlocking content");
+    //     console.error('Unlock money data error:', error);
+    //     return res.status(500).json({ message: 'Server error: Insuffiecent spendable balance for unlocking Peer Content' });
+    // }
     try {
         // Get content details
         const [contentRows] = await connection.query(
