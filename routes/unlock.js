@@ -51,6 +51,7 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
         [req.user.user_id]
     );
     console.log('User Data:', userData);
+    console.log('Body Data:', req.body);
 
     // if (userData[0].spendable < amount) {
     //     console.log("Insuffiecent spendable balance for unlocking content");
@@ -151,6 +152,24 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
                 sending_user,
             ]
         );
+
+        // Create Notification
+        const { type, recipient_user_id, recipient_username, Nmessage, from_user, date } = req.body;
+        console.log("New notification: ", Nmessage);
+
+        try {
+            const [result] = await db.query(
+                `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+                [type, recipient_user_id, Nmessage, from_user, recipient_username, date]
+            );
+
+            console.log("New notification successfully created:", Nmessage);
+            // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
+        } catch (error) {
+            console.error('Error creating notification:', error);
+            // res.status(500).json({ message: 'Server error' });
+        }
 
         console.log(" transaction recorded");
 

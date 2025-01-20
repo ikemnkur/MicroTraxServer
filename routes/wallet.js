@@ -75,6 +75,35 @@ router.post('/stripe-reload', authenticateToken, async (req, res) => {
       [amount, req.user.user_id]
     );
 
+    
+  // Create Notification
+    //  const { type, recipient_user_id, recipient_username, Nmessage, from_user, date } = req.body;
+    //  console.log("New notification: ", Nmessage);
+    
+     // Fetch user details
+     const [user] = await db.query(
+      'SELECT * FROM users WHERE username = ?',
+      [username]
+    );
+
+   
+
+    let notificationMsg = `Hoo-ray, Your Stripe purchase of ${amount} coins has been sumbitted, it will be reviewed and processed soon. !`
+
+     try {
+         const [result] = await db.query(
+             `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
+    VALUES (?, ?, ?, ?, ?, ?)`,
+             ["purchase-submitted", user.user_id, notificationMsg, "0", user.username, new Date()]
+         );
+
+         console.log("New notification successfully created:", notificationMsg);
+         // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
+     } catch (error) {
+         console.error('Error creating notification:', error);
+         // res.status(500).json({ message: 'Server error' });
+     }
+
     // Commit the transaction
     await db.query('COMMIT');
     res.json({ message: 'Transaction successful', ok: true });
@@ -130,6 +159,35 @@ router.post('/crypto-reload', authenticateToken, async (req, res) => {
       'UPDATE accounts SET spendable = spendable + ? WHERE user_id = ?',
       [amount, req.user.user_id]
     );
+
+     // Create Notification
+    //  const { type, recipient_user_id, recipient_username, Nmessage, from_user, date } = req.body;
+    //  console.log("New notification: ", Nmessage);
+    
+     // Fetch user details
+     const [user] = await db.query(
+      'SELECT * FROM users WHERE username = ?',
+      [username]
+    );
+
+   
+
+    let notificationMsg = `Hoo-ray, Your ${currency} purchase  of ${amount} coins has been sumbitted, it will be reviewed and processed soon. !`
+
+     try {
+         const [result] = await db.query(
+             `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
+    VALUES (?, ?, ?, ?, ?, ?)`,
+             ["purchase-submitted", user.user_id, notificationMsg, "0", user.username, new Date()]
+         );
+
+         console.log("New notification successfully created:", notificationMsg);
+         // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
+     } catch (error) {
+         console.error('Error creating notification:', error);
+         // res.status(500).json({ message: 'Server error' });
+     }
+
 
 
     // Commit the transaction
@@ -300,6 +358,159 @@ router.post('/withdraw', authenticateToken, async (req, res) => {
       'UPDATE accounts SET redeemable = redeemable - ? WHERE user_id = ?',
       [amount, req.user.user_id]
     );
+
+    // Create Notification
+    //  const { type, recipient_user_id, recipient_username, Nmessage, from_user, date } = req.body;
+    //  console.log("New notification: ", Nmessage);
+    
+     // Fetch user details
+     const [user] = await db.query(
+      'SELECT * FROM users WHERE username = ?',
+      [username]
+    );
+
+   
+
+    let notificationMsg = `Hoo-ray, Your withdraw of ${amount} coins has been sumbitted, it will be reviewed and processed soon. !`
+
+     try {
+         const [result] = await db.query(
+             `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
+    VALUES (?, ?, ?, ?, ?, ?)`,
+             ["withdraw-submitted", user.user_id, notificationMsg, "0", user.username, new Date()]
+         );
+
+         console.log("New notification successfully created:", notificationMsg);
+         // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
+     } catch (error) {
+         console.error('Error creating notification:', error);
+         // res.status(500).json({ message: 'Server error' });
+     }
+
+    // res.status(201).json({ message: 'Content added successfully', ok: true });
+    // res.json({ message: 'Transaction successful' });
+
+    // Send the success response one time only
+    return res.status(201).json({ message: 'Content added successfully', ok: true, details: 'Transaction successful' });
+  } catch (error) {
+    console.error('Error post purchase data:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.post('/convert', authenticateToken, async (req, res) => {
+  const { username, amount, date, method } = req.body;
+  console.log("Convert Data: ", req.body)
+  const data = req.body;
+  console.log('req.user:', req.user);
+  try {
+
+    // / Fetch user data along with account ID
+    const [userData] = await db.query(
+      `SELECT u.user_id AS userId, a.id AS accountId, a.balance, u.accountTier, a.spendable, a.redeemable
+       FROM users u
+       LEFT JOIN accounts a ON u.user_id = a.user_id
+       WHERE u.user_id = ?`,
+      [req.user.user_id]
+    );
+    console.log('User Data:', userData);
+
+    if (method == "spend")
+      if (userData[0].redeemable < amount) {
+        console.log("Insuffiecent redeemable balance for conversion");
+        console.error('Error conversion data');
+        return res.status(500).json({ message: 'Server error: Insuffiecent redeemable balance for withdraw' });
+      }
+    if (method == "redeem")
+      if (userData[0].spendable < amount) {
+        console.log("Insuffiecent spendable balance for conversion");
+        console.error('Error coversion data');
+        return res.status(500).json({ message: 'Server error: Insuffiecent redeemable balance for withdraw' });
+      }
+
+    await db.query(
+      'INSERT INTO conversions (username, userid, amount, reference_code, method, formdata) VALUES (?, ?, ?, ?, ?, ?)',
+      [username, req.user.user_id, amount, uuidv4(), method, JSON.stringify(data)]
+    );
+
+    // const [recipientAccount] = await db.query('SELECT * FROM accounts WHERE user_id = ?', [req.user.user_id]);
+
+    const message = `${method} convert: ${amount}`
+
+    await db.query(
+      'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [0, req.user.user_id, amount, 'convert', 'pending', "You", "System", message, uuidv4()]
+    );
+
+    if (method == "spend") {
+      // // Update user's coin balance
+      // await db.query(
+      //   'UPDATE accounts SET balance = balance - ? WHERE user_id = ?',
+      //   [amount, req.user.user_id]
+      // );
+
+      // Update user's coin redeemable balance
+      await db.query(
+        'UPDATE accounts SET spendable = spendable + ? WHERE user_id = ?',
+        [amount, req.user.user_id]
+      );
+
+      await db.query(
+        'UPDATE accounts SET redeemable = redeemable - ? WHERE user_id = ?',
+        [amount, req.user.user_id]
+      );
+
+    }
+
+    if (method == "redeem") {
+      // Update user's coin balance
+      // await db.query(
+      //   'UPDATE accounts SET balance = balance - ? WHERE user_id = ?',
+      //   [amount, req.user.user_id]
+      // );
+
+      // Update user's coin redeemable balance
+      await db.query(
+        'UPDATE accounts SET redeemable = redeemable + ? WHERE user_id = ?',
+        [amount, req.user.user_id]
+      );
+
+      // Update user's coin redeemable balance
+      await db.query(
+        'UPDATE accounts SET spendable = spendable - ? WHERE user_id = ?',
+        [amount, req.user.user_id]
+      );
+
+    }
+
+
+    // Create Notification
+    //  const { type, recipient_user_id, recipient_username, Nmessage, from_user, date } = req.body;
+    //  console.log("New notification: ", Nmessage);
+    
+     // Fetch user details
+     const [user] = await db.query(
+      'SELECT * FROM users WHERE username = ?',
+      [username]
+    );
+
+   
+
+    let notificationMsg = `Hoo-ray, Your conversion of ${amount} coins has been processed!`
+
+     try {
+         const [result] = await db.query(
+             `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
+    VALUES (?, ?, ?, ?, ?, ?)`,
+             ["purchase-confirmed", user.user_id, notificationMsg, "0", user.username, new Date()]
+         );
+
+         console.log("New notification successfully created:", notificationMsg);
+         // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
+     } catch (error) {
+         console.error('Error creating notification:', error);
+         // res.status(500).json({ message: 'Server error' });
+     }
 
     // res.status(201).json({ message: 'Content added successfully', ok: true });
     // res.json({ message: 'Transaction successful' });

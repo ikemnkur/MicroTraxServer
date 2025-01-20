@@ -9,8 +9,8 @@ const authenticateToken = require('../middleware/auth');
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const [notifications] = await db.query(
-      'SELECT * FROM notifications WHERE recipient_user_id = ? ORDER BY created_at DESC',
-      [req.user.user_id]
+      'SELECT * FROM notifications WHERE recipient_user_id = ? OR recipient_user_id = ? ORDER BY created_at DESC',
+      [req.user.user_id, 0]
     );
 
     res.json(notifications);
@@ -37,6 +37,27 @@ router.post('/create', authenticateToken, async (req, res) => {
   }
   
 });
+
+// POST /api/notifications/create-unlock - Unprotected route
+router.post('/create-unlock', async (req, res) => {
+  const { type, recipient_user_id, recipient_username, message, from_user, date } = req.body;
+  console.log("New notification: ", message);
+
+  try {
+    const [result] = await db.query(
+      `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [type, recipient_user_id, message, from_user, recipient_username, date]
+    );
+
+    console.log("New notification successfully created:", message);
+    res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
+  } catch (error) {
+    console.error('Error creating notification:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 
 // DELETE /api/notifications/delete/:id - Delete a notification
 router.delete('/delete/:id', authenticateToken, async (req, res) => {

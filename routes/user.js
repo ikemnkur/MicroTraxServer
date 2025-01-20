@@ -126,7 +126,8 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
     }
     
     const id = req.user.user_id;
-    const accountId = req.user.accountId;
+    // const accountId = req.user.accountId;
+    const accountId = req.user.user_id;
     
     if (!accountId) {
       return res.status(404).json({ message: 'Account ID not found for the user' });

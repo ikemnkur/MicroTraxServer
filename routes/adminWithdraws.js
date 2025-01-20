@@ -107,6 +107,37 @@ router.post('/confirm-withdraw/:withdrawId', async (req, res) => {
       [increaseAmount, username]
     );
 
+    // await db.query(
+    //   'SELECT * FROM accounts WHERE user_id = (SELECT user_id FROM users WHERE username = ?)',
+    //   [username]
+    // );
+
+    // Fetch user details
+    const [user] = await db.query(
+      'SELECT * FROM users WHERE username = ?',
+      [username]
+    );
+
+     // Create Notification
+    //  const { type, recipient_user_id, recipient_username, Nmessage, from_user, date } = req.body;
+    //  console.log("New notification: ", Nmessage);
+
+    let notificationMsg = `Hoo-ray, Your withdrawl of ${increaseAmount} coins has been approved and processed!`
+
+     try {
+         const [result] = await db.query(
+             `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
+    VALUES (?, ?, ?, ?, ?, ?)`,
+             ["withdrawl-approved", user.user_id, notificationMsg, "0", user.username, new Date()]
+         );
+
+         console.log("New notification successfully created:", notificationMsg);
+         // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
+     } catch (error) {
+         console.error('Error creating notification:', error);
+         // res.status(500).json({ message: 'Server error' });
+     }
+
     await db.query('COMMIT');
 
     res.json({ message: 'withdraw confirmed and user balance updated.' });

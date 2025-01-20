@@ -138,6 +138,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 //   });
 // });
 
+const notificationsRouter = require('./routes/notifications'); // Adjust path
+app.use('/api/notifications', notificationsRouter);
+
 // Root route
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

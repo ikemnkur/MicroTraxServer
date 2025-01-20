@@ -297,6 +297,24 @@ router.post('/send', authenticateToken, async (req, res) => {
 //   }
 // });
 
+router.delete('/transaction/:id', authenticateToken, async (req, res) => {
+  const transactionId = req.params.id;
+
+  try {
+    const result = await db.query('DELETE FROM transactions WHERE id = ?', [transactionId]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+
+    res.json({ message: 'Transaction deleted successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
 router.get('/receiveHistory', authenticateToken, async (req, res) => {
   try {
     console.log("fetch receive history id: ", req.user.user_id)

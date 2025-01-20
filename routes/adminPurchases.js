@@ -96,9 +96,9 @@ router.post('/confirm-purchase/:purchaseId', async (req, res) => {
       ['Completed', purchaseId]
     );
     await db.query(
-        'UPDATE transactions SET status = ? WHERE created_at = ? AND receiving_user = ?',
-        ['Completed', created_at, username]
-      );
+      'UPDATE transactions SET status = ? WHERE created_at = ? AND receiving_user = ?',
+      ['Completed', created_at, username]
+    );
 
     // Increase user’s account balance (assuming an 'accounts' table or a field in 'users')
     // Modify this to match your schema (if storing balance in 'users', or a separate accounts table)
@@ -106,6 +106,33 @@ router.post('/confirm-purchase/:purchaseId', async (req, res) => {
       'UPDATE accounts SET spendable = spendable + ? WHERE user_id = (SELECT user_id FROM users WHERE username = ?)',
       [increaseAmount, username]
     );
+    // Create Notification
+    //  const { type, recipient_user_id, recipient_username, Nmessage, from_user, date } = req.body;
+    //  console.log("New notification: ", Nmessage);
+
+    // Fetch user details
+    const [user] = await db.query(
+      'SELECT * FROM users WHERE username = ?',
+      [username]
+    );
+
+
+
+    let notificationMsg = `Hoo-ray, Your purchase of ${increaseAmount} coins has been confirmed and processed!`
+
+    try {
+      const [result] = await db.query(
+        `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
+    VALUES (?, ?, ?, ?, ?, ?)`,
+        ["purchase-confirmed", user.user_id, notificationMsg, "0", user.username, new Date()]
+      );
+
+      console.log("New notification successfully created:", notificationMsg);
+      // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      // res.status(500).json({ message: 'Server error' });
+    }
 
     await db.query('COMMIT');
 
