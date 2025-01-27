@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Withdraws (Last 48 Hours)</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <style>
+    /* Basic styling adapted from your React styles */
+    .container {
+      margin: 20px;
+      font-family: Arial, sans-serif;
+    }
+    .controls-container {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .input {
+      padding: 6px;
+      font-size: 14px;
+    }
+    .sort-container {
+      display: flex;
+      gap: 10px;
+    }
+    .withdraw-list {
+      list-style: none;
+      padding: 0;
+    }
+    .withdraw-item {
+      padding: 10px;
+      margin-bottom: 5px;
+      border: 1px solid #ddd;
+      cursor: pointer;
+    }
+    .user-info-container {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-top: 20px;
+    }
+    .modal-backdrop {
+      position: fixed; 
+      top: 0; left: 0; 
+      width: 100%; 
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      display: none; /* Hidden by default */
+    }
+    .modal-backdrop.active {
+      display: block; /* Show modal if active */
+    }
+    .modal-content {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      min-width: 300px;
+    }
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Admin Withdraws (Last 48 Hours)</h1>
+
+    <!-- Search/Filter/Sort Controls -->
+    <div class="controls-container">
+      <input
+        id="searchInput"
+        type="text"
+        class="input form-control"
+        placeholder="Search by username, reference, etc."
+      />
+
+      <select id="statusFilter" class="input form-select">
+        <option value="">All Statuses</option>
+        <option value="Pending">Pending</option>
+        <option value="Completed">Completed</option>
+      </select>
+
+      <div class="sort-container" id="sortContainer">
+        <button class="btn btn-secondary" data-field="created_at">
+          Date
+        </button>
+        <button class="btn btn-secondary" data-field="username">
+          Username
+        </button>
+      </div>
+    </div>
+
+    <!-- Withdraws List -->
+    <ul id="withdrawList" class="withdraw-list">
+      <% withdraws.forEach(withdraw => { %>
+        <li
+          class="withdraw-item"
+          data-id="<%= withdraw.id %>"
+          data-username="<%= withdraw.username %>"
+          data-amount="<%= withdraw.amount %>"
+          data-status="<%= withdraw.status %>"
+          data-created="<%= withdraw.created_at %>"
+        >
+          <strong><%= withdraw.username %></strong> - <%= withdraw.amount %> coins
+          <br />
+          Status: <%= withdraw.status || 'N/A' %> 
+          | Created: <%= withdraw.created_at %>
+        </li>
+      <% }) %>
+    </ul>
+
+    <!-- User Info and Transactions -->
+    <div id="userInfoContainer" class="user-info-container" style="display:none;">
+      <h2 id="userInfoTitle"></h2>
+      <p id="userEmail"></p>
+      <p id="userBalance"></p>
+      <h3>User Transactions:</h3>
+      <ul id="userTransactions"></ul>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirmModal" class="modal-backdrop">
+      <div class="modal-content">
+        <h3 id="confirmMessage"></h3>
+        <div class="modal-buttons">
+          <button id="confirmYesBtn" class="btn btn-primary">Yes</button>
+          <button id="confirmNoBtn" class="btn btn-secondary">No</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Simple Client-Side Logic -->
+  <script>
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const sortContainer = document.getElementById('sortContainer');
+    const withdrawList = document.getElementById('withdrawList');
+    const userInfoContainer = document.getElementById('userInfoContainer');
+    const userInfoTitle = document.getElementById('userInfoTitle');
+    const userEmail = document.getElementById('userEmail');
+    const userBalance = document.getElementById('userBalance');
+    const userTransactions = document.getElementById('userTransactions');
+    const confirmModal = document.getElementById('confirmModal');
+    const confirmMessage = document.getElementById('confirmMessage');
+    const confirmYesBtn = document.getElementById('confirmYesBtn');
+    const confirmNoBtn = document.getElementById('confirmNoBtn');
+
+    // Track currently selected withdraw item
+    let selectedWithdraw = null;
+
+    // Event listeners for filtering and sorting (client-side)
+    searchInput.addEventListener('input', filterWithdraws);
+    statusFilter.addEventListener('change', filterWithdraws);
+    sortContainer.addEventListener('click', (e) => {
+      if (e.target.dataset.field) {
+        sortWithdraws(e.target.dataset.field);
+      }
+    });
+
+    function filterWithdraws() {
+      const searchVal = searchInput.value.toLowerCase();
+      const statusVal = statusFilter.value;
+      const items = document.querySelectorAll('.withdraw-item');
+
+      items.forEach(item => {
+        const username = item.dataset.username.toLowerCase();
+        const status = item.dataset.status;
+        const matchSearch = username.includes(searchVal);
+        const matchStatus = !statusVal || status === statusVal;
+        item.style.display = matchSearch && matchStatus ? '' : 'none';
+      });
+    }
+
+    // Toggle ASC / DESC per field
+    let sortState = {};
+    function sortWithdraws(field) {
+      const itemsArray = Array.from(document.querySelectorAll('.withdraw-item'));
+      sortState[field] = sortState[field] === 'ASC' ? 'DESC' : 'ASC';
+      const direction = sortState[field];
+
+      itemsArray.sort((a, b) => {
+        const valA = a.dataset[field].toLowerCase();
+        const valB = b.dataset[field].toLowerCase();
+        if (valA < valB) return direction === 'ASC' ? -1 : 1;
+        if (valA > valB) return direction === 'ASC' ? 1 : -1;
+        return 0;
+      });
+
+      itemsArray.forEach(item => withdrawList.appendChild(item));
+    }
+
+    // Single-click -> fetch user info
+    withdrawList.addEventListener('click', async (e) => {
+      const item = e.target.closest('.withdraw-item');
+      if (!item) return;
+
+      selectedWithdraw = item;
+      const username = item.dataset.username;
+
+      // Fetch user info from server route, e.g. /api/adminw/user-info/:username
+      try {
+        const response = await fetch(`/api/adminw/user-info/${username}`, {
+          credentials: 'include'
+        });
+        if (!response.ok) throw new Error('Error fetching user info');
+
+        const data = await response.json();
+        // Populate user info container
+        userInfoTitle.textContent = 'User Details: ' + data.user.username;
+        userEmail.textContent = 'Email: ' + data.user.email;
+        userBalance.textContent = 'Balance: ' + data.account.balance;
+
+        userTransactions.innerHTML = '';
+        data.transactions.forEach(tx => {
+          let sign = '-';
+          if (tx.recipient_account_id === data.user.user_id) {
+            sign = '+';
+          }
+          const li = document.createElement('li');
+          li.textContent = `Type: ${sign} ${tx.transaction_type} | Amount: ${tx.amount} | Status: ${tx.status} | Created: ${tx.created_at}`;
+          userTransactions.appendChild(li);
+        });
+
+        userInfoContainer.style.display = 'block';
+      } catch (err) {
+        console.error(err);
+        alert('Failed to load user info');
+      }
+    });
+
+    // Double-click -> confirm modal
+    withdrawList.addEventListener('dblclick', (e) => {
+      const item = e.target.closest('.withdraw-item');
+      if (!item) return;
+
+      selectedWithdraw = item;
+      confirmMessage.textContent = `Are you sure you want to confirm this withdraw for "${item.dataset.username}"?`;
+      confirmModal.classList.add('active');
+    });
+
+    // Confirm withdraw logic
+    confirmYesBtn.addEventListener('click', async () => {
+      if (!selectedWithdraw) return;
+      const withdrawId = selectedWithdraw.dataset.id;
+      const username = selectedWithdraw.dataset.username;
+      const amount = selectedWithdraw.dataset.amount;
+
+      try {
+        const response = await fetch(`/api/adminw/confirm-withdraw/${withdrawId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ username, increaseAmount: amount })
+        });
+        if (!response.ok) {
+          throw new Error('Failed to confirm withdraw');
+        }
+
+        alert('Withdraw confirmed successfully.');
+        confirmModal.classList.remove('active');
+        location.reload(); // reload to see updated status
+      } catch (err) {
+        console.error(err);
+        alert('Error confirming withdraw.');
+      }
+    });
+
+    confirmNoBtn.addEventListener('click', () => {
+      confirmModal.classList.remove('active');
+    });
+  </script>
+</body>
+</html>

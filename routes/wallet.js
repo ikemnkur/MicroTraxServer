@@ -94,7 +94,7 @@ router.post('/stripe-reload', authenticateToken, async (req, res) => {
          const [result] = await db.query(
              `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
     VALUES (?, ?, ?, ?, ?, ?)`,
-             ["purchase-submitted", user.user_id, notificationMsg, "0", user.username, new Date()]
+             ["purchase-submitted", req.user.user_id, notificationMsg, "0", user.username, new Date()]
          );
 
          console.log("New notification successfully created:", notificationMsg);
@@ -178,7 +178,7 @@ router.post('/crypto-reload', authenticateToken, async (req, res) => {
          const [result] = await db.query(
              `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
     VALUES (?, ?, ?, ?, ?, ?)`,
-             ["purchase-submitted", user.user_id, notificationMsg, "0", user.username, new Date()]
+             ["purchase-submitted", req.user.user_id, notificationMsg, "0", username, new Date()]
          );
 
          console.log("New notification successfully created:", notificationMsg);
@@ -377,7 +377,7 @@ router.post('/withdraw', authenticateToken, async (req, res) => {
          const [result] = await db.query(
              `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
     VALUES (?, ?, ?, ?, ?, ?)`,
-             ["withdraw-submitted", user.user_id, notificationMsg, "0", user.username, new Date()]
+             ["withdraw-submitted", req.user.user_id, notificationMsg, "0", username, new Date()]
          );
 
          console.log("New notification successfully created:", notificationMsg);
@@ -502,7 +502,7 @@ router.post('/convert', authenticateToken, async (req, res) => {
          const [result] = await db.query(
              `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
     VALUES (?, ?, ?, ?, ?, ?)`,
-             ["purchase-confirmed", user.user_id, notificationMsg, "0", user.username, new Date()]
+             ["purchase-confirmed", req.user.user_id, notificationMsg, "0", user.username, new Date()]
          );
 
          console.log("New notification successfully created:", notificationMsg);

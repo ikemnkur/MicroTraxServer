@@ -128,15 +128,15 @@ app.use('/api/adminw', adminWithdraws);
 // Serve static files from a 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
 
-// // Admin route
-// app.get('/api/admin', (req, res) => {
-//   const uptime = Date.now() - startTime;
-//   res.json({
-//     pageVisits: pageVisits,
-//     recentRequests: recentRequests,
-//     uptime: uptime
-//   });
-// });
+// Admin route
+app.get('/api/admin', (req, res) => {
+  const uptime = Date.now() - startTime;
+  res.json({
+    pageVisits: pageVisits,
+    recentRequests: recentRequests,
+    uptime: uptime
+  });
+});
 
 const notificationsRouter = require('./routes/notifications'); // Adjust path
 app.use('/api/notifications', notificationsRouter);
@@ -146,123 +146,178 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Root route
+// Root route -- old not needed
 // app.get('/adminTemplate', (req, res) => {
 //   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 // });
 
 // Admin Dashboard route
 
-// app.get('/admin', (req, res) => {
-//   const uptime = moment.duration(Date.now() - startTime).humanize();
+app.get('/admin', (req, res) => {
+  const uptime = moment.duration(Date.now() - startTime).humanize();
 
-//   let adminHtml = `
-//     <!DOCTYPE html>
-//     <html lang="en">
-//     <head>
-//         <meta charset="UTF-8">
-//         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-//         <title>Admin Dashboard</title>
-//         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-//         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-//         <style>
-//             body { padding-top: 20px; }
-//             .table-container { max-height: 400px; overflow-y: auto; }
-//         </style>
-//     </head>
-//     <body>
-//         <div class="container">
-//             <h1 class="mb-4">Admin Dashboard</h1>
+  let adminHtml = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Admin Dashboard</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+        <style>
+            body { padding-top: 20px; }
+            .table-container { max-height: 400px; overflow-y: auto; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1 class="mb-4">Admin Dashboard</h1>
             
-//             <div class="card mb-4">
-//                 <div class="card-body">
-//                     <h5 class="card-title">Server Uptime</h5>
-//                     <p class="card-text">${uptime}</p>
-//                 </div>
-//             </div>
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Server Uptime</h5>
+                    <p class="card-text">${uptime}</p>
+                </div>
+            </div>
 
-//             <div class="card mb-4">
-//                 <div class="card-body">
-//                     <h5 class="card-title">Page Visits</h5>
-//                     <input type="text" id="visitFilter" class="form-control mb-3" placeholder="Filter visits...">
-//                     <div class="table-container">
-//                         <table class="table table-striped">
-//                             <thead>
-//                                 <tr>
-//                                     <th>Count</th>
-//                                     <th>URL</th>
-//                                     <th>Time</th>
-//                                     <th>IP</th>
-//                                     <th>Location</th>
-//                                 </tr>
-//                             </thead>
-//                             <tbody id="visitsTableBody">
-//                                 ${pageVisits.map(visit => `
-//                                     <tr>
-//                                         <td>${visit.count}</td>
-//                                         <td>${visit.url}</td>
-//                                         <td>${visit.time}</td>
-//                                         <td>${visit.ip}</td>
-//                                         <td>${visit.location}</td>
-//                                     </tr>
-//                                 `).join('')}
-//                             </tbody>
-//                         </table>
-//                     </div>
-//                 </div>
-//             </div>
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Page Visits</h5>
+                    <input type="text" id="visitFilter" class="form-control mb-3" placeholder="Filter visits...">
+                    <div class="table-container">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Count</th>
+                                    <th>URL</th>
+                                    <th>Time</th>
+                                    <th>IP</th>
+                                    <th>Location</th>
+                                </tr>
+                            </thead>
+                            <tbody id="visitsTableBody">
+                                ${pageVisits.map(visit => `
+                                    <tr>
+                                        <td>${visit.count}</td>
+                                        <td>${visit.url}</td>
+                                        <td>${visit.time}</td>
+                                        <td>${visit.ip}</td>
+                                        <td>${visit.location}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
-//             <div class="card mb-4">
-//                 <div class="card-body">
-//                     <h5 class="card-title">Recent Requests</h5>
-//                     <div class="table-container">
-//                         <table class="table table-striped">
-//                             <thead>
-//                                 <tr>
-//                                     <th>Method</th>
-//                                     <th>URL</th>
-//                                     <th>Time</th>
-//                                     <th>IP</th>
-//                                 </tr>
-//                             </thead>
-//                             <tbody>
-//                                 ${recentRequests.map(request => `
-//                                     <tr>
-//                                         <td>${request.method}</td>
-//                                         <td>${request.url}</td>
-//                                         <td>${request.time}</td>
-//                                         <td>${request.ip}</td>
-//                                     </tr>
-//                                 `).join('')}
-//                             </tbody>
-//                         </table>
-//                     </div>
-//                 </div>
-//             </div>
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Recent Requests</h5>
+                    <div class="table-container">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Method</th>
+                                    <th>URL</th>
+                                    <th>Time</th>
+                                    <th>IP</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${recentRequests.map(request => `
+                                    <tr>
+                                        <td>${request.method}</td>
+                                        <td>${request.url}</td>
+                                        <td>${request.time}</td>
+                                        <td>${request.ip}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
-//             <button id="refreshButton" class="btn btn-primary">Refresh Data</button>
-//         </div>
+            <button id="refreshButton" class="btn btn-primary">Refresh Data</button>
+        </div>
 
-//         <script>
-//             document.getElementById('visitFilter').addEventListener('input', function() {
-//                 const filter = this.value.toLowerCase();
-//                 const rows = document.querySelectorAll('#visitsTableBody tr');
-//                 rows.forEach(row => {
-//                     const text = row.textContent.toLowerCase();
-//                     row.style.display = text.includes(filter) ? '' : 'none';
-//                 });
-//             });
+        <script>
+            document.getElementById('visitFilter').addEventListener('input', function() {
+                const filter = this.value.toLowerCase();
+                const rows = document.querySelectorAll('#visitsTableBody tr');
+                rows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(filter) ? '' : 'none';
+                });
+            });
 
-//             document.getElementById('refreshButton').addEventListener('click', function() {
-//                 location.reload();
-//             });
-//         </script>
-//     </body>
-//     </html>
-//   `;
+            document.getElementById('refreshButton').addEventListener('click', function() {
+                location.reload();
+            });
+        </script>
+    </body>
+    </html>
+  `;
 
-//   res.send(adminHtml);
-// });
+  res.send(adminHtml);
+});
+
+// In your server or route file, e.g. server.js or routes/adminPurchases.js
+app.get('/admin/purchases', async (req, res) => {
+  try {
+    // Example: fetch from your existing DB/API
+    // You might pass search, statusFilter, etc. as query params if you want server-side filter
+    const [rows] = await db.query(`
+      SELECT id, username, amount, status, created_at 
+      FROM purchases
+      WHERE created_at >= NOW() - INTERVAL 48 HOUR
+      ORDER BY created_at DESC
+    `);
+
+    // Render the EJS template, passing the purchase data
+    res.render('adminPurchases', { purchases: rows });
+  } catch (error) {
+    console.error('Error fetching purchases:', error);
+    return res.status(500).send('Server Error');
+  }
+});
+
+
+// In your server or route file, e.g. server.js or routes/adminPurchases.js
+app.get('/admin/withdraws', async (req, res) => {
+  try {
+    // Example: fetch from your existing DB/API
+    // You might pass search, statusFilter, etc. as query params if you want server-side filter
+    const [rows] = await db.query(`
+      SELECT id, username, amount, status, created_at 
+      FROM withdraws
+      WHERE created_at >= NOW() - INTERVAL 48 HOUR
+      ORDER BY created_at DESC
+    `);
+
+    // Render the EJS template, passing the purchase data
+    res.render('adminWithdraw', { withdraws: rows });
+  } catch (error) {
+    console.error('Error fetching withdraws:', error);
+    return res.status(500).send('Server Error');
+  }
+});
+
+// In your server or route file, e.g. server.js or routes/adminPurchases.js
+app.get('/admin/dashboard', async (req, res) => {
+  try {
+    // Example: fetch from your existing DB/API
+    // You might pass search, statusFilter, etc. as query params if you want server-side filter
+    
+    // Render the EJS template, passing the purchase data
+    res.render('dashboard', { purchases: rows });
+  } catch (error) {
+    console.error('Error fetching purchases:', error);
+    return res.status(500).send('Server Error');
+  }
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
@@ -297,18 +352,6 @@ app.post('/create-checkout-session', async (req, res) => {
     res.send({ error: "Checkout failed." });
   }
 });
-
-// app.get('/session-status', async (req, res) => {
-//   try {
-//     const session = await stripe.checkout.sessions.retrieve(req.query.session_id);
-//     res.send({
-//       status: session.status,
-//       customer_email: session.customer_details.email
-//     });
-//   } catch (error) {
-//     console.log("Duplicate Order Scam Prevented")
-//   }
-// });
 
 app.get('/session-status', async (req, res) => {
   try {
@@ -350,72 +393,6 @@ app.get('/session-status', async (req, res) => {
     res.status(500).send("Error retrieving session status");
   }
 });
-
-
-// app.listen(4242, () => console.log('Running on port 4242'));
-
-// // Make sure to parse the raw body, not JSON, for Stripe signature verification:
-// app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-//   const sig = req.headers['stripe-signature'];
-//   let event;
-
-//   try {
-//     event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-//   } catch (err) {
-//     console.error('⚠️  Webhook signature verification failed.', err.message);
-//     return res.sendStatus(400);
-//   }
-
-//   // Handle the event
-//   switch (event.type) {
-//     case 'checkout.session.completed':
-//       const session = event.data.object;
-//       // e.g. store in DB, mark purchase as "paid"
-//       await handleCheckoutSessionCompleted(session, req.body);
-//       break;
-//     // ... handle other event types
-//     default:
-//       console.log(`Unhandled event type ${event.type}`);
-//   }
-
-//   // Return a response to acknowledge receipt of the event
-//   res.json({ received: true });
-// });
-
-// // This is your Stripe CLI webhook secret for testing your endpoint locally.
-// const endpointSecret = "whsec_cd7aa6f32da0c2f4898a75fa5c832cea1895e9754e39a2949344cc39f59145e4";
-
-// app.post('/webhook', express.raw({type: 'application/json'}), (request, response) => {
-//   const sig = request.headers['stripe-signature'];
-
-//   let event;
-
-//   try {
-//     event = stripe.webhooks.constructEvent(request.body, sig, endpointSecret);
-//   } catch (err) {
-//     response.status(400).send(`Webhook Error: ${err.message}`);
-//     return;
-//   }
-
-//   // Handle the event
-//   console.log(`Unhandled event type ${event.type}`);
-
-//   // Return a 200 response to acknowledge receipt of the event
-//   response.send();
-// });
-
-// Example function that saves to DB, etc.
-// async function handleCheckoutSessionCompleted(session, body) {
-//   // session contains details like session.payment_intent, etc.
-//   const paymentIntentId = session.payment_intent;
-//   const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-//   const charge = paymentIntent.charges.data[0];
-
-//   // Save details to DB or mark user as having paid
-//   // ...
-//   console.log("Body: ", body)
-
-// }
 
 // ############################# MULTER IMAGE HANDLER ########################
 

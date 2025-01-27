@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin Purchases (Last 48 Hours)</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <style>
+    /* Basic styling similar to your React component */
+    .controls-container {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .purchase-list {
+      list-style-type: none;
+      padding: 0;
+    }
+    .purchase-item {
+      padding: 10px;
+      margin-bottom: 5px;
+      border: 1px solid #ddd;
+      cursor: pointer;
+    }
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      display: none; /* Hidden by default */
+    }
+    .modal-backdrop.active {
+      display: block; /* Show the overlay if active */
+    }
+    .modal-content {
+      background-color: white;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 20px;
+      border-radius: 8px;
+      min-width: 300px;
+    }
+  </style>
+</head>
+<body class="m-4">
+  <h1>Admin Purchases (Last 48 Hours)</h1>
+
+  <!-- Search / Filter / Sort Controls -->
+  <div class="controls-container">
+    <input
+      id="searchInput"
+      type="text"
+      placeholder="Search by username, reference, etc."
+      class="form-control"
+    />
+
+    <select id="statusFilter" class="form-select">
+      <option value="">All Statuses</option>
+      <option value="Pending">Pending</option>
+      <option value="Completed">Completed</option>
+    </select>
+
+    <div id="sortContainer">
+      <button
+        class="btn btn-secondary"
+        data-field="created_at"
+      >
+        Date
+      </button>
+      <button
+        class="btn btn-secondary"
+        data-field="username"
+      >
+        Username
+      </button>
+    </div>
+  </div>
+
+  <!-- Purchases List -->
+  <ul id="purchaseList" class="purchase-list">
+    <% purchases.forEach((purchase) => { %>
+      <li
+        class="purchase-item"
+        data-id="<%= purchase.id %>"
+        data-username="<%= purchase.username %>"
+        data-amount="<%= purchase.amount %>"
+        data-status="<%= purchase.status %>"
+        data-created="<%= purchase.created_at %>"
+      >
+        <strong><%= purchase.username %></strong> - <%= purchase.amount %> coins
+        <br />
+        Status: <%= purchase.status || 'N/A' %> | Created: <%= purchase.created_at %>
+      </li>
+    <% }) %>
+  </ul>
+
+  <!-- User Info Section -->
+  <div id="userInfoContainer" class="border p-3 mt-3" style="display:none;">
+    <h2 id="userInfoTitle"></h2>
+    <p id="userEmail"></p>
+    <p id="userBalance"></p>
+    <h3>User Transactions:</h3>
+    <ul id="userTransactions"></ul>
+  </div>
+
+  <!-- Confirm Purchase Modal -->
+  <div id="confirmModal" class="modal-backdrop">
+    <div class="modal-content">
+      <h3 id="confirmMessage"></h3>
+      <div class="d-flex justify-content-center mt-3">
+        <button id="confirmYesBtn" class="btn btn-primary m-1">Yes</button>
+        <button id="confirmNoBtn" class="btn btn-secondary m-1">No</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Grab DOM elements
+    const purchaseList = document.getElementById('purchaseList');
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const sortContainer = document.getElementById('sortContainer');
+    const userInfoContainer = document.getElementById('userInfoContainer');
+    const userInfoTitle = document.getElementById('userInfoTitle');
+    const userEmail = document.getElementById('userEmail');
+    const userBalance = document.getElementById('userBalance');
+    const userTransactions = document.getElementById('userTransactions');
+    const confirmModal = document.getElementById('confirmModal');
+    const confirmMessage = document.getElementById('confirmMessage');
+    const confirmYesBtn = document.getElementById('confirmYesBtn');
+    const confirmNoBtn = document.getElementById('confirmNoBtn');
+
+    // For storing the last clicked purchase
+    let selectedPurchase = null;
+
+    // Filter / sort logic (client side) - optional
+    searchInput.addEventListener('input', () => filterPurchases());
+    statusFilter.addEventListener('change', () => filterPurchases());
+    sortContainer.addEventListener('click', (e) => {
+      if (e.target.dataset.field) {
+        sortPurchases(e.target.dataset.field);
+      }
+    });
+
+    function filterPurchases() {
+      const searchValue = searchInput.value.toLowerCase();
+      const statusValue = statusFilter.value;
+
+      const purchases = document.querySelectorAll('.purchase-item');
+      purchases.forEach((item) => {
+        const username = item.dataset.username.toLowerCase();
+        const status = item.dataset.status;
+        const matchSearch = username.includes(searchValue);
+        const matchStatus = !statusValue || status === statusValue;
+        
+        if (matchSearch && matchStatus) {
+          item.style.display = '';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    }
+
+    function sortPurchases(field) {
+      const purchasesArray = Array.from(document.querySelectorAll('.purchase-item'));
+      // For demonstration, we just do a simple ascending/descending toggle
+      // You might prefer to do this server-side
+      let currentDirection = sortPurchases[field] === 'ASC' ? 'DESC' : 'ASC';
+      sortPurchases[field] = currentDirection;
+
+      purchasesArray.sort((a, b) => {
+        const valA = a.dataset[field].toLowerCase();
+        const valB = b.dataset[field].toLowerCase();
+
+        if (valA < valB) return currentDirection === 'ASC' ? -1 : 1;
+        if (valA > valB) return currentDirection === 'ASC' ? 1 : -1;
+        return 0;
+      });
+
+      const purchaseListElement = document.getElementById('purchaseList');
+      purchaseListElement.innerHTML = '';
+      purchasesArray.forEach(item => purchaseListElement.appendChild(item));
+    }
+
+    // Single-click -> load user info
+    purchaseList.addEventListener('click', async (e) => {
+      const item = e.target.closest('.purchase-item');
+      if (!item) return;
+
+      selectedPurchase = item;
+      const username = item.dataset.username;
+
+      // Fetch user info from Express route (similar to /api/adminp/user-info/:username)
+      try {
+        const res = await fetch(`/api/adminp/user-info/ ${username}`, { credentials: 'include' });
+        if (!res.ok) throw new Error('Failed to fetch user info');
+        
+        const data = await res.json();
+        // Populate user info
+        userInfoTitle.innerText =  `User Details:  ${data.user.username} `;
+        userEmail.innerText =  `Email:  ${data.user.email} `;
+        userBalance.innerText =  `Balance:  ${data.account.balance} `;
+
+        userTransactions.innerHTML = '';
+        data.transactions.forEach((tx) => {
+          const li = document.createElement('li');
+          li.innerText =  `Type:  ${tx.transaction_type} | Amount:  ${tx.amount} | Status:  ${tx.status} | Created:  ${tx.created_at} `;
+          userTransactions.appendChild(li);
+        });
+
+        userInfoContainer.style.display = 'block';
+      } catch (err) {
+        console.error(err);
+        alert('Error fetching user details');
+      }
+    });
+
+    // Double-click -> confirm modal
+    purchaseList.addEventListener('dblclick', (e) => {
+      const item = e.target.closest('.purchase-item');
+      if (!item) return;
+      selectedPurchase = item;
+      confirmModal.classList.add('active');
+      confirmMessage.textContent =  `Are you sure you want to confirm this purchase for " ${item.dataset.username}"? `;
+    });
+
+    // Confirm purchase => call server route
+    confirmYesBtn.addEventListener('click', async () => {
+      if (!selectedPurchase) return;
+      const purchaseId = selectedPurchase.dataset.id;
+      const amount = selectedPurchase.dataset.amount;
+      const username = selectedPurchase.dataset.username;
+
+      try {
+        const res = await fetch( `/api/adminp/confirm-purchase/ ${purchaseId} `, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, increaseAmount: amount }),
+          credentials: 'include'
+        });
+        if (!res.ok) throw new Error('Failed to confirm purchase');
+        
+        alert('Purchase confirmed successfully.');
+        // Hide modal and optionally reload or hide the updated item
+        confirmModal.classList.remove('active');
+        location.reload(); // or remove the item from UI
+      } catch (error) {
+        console.error(error);
+        alert('Failed to confirm purchase.');
+      }
+    });
+
+    confirmNoBtn.addEventListener('click', () => {
+      confirmModal.classList.remove('active');
+    });
+  </script>
+</body>
+</html>
