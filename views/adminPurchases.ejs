@@ -110,8 +110,9 @@
     <div class="modal-content">
       <h3 id="confirmMessage"></h3>
       <div class="d-flex justify-content-center mt-3">
-        <button id="confirmYesBtn" class="btn btn-primary m-1">Yes</button>
-        <button id="confirmNoBtn" class="btn btn-secondary m-1">No</button>
+        <button id="confirmYesBtn" class="btn btn-primary m-1">Confirm</button>
+        <button id="confirmNoBtn" class="btn btn-secondary m-1">Cancel</button>
+        <button id="confirmRejectBtn" class="btn btn-secondary m-1">Reject</button>
       </div>
     </div>
   </div>
@@ -131,6 +132,7 @@
     const confirmMessage = document.getElementById('confirmMessage');
     const confirmYesBtn = document.getElementById('confirmYesBtn');
     const confirmNoBtn = document.getElementById('confirmNoBtn');
+    const confirmRejectBtn = document.getElementById('confirmRejectBtn');
 
     // For storing the last clicked purchase
     let selectedPurchase = null;
@@ -255,6 +257,33 @@
     confirmNoBtn.addEventListener('click', () => {
       confirmModal.classList.remove('active');
     });
+
+    // Reject purchase => call server route
+    confirmRejectBtn.addEventListener('click', async () => {
+      if (!selectedPurchase) return;
+      const purchaseId = selectedPurchase.dataset.id;
+      const amount = selectedPurchase.dataset.amount;
+      const username = selectedPurchase.dataset.username;
+
+      try {
+        const res = await fetch( `/api/adminp/reject-purchase/ ${purchaseId} `, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, increaseAmount: 0 }),
+          credentials: 'include'
+        });
+        if (!res.ok) throw new Error(`Failed to reject purchase of ${amount} coins`);
+        
+        alert('Purchase reject successfully.');
+        // Hide modal and optionally reload or hide the updated item
+        confirmModal.classList.remove('active');
+        location.reload(); // or remove the item from UI
+      } catch (error) {
+        console.error(error);
+        alert('Failed to confirm purchase.');
+      }
+    });
+    
   </script>
 </body>
 </html>

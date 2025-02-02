@@ -148,4 +148,29 @@ router.post('/confirm-withdraw/:withdrawId', async (req, res) => {
   }
 });
 
+// 4) Reject (Deny) a Withdraw
+router.post('/reject-withdraw/:withdrawId', async (req, res) => {
+  const { withdrawId } = req.params;
+  const { username, increaseAmount = 0, created_at } = req.body;
+
+  // Example: increase the user’s account balance and change withdraw status
+  try {
+    await db.query('START TRANSACTION');
+
+    // Update the withdraw status
+    await db.query(
+      'UPDATE withdraws SET status = ? WHERE id = ?',
+      ['Rejected', withdrawId]
+    );
+
+    await db.query('COMMIT');
+
+    res.json({ message: 'Logged withdraw rejected. User balance unchanged.' });
+  } catch (error) {
+    await db.query('ROLLBACK');
+    console.error('Error rejecting withdraw:', error);
+    res.status(500).json({ message: 'Failed to reject withdraw.' });
+  }
+});
+
 module.exports = router;

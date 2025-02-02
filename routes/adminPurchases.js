@@ -81,6 +81,7 @@ router.get('/user-info/:username', async (req, res) => {
   }
 });
 
+
 // 3) Confirm (Complete) a Purchase
 router.post('/confirm-purchase/:purchaseId', async (req, res) => {
   const { purchaseId } = req.params;
@@ -141,6 +142,32 @@ router.post('/confirm-purchase/:purchaseId', async (req, res) => {
     await db.query('ROLLBACK');
     console.error('Error confirming purchase:', error);
     res.status(500).json({ message: 'Failed to confirm purchase.' });
+  }
+});
+
+
+// 4) Reject (Deny) a Purchase
+router.post('/reject-purchase/:purchaseId', async (req, res) => {
+  const { purchaseId } = req.params;
+  const { username, increaseAmount = 0, created_at } = req.body;
+
+  // Example: increase the user’s account balance and change purchase status
+  try {
+    await db.query('START TRANSACTION');
+
+    // Update the purchase status
+    await db.query(
+      'UPDATE purchases SET status = ? WHERE id = ?',
+      ['Rejected', purchaseId]
+    );
+
+    await db.query('COMMIT');
+
+    res.json({ message: 'Logged purchase rejected. User balance unchanged.' });
+  } catch (error) {
+    await db.query('ROLLBACK');
+    console.error('Error rejecting purchase:', error);
+    res.status(500).json({ message: 'Failed to reject purchase.' });
   }
 });
 
