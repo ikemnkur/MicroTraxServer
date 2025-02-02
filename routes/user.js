@@ -302,6 +302,8 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
       params = [userIdOrUsername];
     }
 
+    // add a way to pull the user's content rating and average them
+
     const [users] = await db.query(query, params);
 
     if (users.length === 0) {
