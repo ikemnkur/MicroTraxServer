@@ -7,6 +7,7 @@ const router = express.Router();
 router.post('/send', authenticateToken, async (req, res) => {
   const { recipientId, amount, recipientUsername, sendingUsername, message, reference_id } = req.body;
   console.log("recipientAccountId: " + recipientId)
+  console.log("send username: " + sendingUsername)
   const recipientAccountId = recipientId;
   console.log("Amount:  " + amount)
    // / Fetch user data along with account ID
@@ -98,7 +99,7 @@ router.post('/send', authenticateToken, async (req, res) => {
 
       await connection.query(
         'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [req.user.user_id, recipientId, amount, 'send', 'completed', recipientUsername, sendingUsername, message, reference_id]
+        [req.user.user_id, recipientId, amount, 'send', 'Completed', recipientUsername, sendingUsername, message, reference_id]
       );
 
       await connection.commit();

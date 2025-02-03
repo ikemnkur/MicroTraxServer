@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>Admin Withdraws (Last 48 Hours)</title>
@@ -13,54 +14,66 @@
       margin: 20px;
       font-family: Arial, sans-serif;
     }
+
     .controls-container {
       display: flex;
       gap: 10px;
       margin-bottom: 20px;
     }
+
     .input {
       padding: 6px;
       font-size: 14px;
     }
+
     .sort-container {
       display: flex;
       gap: 10px;
     }
+
     .withdraw-list {
       list-style: none;
       padding: 0;
     }
+
     .withdraw-item {
       padding: 10px;
       margin-bottom: 5px;
       border: 1px solid #ddd;
       cursor: pointer;
     }
+
     .user-info-container {
       border: 1px solid #ccc;
       padding: 10px;
       margin-top: 20px;
     }
+
     .modal-backdrop {
-      position: fixed; 
-      top: 0; left: 0; 
-      width: 100%; 
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
       height: 100%;
-      background-color: rgba(0,0,0,0.5);
+      background-color: rgba(0, 0, 0, 0.5);
       display: none; /* Hidden by default */
     }
+
     .modal-backdrop.active {
       display: block; /* Show modal if active */
     }
+
     .modal-content {
       position: absolute;
-      top: 50%; left: 50%;
+      top: 50%;
+      left: 50%;
       transform: translate(-50%, -50%);
       background-color: #fff;
       padding: 20px;
       border-radius: 8px;
       min-width: 300px;
     }
+
     .modal-buttons {
       display: flex;
       gap: 10px;
@@ -69,6 +82,7 @@
     }
   </style>
 </head>
+
 <body>
   <div class="container">
     <h1>Admin Withdraws (Last 48 Hours)</h1>
@@ -101,6 +115,7 @@
     <!-- Withdraws List -->
     <ul id="withdrawList" class="withdraw-list">
       <% withdraws.forEach(withdraw => { %>
+        <!-- Note the new data-reference-id attribute -->
         <li
           class="withdraw-item"
           data-id="<%= withdraw.id %>"
@@ -108,17 +123,23 @@
           data-amount="<%= withdraw.amount %>"
           data-status="<%= withdraw.status %>"
           data-created="<%= withdraw.created_at %>"
+          data-reference-id="<%= withdraw.reference_id %>"
         >
           <strong><%= withdraw.username %></strong> - <%= withdraw.amount %> coins
           <br />
-          Status: <%= withdraw.status || 'N/A' %> 
-          | Created: <%= withdraw.created_at %>
+          Status: <%= withdraw.status || 'N/A' %> |
+          Created: <%= withdraw.created_at %> |
+          TX Id: <%= withdraw.reference_id %>
         </li>
       <% }) %>
     </ul>
 
     <!-- User Info and Transactions -->
-    <div id="userInfoContainer" class="user-info-container" style="display:none;">
+    <div
+      id="userInfoContainer"
+      class="user-info-container"
+      style="display:none;"
+    >
       <h2 id="userInfoTitle"></h2>
       <p id="userEmail"></p>
       <p id="userBalance"></p>
@@ -131,8 +152,15 @@
       <div class="modal-content">
         <h3 id="confirmMessage"></h3>
         <div class="modal-buttons">
-          <button id="confirmYesBtn" class="btn btn-primary">Yes</button>
-          <button id="confirmNoBtn" class="btn btn-secondary">No</button>
+          <button id="confirmYesBtn" class="btn btn-primary">Confirm</button>
+          <button id="confirmNoBtn" class="btn btn-secondary">Cancel</button>
+          <button
+            id="confirmRejectBtn"
+            style="background-color: red; border-color: red;"
+            class="btn btn-primary"
+          >
+            Reject
+          </button>
         </div>
       </div>
     </div>
@@ -158,14 +186,9 @@
     // Track currently selected withdraw item
     let selectedWithdraw = null;
 
-    // Event listeners for filtering and sorting (client-side)
+    // Filtering logic
     searchInput.addEventListener('input', filterWithdraws);
     statusFilter.addEventListener('change', filterWithdraws);
-    sortContainer.addEventListener('click', (e) => {
-      if (e.target.dataset.field) {
-        sortWithdraws(e.target.dataset.field);
-      }
-    });
 
     function filterWithdraws() {
       const searchVal = searchInput.value.toLowerCase();
@@ -181,8 +204,14 @@
       });
     }
 
-    // Toggle ASC / DESC per field
+    // Sorting logic
     let sortState = {};
+    sortContainer.addEventListener('click', (e) => {
+      if (e.target.dataset.field) {
+        sortWithdraws(e.target.dataset.field);
+      }
+    });
+
     function sortWithdraws(field) {
       const itemsArray = Array.from(document.querySelectorAll('.withdraw-item'));
       sortState[field] = sortState[field] === 'ASC' ? 'DESC' : 'ASC';
@@ -207,7 +236,7 @@
       selectedWithdraw = item;
       const username = item.dataset.username;
 
-      // Fetch user info from server route, e.g. /api/adminw/user-info/:username
+      // Fetch user info from your server route
       try {
         const response = await fetch(`/api/adminw/user-info/${username}`, {
           credentials: 'include'
@@ -238,7 +267,7 @@
       }
     });
 
-    // Double-click -> confirm modal
+    // Double-click -> show confirm modal
     withdrawList.addEventListener('dblclick', (e) => {
       const item = e.target.closest('.withdraw-item');
       if (!item) return;
@@ -254,21 +283,21 @@
       const withdrawId = selectedWithdraw.dataset.id;
       const username = selectedWithdraw.dataset.username;
       const amount = selectedWithdraw.dataset.amount;
+      // Example usage if you need the reference
+      const TXid = selectedWithdraw.dataset.referenceId;
 
       try {
         const response = await fetch(`/api/adminw/confirm-withdraw/${withdrawId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ username, increaseAmount: amount })
+          body: JSON.stringify({ username, increaseAmount: amount, TXid })
         });
-        if (!response.ok) {
-          throw new Error('Failed to confirm withdraw');
-        }
+        if (!response.ok) throw new Error('Failed to confirm withdraw');
 
         alert('Withdraw confirmed successfully.');
         confirmModal.classList.remove('active');
-        location.reload(); // reload to see updated status
+        location.reload();
       } catch (err) {
         console.error(err);
         alert('Error confirming withdraw.');
@@ -277,6 +306,35 @@
 
     confirmNoBtn.addEventListener('click', () => {
       confirmModal.classList.remove('active');
+    });
+
+    // Reject withdraw logic
+    confirmRejectBtn.addEventListener('click', async () => {
+      if (!selectedWithdraw) return;
+      const withdrawId = selectedWithdraw.dataset.id;
+      const username = selectedWithdraw.dataset.username;
+      const amount = selectedWithdraw.dataset.amount;
+      const TXid = selectedWithdraw.dataset.referenceId;
+
+      try {
+        const res = await fetch(`/api/adminw/reject-withdraw/${withdrawId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, increaseAmount: 0, TXid }),
+          credentials: 'include'
+        });
+        if (!res.ok) {
+          throw new Error(`Failed to reject withdraw of ${amount} coins`);
+        }
+
+        alert('Withdraw reject successful.');
+        // Hide modal and optionally reload or hide the updated item
+        confirmModal.classList.remove('active');
+        location.reload();
+      } catch (error) {
+        console.error(error);
+        alert('Failed to reject withdraw.');
+      }
     });
   </script>
 </body>

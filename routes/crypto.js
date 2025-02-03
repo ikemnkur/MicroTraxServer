@@ -96,61 +96,61 @@ router.post('/validate-transaction', authenticateToken, async (req, res) => {
     // let url;
     // let validationResponse;
 
-    try {
-        // Assuming currency and transactionId are defined and available
-        let url;
-    
-        if (currency === "LTC") {
-            url = `https://api.blockchair.com/litecoin/dashboards/transaction/${transactionId}`;
-        } else if (currency === "XMR") {
-            url = `https://xmrchain.net/api/transaction/${transactionId}`;
-        } else if (currency === "BTC") {
-            url = `https://api.blockchair.com/bitcoin/dashboards/transaction/${transactionId}`;
-        } else {
-            throw new Error("Unsupported currency");
-        }
-    
-        // Perform the fetch using await
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`Network response was not OK: ${response.statusText}`);
-        }
-    
-        const data = await response.json();
-    
-        console.log("Response: ", data.data);
-    
-        // If you need to store this in validationResponse or do something else with it:
-        // const validationResponse = data;
-    
-        // The validationData would be the JSON response from the Blockchair API shown above.
-        const validationData = data;
+    // try {
+    //     // Assuming currency and transactionId are defined and available
+    //     let url;
 
-        // Call the function:
-        const result = validateTransaction(req.body, validationData);
-        console.log(result);
+    //     if (currency === "LTC") {
+    //         url = `https://api.blockchair.com/litecoin/dashboards/transaction/${transactionId}`;
+    //     } else if (currency === "XMR") {
+    //         url = `https://xmrchain.net/api/transaction/${transactionId}`;
+    //     } else if (currency === "BTC") {
+    //         url = `https://api.blockchair.com/bitcoin/dashboards/transaction/${transactionId}`;
+    //     } else {
+    //         throw new Error("Unsupported currency");
+    //     }
 
-        // Proceed with additional logic using validationResponse
-        // For example:
-        // const validated = validationResponse.validated; // Adjust this based on the actual response structure
-        // if (!validated) {
-        //     return res.status(400).json({
-        //         message: 'Transaction was not validated by the payment service.',
-        //         details: validationResponse
-        //     });
-        // }
-    
-        // If validated, proceed
-        // console.log("Transaction validated:", validationResponse);
-    
-    } catch (error) {
-        console.error('Error calling validation service:', error.message);
-        return res.status(500).json({
-            message: 'Failed to call the validation service.',
-            error: error.message
-        });
-    }
-    
+    //     // Perform the fetch using await
+    //     const response = await fetch(url);
+    //     if (!response.ok) {
+    //         throw new Error(`Network response was not OK: ${response.statusText}`);
+    //     }
+
+    //     const data = await response.json();
+
+    //     console.log("Response: ", data.data);
+
+    //     // If you need to store this in validationResponse or do something else with it:
+    //     // const validationResponse = data;
+
+    //     // The validationData would be the JSON response from the Blockchair API shown above.
+    //     const validationData = data;
+
+    //     // Call the function:
+    //     const result = validateTransaction(req.body, validationData);
+    //     console.log(result);
+
+    //     // Proceed with additional logic using validationResponse
+    //     // For example:
+    //     // const validated = validationResponse.validated; // Adjust this based on the actual response structure
+    //     // if (!validated) {
+    //     //     return res.status(400).json({
+    //     //         message: 'Transaction was not validated by the payment service.',
+    //     //         details: validationResponse
+    //     //     });
+    //     // }
+
+    //     // If validated, proceed
+    //     // console.log("Transaction validated:", validationResponse);
+
+    // } catch (error) {
+    //     console.error('Error calling validation service:', error.message);
+    //     return res.status(500).json({
+    //         message: 'Failed to call the validation service.',
+    //         error: error.message
+    //     });
+    // }
+
 
     // try {
 
@@ -251,7 +251,7 @@ router.post('/validate-transaction', authenticateToken, async (req, res) => {
                 amount,
                 uuidv4(),               // unique reference code
                 date,
-                session_id, 
+                session_id,
                 transactionId,
                 JSON.stringify(req.body),
                 currency,
@@ -281,6 +281,23 @@ router.post('/validate-transaction', authenticateToken, async (req, res) => {
                 uuidv4()
             ]
         );
+
+        let notificationMsg = `Your order of ${amount} coins via ${currency} has been logged and will be reviewed shortly. `
+
+        try {
+            const [result] = await db.query(
+                `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+                ["purchase-logged", req.user.user_id, notificationMsg, "0", username, new Date()]
+            );
+
+            console.log("New notification successfully created:", notificationMsg);
+            // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
+        } catch (error) {
+            console.error('Error creating notification:', error);
+            // res.status(500).json({ message: 'Server error' });
+        }
+
 
         // Update user's spendable coin balance
         await db.query(

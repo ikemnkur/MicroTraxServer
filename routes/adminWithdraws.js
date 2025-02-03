@@ -32,7 +32,7 @@ router.get('/withdraws', async (req, res) => {
   try {
     const { query, params } = buildSearchAndFilter(req.query);
     const sql = `
-      SELECT id, username, amount, date, status, reference_code, transactionId, created_at
+      SELECT id, username, amount, date, status, reference_id, transactionId, created_at
       FROM withdraws
       ${query}
     `;
@@ -96,9 +96,9 @@ router.post('/confirm-withdraw/:withdrawId', async (req, res) => {
       ['Completed', withdrawId]
     );
     await db.query(
-        'UPDATE transactions SET status = ? WHERE created_at = ? AND receiving_user = ?',
-        ['Completed', created_at, username]
-      );
+      'UPDATE transactions SET status = ? WHERE created_at = ? AND receiving_user = ?',
+      ['Completed', created_at, username]
+    );
 
     // Increase user’s account balance (assuming an 'accounts' table or a field in 'users')
     // Modify this to match your schema (if storing balance in 'users', or a separate accounts table)
@@ -118,25 +118,25 @@ router.post('/confirm-withdraw/:withdrawId', async (req, res) => {
       [username]
     );
 
-     // Create Notification
+    // Create Notification
     //  const { type, recipient_user_id, recipient_username, Nmessage, from_user, date } = req.body;
     //  console.log("New notification: ", Nmessage);
 
     let notificationMsg = `Hoo-ray, Your withdrawl of ${increaseAmount} coins has been approved and processed!`
 
-     try {
-         const [result] = await db.query(
-             `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
+    try {
+      const [result] = await db.query(
+        `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
     VALUES (?, ?, ?, ?, ?, ?)`,
-             ["withdrawl-approved", user.user_id, notificationMsg, "0", user.username, new Date()]
-         );
+        ["withdrawl-approved", user.user_id, notificationMsg, "0", user.username, new Date()]
+      );
 
-         console.log("New notification successfully created:", notificationMsg);
-         // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
-     } catch (error) {
-         console.error('Error creating notification:', error);
-         // res.status(500).json({ message: 'Server error' });
-     }
+      console.log("New notification successfully created:", notificationMsg);
+      // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      // res.status(500).json({ message: 'Server error' });
+    }
 
     await db.query('COMMIT');
 
@@ -151,22 +151,47 @@ router.post('/confirm-withdraw/:withdrawId', async (req, res) => {
 // 4) Reject (Deny) a Withdraw
 router.post('/reject-withdraw/:withdrawId', async (req, res) => {
   const { withdrawId } = req.params;
-  const { username, increaseAmount = 0, created_at } = req.body;
-
-  // Example: increase the user’s account balance and change withdraw status
+  
   try {
+    // Begin a MySQL transaction
     await db.query('START TRANSACTION');
 
-    // Update the withdraw status
+    // 1) Update the withdraw status to 'Rejected'
     await db.query(
       'UPDATE withdraws SET status = ? WHERE id = ?',
       ['Rejected', withdrawId]
     );
 
+    // 2) Fetch the updated withdraw record
+    const [withdraw] = await db.query(
+      'SELECT * FROM withdraws WHERE id = ?',
+      [withdrawId]
+    );
+    if (!withdraw || !withdraw.length) {
+      throw new Error('Withdraw not found.');
+    }
+
+    // 3) Find the corresponding transaction by reference ID
+    const [tx] = await db.query(
+      'SELECT * FROM transactions WHERE reference_id = ?',
+      [withdraw[0].reference_id]
+    );
+    if (!tx || !tx.length) {
+      throw new Error('Matching transaction not found.');
+    }
+
+    // 4) Update the transaction status to 'Rejected'
+    await db.query(
+      'UPDATE transactions SET status = ? WHERE reference_id = ?',
+      ['Rejected', tx[0].reference_id]
+    );
+
+    // Commit all changes if everything is successful
     await db.query('COMMIT');
 
-    res.json({ message: 'Logged withdraw rejected. User balance unchanged.' });
+    res.json({ message: 'Withdraw rejected successfully. User balance unchanged.' });
   } catch (error) {
+    // Roll back any changes on error
     await db.query('ROLLBACK');
     console.error('Error rejecting withdraw:', error);
     res.status(500).json({ message: 'Failed to reject withdraw.' });

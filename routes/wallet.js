@@ -329,12 +329,14 @@ router.post('/withdraw', authenticateToken, async (req, res) => {
     if (userData[0].redeemable < amount) {
       console.log("Insuffiecent redeemable balance for withdraw");
       console.error('Error purchase data:', error);
-      return res.status(500).json({ message: 'Server error: Insuffiecent redeemable balance for withdraw' });
+      return res.status(500).json({ message: 'Server error: Insufficent redeemable balance for withdraw' });
     }
 
+    let txid = uuidv4()
+
     await db.query(
-      'INSERT INTO withdraws (username, userid, amount, reference_code, method, formdata) VALUES (?, ?, ?, ?, ?, ?)',
-      [username, req.user.user_id, amount, uuidv4(), method, JSON.stringify(data)]
+      'INSERT INTO withdraws (username, userid, amount, reference_id, method, formdata) VALUES (?, ?, ?, ?, ?, ?)',
+      [username, req.user.user_id, amount, txid, method, JSON.stringify(data)]
     );
 
     // const [recipientAccount] = await db.query('SELECT * FROM accounts WHERE user_id = ?', [req.user.user_id]);
@@ -343,7 +345,7 @@ router.post('/withdraw', authenticateToken, async (req, res) => {
 
     await db.query(
       'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [0, req.user.user_id, amount, 'withdraw', 'pending', "You", "System", message, uuidv4()]
+      [0, req.user.user_id, amount, 'withdraw', 'pending', "You", "System", message, txid]
     );
 
 
