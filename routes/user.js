@@ -17,11 +17,11 @@ router.get('/profile', authenticateToken, async (req, res) => {
        WHERE u.user_id = ?`,
       [req.user.user_id]
     );
-    
+
     if (users.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
-    
+
     const user = users[0];
     // console.log("Get.Body: ", user);
     res.json(user);
@@ -42,7 +42,7 @@ router.put('/profile', authenticateToken, async (req, res) => {
       // Update user information
       await connection.query(
         'UPDATE users SET username = ?, email = ?, firstName = ?, lastName = ?, phoneNumber = ?, birthDate = ?, encryptionKey = ?, accountTier = ?, timezone = ? WHERE user_id = ?',
-        [username, email, firstName, lastName, phoneNumber, birthDate, encryptionKey, accountTier, timezone,  req.user.user_id]
+        [username, email, firstName, lastName, phoneNumber, birthDate, encryptionKey, accountTier, timezone, req.user.user_id]
       );
 
       console.log()
@@ -98,7 +98,7 @@ router.get('/user-balance', authenticateToken, async (req, res) => {
     if (account.length === 0) {
       return res.status(404).json({ message: 'Account not found' });
     }
-    res.json({ balance: account[0].balance, spendable: account[0].spendable, redeemable: account[0].redeemable,  });
+    res.json({ balance: account[0].balance, spendable: account[0].spendable, redeemable: account[0].redeemable, });
   } catch (error) {
     console.error('Error fetching user balance:', error);
     res.status(500).json({ message: 'Server error' });
@@ -109,8 +109,8 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
   try {
     console.log('User ID from token:', req.user.user_id);
     console.log('req.user:', req.user);
-    
-    
+
+
     // Fetch user data along with account ID
     const [userData] = await db.query(
       `SELECT u.user_id AS userId, a.id AS accountId, a.balance, u.accountTier, a.spendable, a.redeemable
@@ -124,11 +124,11 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
     if (!userData || userData.length === 0) {
       return res.status(404).json({ message: 'User data not found' });
     }
-    
+
     const id = req.user.user_id;
     // const accountId = req.user.accountId;
     const accountId = req.user.user_id;
-    
+
     if (!accountId) {
       return res.status(404).json({ message: 'Account ID not found for the user' });
     }
@@ -240,16 +240,16 @@ router.get('/:username/profile', authenticateToken, async (req, res) => {
     console.log(username);
 
     // Check if the parameter is a number (userId) or a string (username)
-    
-      // It's a username
-      query = `
+
+    // It's a username
+    query = `
         SELECT u.user_id, u.username, u.created_at, u.email, u.accountTier, u.favorites, u.bio, u.rating, u.user_id, u.profilePic
         FROM users u
         LEFT JOIN accounts a ON u.user_id = a.user_id
         WHERE u.username = ?
       `;
-      params = [username];
-    
+    params = [username];
+
 
     const [users] = await db.query(query, params);
 
@@ -273,19 +273,19 @@ router.get('/:username/profile', authenticateToken, async (req, res) => {
   }
 });
 
-// 1. GET /user/:userIdOrUsername/profile - Fetch other user profile by ID or Username
+// 1. GET /id/:userIdOrUsername/profile - Fetch other user profile by ID or Username
 router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) => {
   try {
     const { userIdOrUsername } = req.params;
     let query, params;
-    console.log("/id/:userIdOrUsername/profile: ", userIdOrUsername);
 
-  
-    // Check if the parameter is a number (userId) or a string (username)
+    // Check if the parameter is a numeric userId or a string (username)
     if (/^\d+$/.test(userIdOrUsername)) {
       // It's a userId
       query = `
-        SELECT u.user_id, u.username, u.created_at, u.email, a.balance, u.accountTier, u.favorites, u.bio, u.rating, u.user_id
+        SELECT u.user_id, u.username, u.created_at, u.email,
+               a.balance, u.accountTier, u.favorites, u.bio,
+               u.rating, u.user_id
         FROM users u
         LEFT JOIN accounts a ON u.user_id = a.user_id
         WHERE u.user_id = ?
@@ -294,7 +294,9 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
     } else {
       // It's a username
       query = `
-         SELECT u.user_id, u.username, u.created_at, u.email, a.balance, u.accountTier, u.favorites, u.bio, u.rating, u.user_id
+        SELECT u.user_id, u.username, u.created_at, u.email,
+               a.balance, u.accountTier, u.favorites, u.bio,
+               u.rating, u.user_id
         FROM users u
         LEFT JOIN accounts a ON u.user_id = a.user_id
         WHERE u.user_id = ?
@@ -302,20 +304,47 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
       params = [userIdOrUsername];
     }
 
-    // add a way to pull the user's content rating and average them
+    // 1) Recalculate the average rating for content this user created
+    const [ratingRows] = await db.query(
+      'SELECT AVG(rating) AS avgRating FROM content_ratings WHERE user_id = ?',
+      [userIdOrUsername]
+    );
+    const avgRating = ratingRows[0].avgRating || 0;
 
+    // 2) Count how many times like_status = 1 for this user
+    const [likes] = await db.query(
+      'SELECT COUNT(*) AS numberOfLikes FROM content_ratings WHERE user_id = ? AND like_status = 1',
+      [userIdOrUsername]
+    );
+    const numberOfLikes = likes[0].numberOfLikes;
+
+     // 2) Count how many times like_status = 1 for this user
+     const [posts] = await db.query(
+      'SELECT COUNT(*) AS numberOfPosts FROM public_content WHERE host_user_id = ?',
+      [userIdOrUsername]
+    );
+    const numberOfPosts = posts[0].numberOfPosts;
+
+    // 3) Fetch the user’s main record
     const [users] = await db.query(query, params);
-
     if (users.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // 4) Add the rating and likes info to the user object
+    users[0].avgRating = avgRating;
+    users[0].numberOfLikes = numberOfLikes;
+    users[0].numberOfPosts = numberOfPosts;
+
+    console.log("#Posts: ", numberOfPosts )
+
+    // Optionally check if user is in the current user's favorites
     const user = users[0];
+    const isFavorite = user.favorites
+      ? JSON.parse(user.favorites).includes(req.user.user_id)
+      : false;
 
-    // Check if the viewed user is in the current user's favorites
-    const isFavorite = user.favorites ? JSON.parse(user.favorites).includes(req.user.user_id) : false;
-
-    // Remove sensitive information before sending
+    // Remove any sensitive details before sending
     delete user.password;
     delete user.salt;
 
@@ -330,27 +359,27 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
 router.post('/add-rating', authenticateToken, async (req, res) => {
   const { rateduserId, rating, user_id } = req.body;
   try {
-      // Update the average rating
-      await db.query(
-          'INSERT INTO user_ratings (rated_user_id, user_id, rating) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE rating = ?',
-          [rateduserId, req.user.user_id, rating]
-      );
-      console.log("Rating Posted: ", rating)
-      // Recalculate the average rating
-      const [rows] = await db.query(
-          'SELECT AVG(rating) as avgRating FROM content_ratings WHERE content_id = ?',
-          [rateduserId]
-      );
-      const avgRating = rows[0].avgRating;
+    // Update the average rating
+    await db.query(
+      'INSERT INTO user_ratings (rated_user_id, user_id, rating) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE rating = ?',
+      [rateduserId, req.user.user_id, rating]
+    );
+    console.log("Rating Posted: ", rating)
+    // Recalculate the average rating
+    const [rows] = await db.query(
+      'SELECT AVG(rating) as avgRating FROM content_ratings WHERE content_id = ?',
+      [rateduserId]
+    );
+    const avgRating = rows[0].avgRating;
 
-      await db.query(
-          'UPDATE users SET rating = ? WHERE id = ?',
-          [avgRating, rateduserId]
-      );
+    await db.query(
+      'UPDATE users SET rating = ? WHERE id = ?',
+      [avgRating, rateduserId]
+    );
 
-      res.status(200).json({ message: 'Rating submitted', avgRating });
+    res.status(200).json({ message: 'Rating submitted', avgRating });
   } catch (error) {
-      res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
