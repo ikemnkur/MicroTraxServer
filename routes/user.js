@@ -197,14 +197,25 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
 
     // Define daily limits based on account tier
     const dailyLimits = {
-      1: 100,    // Basic
-      2: 500,    // Standard
-      3: 1000,   // Premium
-      4: 5000,   // Gold
-      5: 10000,  // Platinum
-      6: 50000,  // Diamond
-      7: 100000  // Ultimate
+      1: 5,    // Basic
+      2: 10,    // Standard
+      3: 25,   // Premium
+      4: 50,   // Gold
+      5: 100,  // Platinum
+      6: 200,  // Diamond
+      7: 500  // Ultimate
     };
+
+      // Define daily limits based on account tier
+      const dailyCoinLimits = {
+        1: 100,    // Basic
+        2: 500,    // Standard
+        3: 1000,   // Premium
+        4: 5000,   // Gold
+        5: 10000,  // Platinum
+        6: 50000,  // Diamond
+        7: 100000  // Ultimate
+      };
 
     const dashboardData = {
       balance: userData[0].balance ?? 0,
@@ -212,6 +223,7 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
       redeemable: userData[0].redeemable ?? 0,
       accountTier: userData[0].accountTier ?? 1,
       dailyLimit: dailyLimits[userData[0].accountTier] ?? 100, // Default to 100 if not found
+      dailyCoinLimit: dailyCoinLimits[userData[0].accountTier] ?? 100, // Default to 100 if not found
       transactionsLast24Hours: transactions[0].transactionsLast24Hours || 0,
       transactionsToday: transactions[0].transactionsToday || 0,
       totalAmountToday: transactions[0].totalAmountToday ? parseFloat(transactions[0].totalAmountToday) : 0,

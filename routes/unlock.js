@@ -100,6 +100,120 @@ router.post('/unlock-content', authenticateToken, async (req, res) => {
         console.log("Balances updated");
         console.log("User:", req.user)
 
+
+        const accountId = req.user.user_id;
+        const id = req.user.user_id;
+
+        // Aggregate transaction data
+        const [transactions] = await db.query(
+          `SELECT
+           COUNT(CASE 
+                 WHEN (sender_account_id = ? OR recipient_account_id = ?) 
+                      AND created_at >= NOW() - INTERVAL 1 DAY 
+                 THEN 1 
+               END) AS transactionsLast24Hours,
+           COUNT(CASE 
+                 WHEN (sender_account_id = ? OR recipient_account_id = ?) 
+                      AND DATE(created_at) = CURDATE() 
+                 THEN 1 
+               END) AS transactionsToday,
+           SUM(CASE 
+                 WHEN (sender_account_id = ? OR recipient_account_id = ?) 
+                      AND DATE(created_at) = CURDATE() 
+                 THEN amount 
+                 ELSE 0 
+               END) AS totalAmountToday,
+           COUNT(CASE 
+                 WHEN sender_account_id = ? 
+                      AND DATE(created_at) = CURDATE() 
+                 THEN 1 
+               END) AS sentTransactions,
+           COUNT(CASE 
+                 WHEN recipient_account_id = ? 
+                      AND DATE(created_at) = CURDATE() 
+                 THEN 1 
+               END) AS receivedTransactions,
+           SUM(CASE
+                 WHEN sender_account_id = ? AND created_at >= NOW() - INTERVAL 1 DAY
+                 THEN amount ELSE 0
+               END) AS totalAmountSentLast24Hours,
+           SUM(CASE
+                 WHEN recipient_account_id = ? AND created_at >= NOW() - INTERVAL 1 DAY
+                 THEN amount ELSE 0
+               END) AS totalAmountReceivedLast24Hours,
+           SUM(CASE
+                 WHEN sender_account_id = ? AND DATE(created_at) = CURDATE()
+                 THEN amount ELSE 0
+               END) AS totalAmountSentToday,
+           SUM(CASE
+                 WHEN recipient_account_id = ? AND DATE(created_at) = CURDATE()
+                 THEN amount ELSE 0
+               END) AS totalAmountReceivedToday
+         FROM transactions
+         WHERE (sender_account_id = ? OR recipient_account_id = ?)`,
+          [
+            accountId, accountId, // For transactionsLast24Hours
+            accountId, accountId, // For transactionsToday
+            accountId, accountId, // For totalAmountToday
+            accountId,            // For sentTransactions
+            accountId,            // For receivedTransactions
+            accountId,            // For totalAmountSentLast24Hours
+            accountId,            // For totalAmountReceivedLast24Hours
+            accountId,            // For totalAmountSentToday
+            accountId,            // For totalAmountReceivedToday
+            id, id  // For the WHERE clause
+          ]
+        );
+  
+  
+        // Define daily limits based on account tier
+        const dailyLimits = {
+          1: 5,    // Basic
+          2: 10,    // Standard
+          3: 25,   // Premium
+          4: 50,   // Gold
+          5: 100,  // Platinum
+          6: 200,  // Diamond
+          7: 500  // Ultimate
+        };
+  
+        // Define daily limits based on account tier
+        const dailyCoinLimits = {
+          1: 100,    // Basic
+          2: 500,    // Standard
+          3: 1000,   // Premium
+          4: 5000,   // Gold
+          5: 10000,  // Platinum
+          6: 50000,  // Diamond
+          7: 100000  // Ultimate
+        };
+  
+        let dailyLimit = dailyLimits[userData[0].accountTier] ?? 100; // Default to 100 if not found
+        let dailyCoinLimit = dailyCoinLimits[userData[0].accountTier] ?? 100; // Default to 100 if not found
+        let totalAmountReceivedLast24Hours = transactions[0].totalAmountReceivedLast24Hours ? parseFloat(transactions[0].totalAmountReceivedLast24Hours) : 0;
+        let receivedTransactions = transactions[0].receivedTransactions || 0;
+  
+        if (totalAmountReceivedLast24Hours + amount > dailyCoinLimit) {
+          let fee = Math.round(content.cost * 0.10 + 1)
+          await connection.query(
+            'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [req.user.user_id, 0, fee, 'fee', 'Completed', "System", "You", "System: You have been charged a fee. You spent more than your daily transaction limit allows.", reference_id]
+          );
+          await connection.query('UPDATE accounts SET spendable = spendable - ? WHERE id = ?', [fee, senderAccount[0].id]);
+        }
+  
+        if (receivedTransactions + 1 > dailyLimit) {
+          let fee = Math.round(content.cost * 0.10 + 5)
+          await connection.query(
+            'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [req.user.user_id, 0, fee, 'fee', 'Completed', "System", "You", "System: You have been charged a fee. You spent more than your daily transaction limit allows.", reference_id]
+          );
+          await connection.query('UPDATE accounts SET spendable = spendable - ? WHERE id = ?', [fee, senderAccount[0].id]);
+        }
+
+
+
+
         // Get the username of the sender and receiver
         const [sending_user_rows] = await connection.query(
             'SELECT username FROM users WHERE user_id = ?',

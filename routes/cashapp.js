@@ -66,7 +66,7 @@ router.post('/log-transaction', authenticateToken, async (req, res) => {
             WHERE username = ? 
               AND amount = ? 
               AND date = ? 
-              AND currency = ?
+              AND type = ?
             `,
             [username, amount, date, currency]
         );

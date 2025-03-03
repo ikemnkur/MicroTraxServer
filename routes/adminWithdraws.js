@@ -186,6 +186,21 @@ router.post('/reject-withdraw/:withdrawId', async (req, res) => {
       ['Rejected', tx[0].reference_id]
     );
 
+    let notificationMsg = `Sorry, Your withdrawl of ${increaseAmount} coins has been rejected! There is an issue within the system transaction logs and the coins have been suspended awaiting manual review.`;
+
+    try {
+      const [result] = await db.query(
+        `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
+    VALUES (?, ?, ?, ?, ?, ?)`,
+        ["withdrawl-approved", user.user_id, notificationMsg, "0", user.username, new Date()]
+      );
+
+      console.log("New notification successfully created:", notificationMsg);
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      // res.status(500).json({ message: 'Server error' });
+    }
+
     // Commit all changes if everything is successful
     await db.query('COMMIT');
 

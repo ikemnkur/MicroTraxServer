@@ -269,9 +269,15 @@ app.get('/admin/purchases', async (req, res) => {
   try {
     // Example: fetch from your existing DB/API
     // You might pass search, statusFilter, etc. as query params if you want server-side filter
+    // const [rows] = await db.query(`
+    //   SELECT id, username, amount, status, created_at, reference_code, transactionId, type  
+    //   FROM purchases
+    //   WHERE created_at >= NOW() - INTERVAL 48 HOUR
+    //   ORDER BY created_at DESC
+    // `);
+
     const [rows] = await db.query(`
-      SELECT id, username, amount, status, created_at, reference_id, transaction_id, method  
-      FROM purchases
+      SELECT * FROM purchases
       WHERE created_at >= NOW() - INTERVAL 48 HOUR
       ORDER BY created_at DESC
     `);

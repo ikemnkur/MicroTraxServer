@@ -10,8 +10,8 @@ router.post('/send', authenticateToken, async (req, res) => {
   console.log("send username: " + sendingUsername)
   const recipientAccountId = recipientId;
   console.log("Amount:  " + amount)
-   // / Fetch user data along with account ID
-   const [userData] = await db.query(
+  // / Fetch user data along with account ID
+  const [userData] = await db.query(
     `SELECT u.user_id AS userId, a.id AS accountId, a.balance, u.accountTier, a.spendable, a.redeemable
      FROM users u
      LEFT JOIN accounts a ON u.user_id = a.user_id
@@ -25,7 +25,7 @@ router.post('/send', authenticateToken, async (req, res) => {
     console.error('Send-money data error:', error);
     return res.status(500).json({ message: 'Server error: Insuffiecent spendable balance for Peer 2 Peer Sending' });
   }
-  
+
   try {
     const connection = await db.getConnection();
     await connection.beginTransaction();
@@ -45,52 +45,131 @@ router.post('/send', authenticateToken, async (req, res) => {
       //   await connection.rollback();
       //   return res.status(400).json({ message: 'Insufficient funds' });
       // }
+
       if (senderAccount[0].spendable < amount) {
         await connection.rollback();
         return res.status(400).json({ message: 'Insufficient funds' });
       }
 
-      console.log("success in find accounts / verify suffiecent balance")
-      
-      // // # To Do Implemnte psuedo code
+      // console.log("success in find accounts / verify suffiecent balance")
 
-      // // recent transactions in the last 24 hours, the recent_transaction field is of the text type 
-      // console.log("sender recent transactions: ", senderAccount.recent_transactions)
-      // console.log("receiver recent transactions: ", recipientAccount.recent_transactions)
 
-      // // if recentTransactions object array has item that are older than 24 hours delete them?
+      const accountId = req.user.user_id;
+      const id = req.user.user_id;
 
-      // updatedSenderRencentTransactions = updateRecentTransactionsList(senderAccount.recent_transactions)
-      // updatedRecipientRencentTransactions = updateRecentTransactionsList(senderAccount.recent_transactions)
+      // Aggregate transaction data
+      const [transactions] = await db.query(
+        `SELECT
+         COUNT(CASE 
+               WHEN (sender_account_id = ? OR recipient_account_id = ?) 
+                    AND created_at >= NOW() - INTERVAL 1 DAY 
+               THEN 1 
+             END) AS transactionsLast24Hours,
+         COUNT(CASE 
+               WHEN (sender_account_id = ? OR recipient_account_id = ?) 
+                    AND DATE(created_at) = CURDATE() 
+               THEN 1 
+             END) AS transactionsToday,
+         SUM(CASE 
+               WHEN (sender_account_id = ? OR recipient_account_id = ?) 
+                    AND DATE(created_at) = CURDATE() 
+               THEN amount 
+               ELSE 0 
+             END) AS totalAmountToday,
+         COUNT(CASE 
+               WHEN sender_account_id = ? 
+                    AND DATE(created_at) = CURDATE() 
+               THEN 1 
+             END) AS sentTransactions,
+         COUNT(CASE 
+               WHEN recipient_account_id = ? 
+                    AND DATE(created_at) = CURDATE() 
+               THEN 1 
+             END) AS receivedTransactions,
+         SUM(CASE
+               WHEN sender_account_id = ? AND created_at >= NOW() - INTERVAL 1 DAY
+               THEN amount ELSE 0
+             END) AS totalAmountSentLast24Hours,
+         SUM(CASE
+               WHEN recipient_account_id = ? AND created_at >= NOW() - INTERVAL 1 DAY
+               THEN amount ELSE 0
+             END) AS totalAmountReceivedLast24Hours,
+         SUM(CASE
+               WHEN sender_account_id = ? AND DATE(created_at) = CURDATE()
+               THEN amount ELSE 0
+             END) AS totalAmountSentToday,
+         SUM(CASE
+               WHEN recipient_account_id = ? AND DATE(created_at) = CURDATE()
+               THEN amount ELSE 0
+             END) AS totalAmountReceivedToday
+       FROM transactions
+       WHERE (sender_account_id = ? OR recipient_account_id = ?)`,
+        [
+          accountId, accountId, // For transactionsLast24Hours
+          accountId, accountId, // For transactionsToday
+          accountId, accountId, // For totalAmountToday
+          accountId,            // For sentTransactions
+          accountId,            // For receivedTransactions
+          accountId,            // For totalAmountSentLast24Hours
+          accountId,            // For totalAmountReceivedLast24Hours
+          accountId,            // For totalAmountSentToday
+          accountId,            // For totalAmountReceivedToday
+          id, id  // For the WHERE clause
+        ]
+      );
 
-      // const recentTransactionSender = {
-      //   trx: "debit",
-      //   type: 'send_money',
-      //   message: message,
-      //   from_user: thisUser.username,
-      //   to_user: toUser.username,
-      //   amount: parseFloat(amount),
-      //   date: new Date(),
-      // }
-      // // this may not be nesscary but I am unsure if i should keep it
-      // const recentTransactionReceiver = {
-      //   trx: "credit",
-      //   type: 'send_money',
-      //   message: message,
-      //   from_user: thisUser.username,
-      //   to_user: toUser.username,
-      //   amount: parseFloat(amount),
-      //   date: new Date(),
-      // }
 
-      // // add this transaction to the top of the list of the recent transactions 
-      // newReciverRencentTransactions = senderAccount.recent_transactions + recentTransactionReceiver
-      // newSenderRencentTransactions = senderAccount.recent_transactions + recentTransactionSender
+      // Define daily limits based on account tier
+      const dailyLimits = {
+        1: 5,    // Basic
+        2: 10,    // Standard
+        3: 25,   // Premium
+        4: 50,   // Gold
+        5: 100,  // Platinum
+        6: 200,  // Diamond
+        7: 500  // Ultimate
+      };
 
-      // await connection.query('UPDATE accounts SET recent_transactions = ? WHERE id = ?', [newSenderRencentTransactions, senderAccount[0].id]);
-      // await connection.query('UPDATE accounts SET recent_transactions = ? WHERE id = ?', [newReciverRencentTransactions, recipientAccount[0].id]);
+      // Define daily limits based on account tier
+      const dailyCoinLimits = {
+        1: 100,    // Basic
+        2: 500,    // Standard
+        3: 1000,   // Premium
+        4: 5000,   // Gold
+        5: 10000,  // Platinum
+        6: 50000,  // Diamond
+        7: 100000  // Ultimate
+      };
 
-      // //# end of TODO
+      let dailyLimit = dailyLimits[userData[0].accountTier] ?? 100; // Default to 100 if not found
+      let dailyCoinLimit = dailyCoinLimits[userData[0].accountTier] ?? 100; // Default to 100 if not found
+      let totalAmountSentLast24Hours = transactions[0].totalAmountSentLast24Hours ? parseFloat(transactions[0].totalAmountSentLast24Hours) : 0;
+      let sentTransactions = transactions[0].sentTransactions || 0;
+
+      let fee = Math.round(amount * 0.10)
+
+      if ((totalAmountSentLast24Hours + amount) > dailyCoinLimit) {
+        console.log(" you have a fee thing")
+        let fee = Math.round(amount * 0.10)
+        await connection.query(
+          'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [req.user.user_id, 0, Math.round(amount * 0.10 + 1), 'Fee', 'Completed', recipientUsername, sendingUsername, "System: You have been charged a fee. You spent more than your daily transaction limit allows.", reference_id]
+        );
+        await connection.query('UPDATE accounts SET spendable = spendable - ? WHERE id = ?', [fee, senderAccount[0].id]);
+      }
+
+      console.log("24hr coins spent: ", totalAmountSentLast24Hours)
+      console.log("24hr coins limit: ", dailyLimit)
+      if ((sentTransactions + 1) > dailyLimit) 
+        {createNotice() 
+        console.log(" you have a fee thing")
+        let fee = Math.round(amount * 0.10)
+        await connection.query(
+          'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [req.user.user_id, 0, Math.round(amount * 0.10 + 5), 'Fee', 'Completed', recipientUsername, sendingUsername, "System: You have been charged a fee. You spent more than your daily transaction limit allows.", reference_id]
+        );
+        await connection.query('UPDATE accounts SET spendable = spendable - ? WHERE id = ?', [fee, senderAccount[0].id]);
+      }
 
       await connection.query('UPDATE accounts SET balance = balance - ? WHERE id = ?', [amount, senderAccount[0].id]);
       await connection.query('UPDATE accounts SET spendable = spendable - ? WHERE id = ?', [amount, senderAccount[0].id]);
@@ -101,6 +180,28 @@ router.post('/send', authenticateToken, async (req, res) => {
         'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [req.user.user_id, recipientId, amount, 'send', 'Completed', recipientUsername, sendingUsername, message, reference_id]
       );
+
+      async function createNotice() {
+        // Send fee notification
+
+        let notificationMsg = `You have been charged ${fee} coins as a fee for overspending.`
+
+        try {
+          const [result] = await db.query(
+            `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
+      VALUES (?, ?, ?, ?, ?, ?)`,
+            ["Fee Charged", req.user.user_id, notificationMsg, "0", user.username, new Date()]
+          );
+
+          console.log("New notification successfully created:", notificationMsg);
+          // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
+        } catch (error) {
+          console.error('Error creating notification:', error);
+          // res.status(500).json({ message: 'Server error' });
+        }
+      }
+
+
 
       await connection.commit();
       res.json({ message: 'Transaction successful' });
@@ -155,7 +256,7 @@ router.post('/send', authenticateToken, async (req, res) => {
 //   // If you have the actual user records, adjust as needed:
 //   const fromUser = sendingUsername;
 //   const toUser = recipientUsername;
-  
+
 //   try {
 //     const connection = await db.getConnection();
 //     await connection.beginTransaction();
