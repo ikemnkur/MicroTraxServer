@@ -547,3 +547,29 @@ const { subscribe } = require('diagnostics_channel');
 const { Console } = require('console');
 const { request } = require('https');
 app.use('/admin', adminRoutes);
+
+// ############################# Cron Job ########################
+
+const cron = require('node-cron');
+// const db = require('./config/db'); // adjust the path if needed
+
+// Schedule the job to run every day at 12:00 AM EST
+cron.schedule(
+  '0 0 * * *',
+  async () => {
+    console.log('Running daily deduction job at 12:00 AM EST');
+    try {
+      // For example, subtract a fixed daily amount (e.g., 10 units) from each user account,
+      // but only if the account has sufficient balance.
+      const dailyDeduction = 10;
+      const query = 'UPDATE accounts SET balance = balance - ? WHERE balance >= ?';
+      const [result] = await db.query(query, [dailyDeduction, dailyDeduction]);
+      console.log(`Daily deduction applied to ${result.affectedRows} accounts.`);
+    } catch (error) {
+      console.error('Error applying daily deduction:', error);
+    }
+  },
+  {
+    timezone: 'America/New_York'
+  }
+);

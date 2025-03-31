@@ -45,6 +45,11 @@ router.put('/profile', authenticateToken, async (req, res) => {
         [username, email, firstName, lastName, phoneNumber, birthDate, encryptionKey, accountTier, timezone, req.user.user_id]
       );
 
+      await connection.query(
+        'UPDATE accounts SET tier = ? WHERE user_id = ?',
+        [accountTier, req.user.user_id]
+      );
+
       console.log()
       await connection.commit();
       res.json({ message: 'Profile updated successfully' });

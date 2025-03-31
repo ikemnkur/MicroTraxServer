@@ -12,7 +12,7 @@ router.post('/send', authenticateToken, async (req, res) => {
   console.log("Amount:  " + amount)
   // / Fetch user data along with account ID
   const [userData] = await db.query(
-    `SELECT u.user_id AS userId, a.id AS accountId, a.balance, u.accountTier, a.spendable, a.redeemable
+    `SELECT u.user_id AS userId, a.id AS accountId, a.balance, u.username, u.accountTier, a.spendable, a.redeemable
      FROM users u
      LEFT JOIN accounts a ON u.user_id = a.user_id
      WHERE u.user_id = ?`,
@@ -22,8 +22,23 @@ router.post('/send', authenticateToken, async (req, res) => {
 
   if (userData[0].spendable < amount) {
     console.log("Insuffiecent spendable balance for sending to peers");
-    console.error('Send-money data error:', error);
+    // console.error('Send-money data error:', error);
     return res.status(500).json({ message: 'Server error: Insuffiecent spendable balance for Peer 2 Peer Sending' });
+  }
+
+  if (sendingUsername == userData[0].username) {
+    console.log("Sending coin to oneself");
+    // console.error('Send-money data error:', error);
+    return res.status(500).json({ message: 'Server error: Sending coins to yourself is not allowed.' });
+  }
+
+  console.log("Rcpt: ", recipientId)
+  console.log("UD: ", userData[0].userId)
+
+  if (recipientId == userData[0].userId) {
+    console.log("Sending coin to oneself");
+    // console.error('Send-money data error:', error);
+    return res.status(500).json({ message: 'Server error: Sending coins to yourself is not allowed.' });
   }
 
   try {
@@ -34,7 +49,7 @@ router.post('/send', authenticateToken, async (req, res) => {
       const [senderAccount] = await connection.query('SELECT * FROM accounts WHERE user_id = ?', [req.user.user_id]);
       const [recipientAccount] = await connection.query('SELECT * FROM accounts WHERE user_id = ?', [recipientAccountId]);
 
-      console.log("RC: " + JSON.stringify(recipientAccount[0]))
+      // console.log("RC: " + JSON.stringify(recipientAccount[0]))
 
       if (senderAccount.length === 0 || recipientAccount.length === 0) {
         await connection.rollback();
