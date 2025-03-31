@@ -302,7 +302,7 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
       query = `
         SELECT u.user_id, u.username, u.created_at, u.email,
                a.balance, u.accountTier, u.favorites, u.bio,
-               u.rating, u.user_id
+               u.rating, u.user_id, u.profilePic
         FROM users u
         LEFT JOIN accounts a ON u.user_id = a.user_id
         WHERE u.user_id = ?
