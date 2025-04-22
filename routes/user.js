@@ -443,8 +443,26 @@ router.put('/:userId/favorite', authenticateToken, async (req, res) => {
 
 // 3. POST /user/:userId/report - Submit a report
 router.post('/:userId/report', authenticateToken, async (req, res) => {
-  const { reportMessage } = req.body;
+  const {reportMessage, reportedUser, reportingUser} = req.body;
   const reportedUserId = req.params.userId;
+
+  try {
+    await db.query(
+      'INSERT INTO user_reports (reporter_id, reported_user_id, report_message, reportedUsername, reportingUsername) VALUES (?, ?, ?, ?, ?)',
+      [req.user.user_id, reportedUserId, reportMessage, reportedUser, reportingUser]
+    );
+
+    res.status(201).json({ message: 'Report submitted successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// 3. POST /user/:userId/report - Submit a report
+router.post('/:username/report', authenticateToken, async (req, res) => {
+  const { reportMessage } = req.body;
+  const reportedUsername = req.params.username;
 
   try {
     await db.query(

@@ -5,6 +5,7 @@ const path = require('path');
 const cors = require('cors');
 const express = require('express');
 const db = require('./config/db');
+const bcrypt = require('bcryptjs');
 // const session = require('express-session');
 const bodyParser = require('body-parser');
 const geoip = require('geoip-lite');
@@ -15,6 +16,9 @@ const admin = require('./routes/admin');
 const adminPurchases = require('./routes/adminPurchases');
 const adminWithdraws = require('./routes/adminWithdraws');
 const userRoutes = require('./routes/user');
+const adminUsers = require('./routes/adminUsers');
+const adminReports = require('./routes/adminReports');
+// const logs = require('./routes/');
 const transactionRoutes = require('./routes/transactions');
 const userSubscriptionRoute = require('./routes/user_subscriptions');
 const publicSubscriptionRoute = require('./routes/public_subscriptions');
@@ -122,6 +126,11 @@ app.use('/api/cashapp', cashapp);
 app.use('/api/admin', admin);
 app.use('/api/adminp', adminPurchases);
 app.use('/api/adminw', adminWithdraws);
+app.use('/api/adminu', adminUsers);
+app.use('/api/adminr', adminReports)
+// app.use('/api/logs', logs);
+// Mount the admin API routes
+// app.use('/api/adminp', adminApiRoutes);
 
 // app.use('/api/uploadImage', uploadImage);
 
@@ -155,113 +164,41 @@ app.get('/', (req, res) => {
 
 app.get('/admin', (req, res) => {
   const uptime = moment.duration(Date.now() - startTime).humanize();
+  res.render('admin', { 
+    recentRequests: recentRequests, 
+    pageVisits: pageVisits, 
+    uptime: uptime 
+  });
+});
 
-  let adminHtml = `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Admin Dashboard</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-        <style>
-            body { padding-top: 20px; }
-            .table-container { max-height: 400px; overflow-y: auto; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1 class="mb-4">Admin Dashboard</h1>
-            
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h5 class="card-title">Server Uptime</h5>
-                    <p class="card-text">${uptime}</p>
-                </div>
-            </div>
 
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h5 class="card-title">Page Visits</h5>
-                    <input type="text" id="visitFilter" class="form-control mb-3" placeholder="Filter visits...">
-                    <div class="table-container">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Count</th>
-                                    <th>URL</th>
-                                    <th>Time</th>
-                                    <th>IP</th>
-                                    <th>Location</th>
-                                </tr>
-                            </thead>
-                            <tbody id="visitsTableBody">
-                                ${pageVisits.map(visit => `
-                                    <tr>
-                                        <td>${visit.count}</td>
-                                        <td>${visit.url}</td>
-                                        <td>${visit.time}</td>
-                                        <td>${visit.ip}</td>
-                                        <td>${visit.location}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+// Route to render the admin users page
+app.get('/admin/logs', (req, res) => {
+  // Add middleware to check if user is admin
+  // if (!req.session || !req.session.user || req.session.user.role !== 'admin') {
+    // return res.redirect('/login?redirect=/admin/users');
+  // }
+  const uptime = moment.duration(Date.now() - startTime).humanize();
+  res.render('logs', { 
+    recentRequests: recentRequests, 
+    pageVisits: pageVisits, 
+    uptime: uptime 
+  });
+});
 
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h5 class="card-title">Recent Requests</h5>
-                    <div class="table-container">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Method</th>
-                                    <th>URL</th>
-                                    <th>Time</th>
-                                    <th>IP</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${recentRequests.map(request => `
-                                    <tr>
-                                        <td>${request.method}</td>
-                                        <td>${request.url}</td>
-                                        <td>${request.time}</td>
-                                        <td>${request.ip}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+// Admin reports page
+app.get('/admin/reports', (req, res) => {
+  res.render('reports');
+});
 
-            <button id="refreshButton" class="btn btn-primary">Refresh Data</button>
-        </div>
 
-        <script>
-            document.getElementById('visitFilter').addEventListener('input', function() {
-                const filter = this.value.toLowerCase();
-                const rows = document.querySelectorAll('#visitsTableBody tr');
-                rows.forEach(row => {
-                    const text = row.textContent.toLowerCase();
-                    row.style.display = text.includes(filter) ? '' : 'none';
-                });
-            });
-
-            document.getElementById('refreshButton').addEventListener('click', function() {
-                location.reload();
-            });
-        </script>
-    </body>
-    </html>
-  `;
-
-  res.send(adminHtml);
+// Route to render the admin users page
+app.get('/admin/users', (req, res) => {
+  // Add middleware to check if user is admin
+  // if (!req.session || !req.session.user || req.session.user.role !== 'admin') {
+    // return res.redirect('/login?redirect=/admin/users');
+  // }
+  res.render('admin-users');
 });
 
 // In your server or route file, e.g. server.js or routes/adminPurchases.js
@@ -573,3 +510,52 @@ cron.schedule(
     timezone: 'America/New_York'
   }
 );
+
+
+// email-service.js
+const nodemailer = require('nodemailer');
+
+// Configure nodemailer with your SMTP settings
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp.example.com',
+  port: process.env.SMTP_PORT || 587,
+  secure: process.env.SMTP_SECURE === 'true',
+  auth: {
+    user: process.env.SMTP_USER || 'your-email@example.com',
+    pass: process.env.SMTP_PASS || 'your-password'
+  }
+});
+
+// Send password reset email
+async function sendPasswordResetEmail(email, username, newPassword) {
+  try {
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || '"Admin System" <admin@example.com>',
+      to: email,
+      subject: 'Your Password Has Been Reset',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <h2 style="color: #333;">Password Reset</h2>
+          <p>Hello ${username},</p>
+          <p>Your password has been reset by an administrator.</p>
+          <p>Your new password is: <strong>${newPassword}</strong></p>
+          <p>Please login with this password and change it immediately for security reasons.</p>
+          <p style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #777;">
+            This is an automated message. Please do not reply to this email.
+          </p>
+        </div>
+      `
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Password reset email sent:', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('Error sending password reset email:', error);
+    throw error;
+  }
+}
+
+module.exports = {
+  sendPasswordResetEmail
+};

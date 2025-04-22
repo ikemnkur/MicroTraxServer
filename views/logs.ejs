@@ -21,25 +21,19 @@
 
 <body>
     <div class="container">
-        <h1 class="mb-4">Admin Dashboard</h1>
+        <h1 class="mb-4">Logs</h1>
+
 
         <div class="card mb-4">
             <div class="card-body">
-                <h5 class="card-title">Server Uptime</h5>
-                <p class="card-text">${uptime}</p>
-            </div>
-        </div>
-
-        <div class="card mb-4">
-            <div class="card-body">
-                <h5 class="card-title"> Quick Links</h5>
+                <h5 class="card-title">Quick Links</h5>
                 <ul class="list-group">
                     <li class="list-group-item"><a href="/admin/users">Manage Users</a></li>
                     <li class="list-group-item"><a href="/admin/settings">Settings</a></li>
                     <li class="list-group-item"><a href="/admin/logs">View Logs</a></li>
-                    <li class="list-group-item"><a href="/admin/withdraws">View Logs</a></li>
-                    <li class="list-group-item"><a href="/admin/purchases">View Logs</a></li>
-                    <li class="list-group  -item"><a href="/admin/reports">Generate Reports</a></li>
+                    <li class="list-group-item"><a href="/admin/withdraws">Manage Withdrawals</a></li>
+                    <li class="list-group-item"><a href="/admin/purchases">View Purchases</a></li>
+                    <li class="list-group-item"><a href="/admin/reports">Generate Reports</a></li>
                 </ul>
             </div>
         </div>
@@ -60,15 +54,15 @@
                             </tr>
                         </thead>
                         <tbody id="visitsTableBody">
-                            ${pageVisits.map(visit => `
+                            <% pageVisits.forEach(function(visit) { %>
                             <tr>
-                                <td>${visit.count}</td>
-                                <td>${visit.url}</td>
-                                <td>${visit.time}</td>
-                                <td>${visit.ip}</td>
-                                <td>${visit.location}</td>
+                                <td><%= visit.count %></td>
+                                <td><%= visit.url %></td>
+                                <td><%= visit.time %></td>
+                                <td><%= visit.ip %></td>
+                                <td><%= visit.location %></td>
                             </tr>
-                            `).join('')}
+                            <% }); %>
                         </tbody>
                     </table>
                 </div>
@@ -89,14 +83,14 @@
                             </tr>
                         </thead>
                         <tbody>
-                            ${recentRequests.map(request => `
+                            <% recentRequests.forEach(function(request) { %>
                             <tr>
-                                <td>${request.method}</td>
-                                <td>${request.url}</td>
-                                <td>${request.time}</td>
-                                <td>${request.ip}</td>
+                                <td><%= request.method %></td>
+                                <td><%= request.url %></td>
+                                <td><%= request.time %></td>
+                                <td><%= request.ip %></td>
                             </tr>
-                            `).join('')}
+                            <% }); %>
                         </tbody>
                     </table>
                 </div>
