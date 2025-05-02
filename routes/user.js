@@ -454,4 +454,22 @@ router.post('/:userId/report', authenticateToken, async (req, res) => {
   }
 });
 
+// 3. POST /user/:userId/report - Submit a report
+router.post('/:userId/message', authenticateToken, async (req, res) => {
+  const { userMessage, messagedUser, messagingUser } = req.body;
+  const messageUserId = req.params.userId;
+
+  try {
+    await db.query(
+      'INSERT INTO user_reports (reporter_id, reported_user_id, report_message) VALUES (?, ?, ?)',
+      [req.user.user_id, messageUserId, userMessage]
+    );
+
+    res.status(201).json({ message: 'Message to user submitted successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
