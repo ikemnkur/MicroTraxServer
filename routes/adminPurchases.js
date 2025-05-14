@@ -33,8 +33,7 @@ router.get('/purchases', async (req, res) => {
   try {
     const { query, params } = buildSearchAndFilter(req.query);
     const sql = `
-      SELECT id, username, amount, date, status, reference_code, transactionId, created_at
-      FROM purchases
+      SELECT * FROM purchases
       ${query}
     `;
     const [rows] = await db.query(sql, params);

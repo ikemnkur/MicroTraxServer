@@ -1,12 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <title>Admin Purchases (Last 48 Hours)</title>
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-  />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <style>
     /* Global Styles */
     body {
@@ -15,17 +13,20 @@
       margin: 0;
       padding: 20px;
     }
+
     .container-custom {
       max-width: 1200px;
       margin: 20px auto;
       background: #fff;
       padding: 20px;
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
+
     h1 {
       margin-bottom: 20px;
     }
+
     /* Controls */
     .controls-container {
       display: flex;
@@ -34,20 +35,24 @@
       margin-bottom: 20px;
       align-items: center;
     }
+
     .controls-container .form-control,
     .controls-container .form-select {
       flex: 1 1 200px;
     }
+
     .sort-container {
       display: flex;
       gap: 10px;
     }
+
     /* Purchase List */
     .purchase-list {
       list-style: none;
       padding: 0;
       margin: 0;
     }
+
     .purchase-item {
       background: #fff;
       padding: 15px;
@@ -57,9 +62,11 @@
       cursor: pointer;
       transition: background 0.3s;
     }
+
     .purchase-item:hover {
       background: #f1f1f1;
     }
+
     /* User Info Section */
     .user-info-container {
       border: 1px solid #e0e0e0;
@@ -68,6 +75,7 @@
       margin-top: 20px;
       border-radius: 4px;
     }
+
     /* Modal Styles */
     .modal-backdrop {
       position: fixed;
@@ -81,17 +89,20 @@
       justify-content: center;
       z-index: 1050;
     }
+
     .modal-backdrop.active {
       display: flex;
     }
+
     .modal-content {
       background-color: #fff;
       padding: 20px;
       border-radius: 8px;
       min-width: 300px;
       max-width: 500px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
     }
+
     .modal-buttons {
       display: flex;
       gap: 10px;
@@ -100,18 +111,14 @@
     }
   </style>
 </head>
+
 <body>
   <div class="container-custom">
     <h1>Admin Purchases (Last 48 Hours)</h1>
 
     <!-- Search / Filter / Sort Controls -->
     <div class="controls-container">
-      <input
-        id="searchInput"
-        type="text"
-        placeholder="Search by username, reference, etc."
-        class="form-control"
-      />
+      <input id="searchInput" type="text" placeholder="Search by username, reference, etc." class="form-control" />
       <select id="statusFilter" class="form-select">
         <option value="">All Statuses</option>
         <option value="Pending">Pending</option>
@@ -124,21 +131,24 @@
     </div>
 
     <!-- Purchases List -->
+    // First, let's update the purchase list item display in your EJS template
     <ul id="purchaseList" class="purchase-list">
-      <% purchases.forEach((purchase) => { %>
-        <li
-          class="purchase-item"
-          data-id="<%= purchase.id %>"
-          data-username="<%= purchase.username %>"
-          data-amount="<%= purchase.amount %>"
-          data-status="<%= purchase.status %>"
-          data-created="<%= purchase.created_at %>"
-        >
-          <strong><%= purchase.username %></strong> - <%= purchase.amount %> coins
-          <br />
-          Status: <%= purchase.status || 'N/A' %> | Created: <%= purchase.created_at %>
+      <% purchases.forEach((purchase)=> { %>
+        <li class="purchase-item" data-id="<%= purchase.id %>" data-username="<%= purchase.username %>"
+          data-amount="<%= purchase.amount %>" data-status="<%= purchase.status %>"
+          data-created="<%= purchase.created_at %>" data-data="<%= purchase.data %>">
+          <div class="purchase-summary">
+            <strong>
+              <%= purchase.username %>
+            </strong> - <%= purchase.amount %> coins
+              <br />
+              Status: <%= purchase.status || 'N/A' %> | Created: <%= purchase.created_at %>
+                  <button class="toggle-details">Show Details</button>
+          </div>
+          <div class="purchase-details"
+            style="display: none; margin-top: 8px; padding: 8px; background-color: #f5f5f5; border-radius: 4px;"></div>
         </li>
-      <% }) %>
+        <% }) %>
     </ul>
 
     <!-- User Info Section -->
@@ -146,6 +156,7 @@
       <h2 id="userInfoTitle"></h2>
       <p id="userEmail"></p>
       <p id="userBalance"></p>
+
       <h3>User Transactions:</h3>
       <ul id="userTransactions"></ul>
     </div>
@@ -173,6 +184,7 @@
     const userInfoTitle = document.getElementById('userInfoTitle');
     const userEmail = document.getElementById('userEmail');
     const userBalance = document.getElementById('userBalance');
+    // const userOrder = document.getElementById('UserOrder');
     const userTransactions = document.getElementById('userTransactions');
     const confirmModal = document.getElementById('confirmModal');
     const confirmMessage = document.getElementById('confirmMessage');
@@ -202,7 +214,7 @@
         const status = item.dataset.status;
         const matchSearch = username.includes(searchValue);
         const matchStatus = !statusValue || status === statusValue;
-        
+
         item.style.display = (matchSearch && matchStatus) ? '' : 'none';
       });
     }
@@ -225,29 +237,145 @@
       purchasesArray.forEach(item => purchaseList.appendChild(item));
     }
 
-    // Single-click -> load user info
+    // Handle purchase item clicks
     purchaseList.addEventListener('click', async (e) => {
+      // Check if the clicked element is the toggle button
+      if (e.target.classList.contains('toggle-details')) {
+        const item = e.target.closest('.purchase-item');
+        const detailsDiv = item.querySelector('.purchase-details');
+        const toggleBtn = item.querySelector('.toggle-details');
+
+        // Toggle the details visibility
+        if (detailsDiv.style.display === 'none') {
+          // Format and display the JSON data
+          try {
+            const dataStr = item.dataset.data;
+            const dataObj = JSON.parse(dataStr);
+
+            // Create a formatted HTML display of the JSON data
+            let formattedHtml = '<div class="json-details">';
+            formattedHtml += '<h4>Transaction Details</h4>';
+            formattedHtml += '<table class="details-table">';
+
+            // Group related fields and format them nicely
+            const fieldGroups = [
+              { title: 'User Information', fields: ['username', 'userId', 'name', 'email', 'cashappTag'] },
+              { title: 'Transaction Information', fields: ['transactionId', 'currency', 'amount', 'cashappAmount', 'date', 'time'] },
+              { title: 'Session Information', fields: ['session_id', 'key'] }
+            ];
+
+            fieldGroups.forEach(group => {
+              formattedHtml += `<tr><th colspan="2" class="group-header">${group.title}</th></tr>`;
+              group.fields.forEach(field => {
+                if (dataObj[field] !== undefined) {
+                  // Format values based on field type
+                  let value = dataObj[field];
+                  if (field === 'amount') {
+                    // Format amount as currency if it's a number
+                    const numValue = parseFloat(value);
+                    if (!isNaN(numValue)) {
+                      value = (numValue / 100).toFixed(2); // Assuming amount is in cents
+                    }
+                  } else if (field === 'date') {
+                    // Format date in a more readable way
+                    const date = new Date(value);
+                    if (!isNaN(date)) {
+                      value = date.toLocaleDateString();
+                    }
+                  }
+
+                  formattedHtml += `
+                <tr>
+                  <td class="field-name">${field.charAt(0).toUpperCase() + field.slice(1)}</td>
+                  <td class="field-value">${value}</td>
+                </tr>`;
+                }
+              });
+            });
+
+            formattedHtml += '</table></div>';
+            detailsDiv.innerHTML = formattedHtml;
+          } catch (err) {
+            console.error('Error parsing JSON data:', err);
+            detailsDiv.innerHTML = '<p>Error displaying transaction details</p>';
+          }
+
+          detailsDiv.style.display = 'block';
+          toggleBtn.textContent = 'Hide Details';
+        } else {
+          detailsDiv.style.display = 'none';
+          toggleBtn.textContent = 'Show Details';
+        }
+
+        // Prevent the click from triggering the user info loading
+        e.stopPropagation();
+        return;
+      }
+
+      // Original functionality for loading user info (when not clicking on the toggle button)
       const item = e.target.closest('.purchase-item');
       if (!item) return;
-
       selectedPurchase = item;
       const username = item.dataset.username;
 
       try {
         const res = await fetch(`/api/adminp/user-info/${username}`, { credentials: 'include' });
         if (!res.ok) throw new Error('Failed to fetch user info');
-        
         const data = await res.json();
+
         userInfoTitle.innerText = `User Details: ${data.user.username}`;
         userEmail.innerText = `Email: ${data.user.email}`;
         userBalance.innerText = `Balance: ${data.account.balance}`;
 
+        // Improved formatting for transactions list
         userTransactions.innerHTML = '';
-        data.transactions.forEach((tx) => {
-          const li = document.createElement('li');
-          li.innerText = `Type: ${tx.transaction_type} | Amount: ${tx.amount} | Status: ${tx.status} | Created: ${tx.created_at}`;
-          userTransactions.appendChild(li);
-        });
+
+        if (data.transactions.length === 0) {
+          userTransactions.innerHTML = '<li class="no-transactions">No transactions found</li>';
+        } else {
+          // Create a table for better formatting
+          const table = document.createElement('table');
+          table.className = 'transactions-table';
+
+          // Add table header
+          const thead = document.createElement('thead');
+          thead.innerHTML = `
+        <tr>
+          <th>Type</th>
+          <th>Amount</th>
+          <th>Status</th>
+          <th>Created</th>
+        </tr>
+      `;
+          table.appendChild(thead);
+
+          // Add table body with transaction data
+          const tbody = document.createElement('tbody');
+          data.transactions.forEach((tx) => {
+            // Format the amount as a positive or negative number with proper styling
+            const amountClass = tx.transaction_type === 'debit' ? 'amount-negative' : 'amount-positive';
+            const amountPrefix = tx.transaction_type === 'debit' ? '-' : '+';
+
+            // Format the date to be more readable
+            const created = new Date(tx.created_at);
+            const formattedDate = isNaN(created)
+              ? tx.created_at
+              : `${created.toLocaleDateString()} ${created.toLocaleTimeString()}`;
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+          <td>${tx.transaction_type}</td>
+          <td class="${amountClass}">${amountPrefix}${tx.amount}</td>
+          <td>${tx.status || 'N/A'}</td>
+          <td>${formattedDate}</td>
+        `;
+            tbody.appendChild(row);
+          });
+          table.appendChild(tbody);
+
+          // Add the table to the transactions list
+          userTransactions.appendChild(table);
+        }
 
         userInfoContainer.style.display = 'block';
       } catch (err) {
@@ -280,7 +408,7 @@
           credentials: 'include'
         });
         if (!res.ok) throw new Error('Failed to confirm purchase');
-        
+
         alert('Purchase confirmed successfully.');
         confirmModal.classList.remove('active');
         location.reload();
@@ -309,7 +437,7 @@
           credentials: 'include'
         });
         if (!res.ok) throw new Error('Failed to reject purchase');
-        
+
         alert('Purchase rejected successfully.');
         confirmModal.classList.remove('active');
         location.reload();
@@ -320,4 +448,5 @@
     });
   </script>
 </body>
+
 </html>
