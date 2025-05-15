@@ -412,7 +412,7 @@ router.put('/:userId/favorite', authenticateToken, async (req, res) => {
     try {
       // Get current user's favorites
       // const [users] = await connection.query('SELECT favorites FROM users WHERE id = ?', [req.user.user_id]);
-      let favorites = user.favorites ? JSON.parse(users.favorites) : [];
+      let favorites = user.favorites ? JSON.parse(user.favorites) : [];
       // let favorites = users[0].favorites ? JSON.parse(users[0].favorites) : [];
 
       if (isFavorite) {
