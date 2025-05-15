@@ -425,8 +425,12 @@ router.put('/:userId/favorite', authenticateToken, async (req, res) => {
         favorites = favorites.filter(id => id !== favoriteUserId);
       }
 
+      fav_str = JSON.stringify(favorites);
+
+      console.log("fav string: ", fav_str)
+
       // Update favorites
-      await connection.query('UPDATE users SET favorites = ? WHERE id = ?', [JSON.stringify(favorites), req.user.user_id]);
+      await connection.query('UPDATE users SET favorites = ? WHERE id = ?', [fav_str, req.user.user_id]);
 
       await connection.commit();
       res.json({ message: isFavorite ? 'User added to favorites' : 'User removed from favorites' });
