@@ -103,11 +103,121 @@
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
     }
 
+    .transaction-modal-content {
+      max-width: 800px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
     .modal-buttons {
       display: flex;
       gap: 10px;
       justify-content: center;
       margin-top: 20px;
+    }
+
+    /* Transaction Table Styles */
+    .details-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9em;
+      margin-bottom: 15px;
+    }
+
+    .details-table td, .details-table th {
+      padding: 6px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .details-table .field-name {
+      font-weight: bold;
+      width: 40%;
+    }
+
+    .details-table .group-header {
+      background-color: #f0f0f0;
+      text-align: left;
+      padding: 8px 6px;
+    }
+
+    .transactions-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    .transactions-table th, .transactions-table td {
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+
+    .transactions-table th {
+      background-color: #f5f5f5;
+      font-weight: bold;
+    }
+
+    .amount-positive {
+      color: #28a745;
+      font-weight: bold;
+    }
+
+    .amount-negative {
+      color: #dc3545;
+      font-weight: bold;
+    }
+    
+    .transaction-type {
+      font-weight: bold;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    
+    .type-send {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    
+    .type-Fee {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    
+    .type-purchase {
+      background-color: #cce5ff;
+      color: #004085;
+    }
+    
+    .type-refund {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+    
+    .type-unlock-content {
+      background-color: #e2e3e5;
+      color: #e6c312;
+    }
+
+    .no-transactions {
+      font-style: italic;
+      color: #777;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+
+    .close-modal {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -131,7 +241,6 @@
     </div>
 
     <!-- Purchases List -->
-    // First, let's update the purchase list item display in your EJS template
     <ul id="purchaseList" class="purchase-list">
       <% purchases.forEach((purchase)=> { %>
         <li class="purchase-item" data-id="<%= purchase.id %>" data-username="<%= purchase.username %>"
@@ -143,7 +252,8 @@
             </strong> - <%= purchase.amount %> coins
               <br />
               Status: <%= purchase.status || 'N/A' %> | Created: <%= purchase.created_at %>
-                  <button class="toggle-details">Show Details</button>
+                  <button class="toggle-details btn btn-sm btn-outline-secondary">Show Details</button>
+                  <button class="toggle-transactions btn btn-sm btn-outline-primary">Show Transactions</button>
           </div>
           <div class="purchase-details"
             style="display: none; margin-top: 8px; padding: 8px; background-color: #f5f5f5; border-radius: 4px;"></div>
@@ -151,15 +261,7 @@
         <% }) %>
     </ul>
 
-    <!-- User Info Section -->
-    <div id="userInfoContainer" class="user-info-container" style="display:none;">
-      <h2 id="userInfoTitle"></h2>
-      <p id="userEmail"></p>
-      <p id="userBalance"></p>
-
-      <h3>User Transactions:</h3>
-      <ul id="userTransactions"></ul>
-    </div>
+    <!-- User Info Section has been removed -->
 
     <!-- Confirm Purchase Modal -->
     <div id="confirmModal" class="modal-backdrop">
@@ -172,6 +274,24 @@
         </div>
       </div>
     </div>
+
+    <!-- User Transactions Modal (New) -->
+    <div id="transactionsModal" class="modal-backdrop">
+      <div class="modal-content transaction-modal-content">
+        <div class="modal-header">
+          <h3 id="transactionsModalTitle">User Transactions</h3>
+          <button id="closeTransactionsBtn" class="close-modal">&times;</button>
+        </div>
+        <div id="transactionsModalContent">
+          <div class="user-details">
+            <p id="modalUserEmail"></p>
+            <p id="modalUserBalance"></p>
+          </div>
+          <h4>Transaction History</h4>
+          <div id="modalTransactions"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -180,17 +300,21 @@
     const searchInput = document.getElementById('searchInput');
     const statusFilter = document.getElementById('statusFilter');
     const sortContainer = document.getElementById('sortContainer');
-    const userInfoContainer = document.getElementById('userInfoContainer');
-    const userInfoTitle = document.getElementById('userInfoTitle');
-    const userEmail = document.getElementById('userEmail');
-    const userBalance = document.getElementById('userBalance');
-    // const userOrder = document.getElementById('UserOrder');
-    const userTransactions = document.getElementById('userTransactions');
+    
+    // Confirm modal elements
     const confirmModal = document.getElementById('confirmModal');
     const confirmMessage = document.getElementById('confirmMessage');
     const confirmYesBtn = document.getElementById('confirmYesBtn');
     const confirmNoBtn = document.getElementById('confirmNoBtn');
     const confirmRejectBtn = document.getElementById('confirmRejectBtn');
+    
+    // Transactions modal elements
+    const transactionsModal = document.getElementById('transactionsModal');
+    const transactionsModalTitle = document.getElementById('transactionsModalTitle');
+    const modalUserEmail = document.getElementById('modalUserEmail');
+    const modalUserBalance = document.getElementById('modalUserBalance');
+    const modalTransactions = document.getElementById('modalTransactions');
+    const closeTransactionsBtn = document.getElementById('closeTransactionsBtn');
 
     // For storing the last clicked purchase
     let selectedPurchase = null;
@@ -237,9 +361,14 @@
       purchasesArray.forEach(item => purchaseList.appendChild(item));
     }
 
+    // Close transactions modal when clicking the close button
+    closeTransactionsBtn.addEventListener('click', () => {
+      transactionsModal.classList.remove('active');
+    });
+
     // Handle purchase item clicks
     purchaseList.addEventListener('click', async (e) => {
-      // Check if the clicked element is the toggle button
+      // Check if the clicked element is the toggle details button
       if (e.target.classList.contains('toggle-details')) {
         const item = e.target.closest('.purchase-item');
         const detailsDiv = item.querySelector('.purchase-details');
@@ -312,76 +441,113 @@
         return;
       }
 
-      // Original functionality for loading user info (when not clicking on the toggle button)
+      // Check if the clicked element is the show transactions button
+      if (e.target.classList.contains('toggle-transactions')) {
+        const item = e.target.closest('.purchase-item');
+        if (!item) return;
+        selectedPurchase = item;
+        const username = item.dataset.username;
+
+        try {
+          const res = await fetch(`/api/adminp/user-info/${username}`, { credentials: 'include' });
+          if (!res.ok) throw new Error('Failed to fetch user info');
+          const data = await res.json();
+
+          // Set modal title and user details
+          transactionsModalTitle.innerText = `User Details: ${data.user.username}`;
+          modalUserEmail.innerText = `Email: ${data.user.email}`;
+          modalUserBalance.innerText = `Balance: ${data.account.balance}`;
+
+          // Format and display transactions in the modal
+          modalTransactions.innerHTML = '';
+
+          if (data.transactions.length === 0) {
+            modalTransactions.innerHTML = '<p class="no-transactions">No transactions found</p>';
+          } else {
+            // Create a table for better formatting
+            const table = document.createElement('table');
+            table.className = 'transactions-table';
+
+            // Add table header
+            const thead = document.createElement('thead');
+            thead.innerHTML = `
+              <tr>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Created</th>
+              </tr>
+            `;
+            table.appendChild(thead);
+
+            // Add table body with transaction data
+            const tbody = document.createElement('tbody');
+            data.transactions.forEach((tx) => {
+              // Format the amount as a positive or negative number with proper styling
+              const amountClass = tx.transaction_type === 'debit' ? 'amount-negative' : 'amount-positive';
+              const amountPrefix = tx.transaction_type === 'debit' ? '-' : '+';
+
+              // Format the date to be more readable
+              const created = new Date(tx.created_at);
+              const formattedDate = isNaN(created)
+                ? tx.created_at
+                : `${created.toLocaleDateString()} ${created.toLocaleTimeString()}`;
+              
+              // Determine the transaction type class for color coding
+              let typeClass = '';
+              switch(tx.transaction_type.toLowerCase()) {
+                case 'credit':
+                  typeClass = 'type-credit';
+                  break;
+                case 'debit':
+                  typeClass = 'type-debit';
+                  break;
+                case 'purchase':
+                  typeClass = 'type-purchase';
+                  break;
+                case 'refund':
+                  typeClass = 'type-refund';
+                  break;
+                case 'admin':
+                  typeClass = 'type-admin';
+                  break;
+                default:
+                  typeClass = '';
+              }
+
+              const row = document.createElement('tr');
+              row.innerHTML = `
+                <td><span class="transaction-type ${typeClass}">${tx.transaction_type}</span></td>
+                <td class="${amountClass}">${amountPrefix}${tx.amount}</td>
+                <td>${tx.status || 'N/A'}</td>
+                <td>${formattedDate}</td>
+              `;
+              tbody.appendChild(row);
+            });
+            table.appendChild(tbody);
+
+            // Add the table to the transactions list
+            modalTransactions.appendChild(table);
+          }
+
+          // Show the transactions modal
+          transactionsModal.classList.add('active');
+        } catch (err) {
+          console.error(err);
+          alert('Error fetching user details');
+        }
+
+        // Prevent event propagation
+        e.stopPropagation();
+        return;
+      }
+
+      // If clicked elsewhere on the item - show confirm modal
       const item = e.target.closest('.purchase-item');
       if (!item) return;
       selectedPurchase = item;
-      const username = item.dataset.username;
-
-      try {
-        const res = await fetch(`/api/adminp/user-info/${username}`, { credentials: 'include' });
-        if (!res.ok) throw new Error('Failed to fetch user info');
-        const data = await res.json();
-
-        userInfoTitle.innerText = `User Details: ${data.user.username}`;
-        userEmail.innerText = `Email: ${data.user.email}`;
-        userBalance.innerText = `Balance: ${data.account.balance}`;
-
-        // Improved formatting for transactions list
-        userTransactions.innerHTML = '';
-
-        if (data.transactions.length === 0) {
-          userTransactions.innerHTML = '<li class="no-transactions">No transactions found</li>';
-        } else {
-          // Create a table for better formatting
-          const table = document.createElement('table');
-          table.className = 'transactions-table';
-
-          // Add table header
-          const thead = document.createElement('thead');
-          thead.innerHTML = `
-        <tr>
-          <th>Type</th>
-          <th>Amount</th>
-          <th>Status</th>
-          <th>Created</th>
-        </tr>
-      `;
-          table.appendChild(thead);
-
-          // Add table body with transaction data
-          const tbody = document.createElement('tbody');
-          data.transactions.forEach((tx) => {
-            // Format the amount as a positive or negative number with proper styling
-            const amountClass = tx.transaction_type === 'debit' ? 'amount-negative' : 'amount-positive';
-            const amountPrefix = tx.transaction_type === 'debit' ? '-' : '+';
-
-            // Format the date to be more readable
-            const created = new Date(tx.created_at);
-            const formattedDate = isNaN(created)
-              ? tx.created_at
-              : `${created.toLocaleDateString()} ${created.toLocaleTimeString()}`;
-
-            const row = document.createElement('tr');
-            row.innerHTML = `
-          <td>${tx.transaction_type}</td>
-          <td class="${amountClass}">${amountPrefix}${tx.amount}</td>
-          <td>${tx.status || 'N/A'}</td>
-          <td>${formattedDate}</td>
-        `;
-            tbody.appendChild(row);
-          });
-          table.appendChild(tbody);
-
-          // Add the table to the transactions list
-          userTransactions.appendChild(table);
-        }
-
-        userInfoContainer.style.display = 'block';
-      } catch (err) {
-        console.error(err);
-        alert('Error fetching user details');
-      }
+      confirmModal.classList.add('active');
+      confirmMessage.textContent = `Are you sure you want to confirm this purchase for "${item.dataset.username}"?`;
     });
 
     // Double-click -> confirm modal

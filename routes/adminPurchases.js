@@ -60,14 +60,14 @@ router.get('/user-info/:username', async (req, res) => {
       'SELECT * FROM users WHERE LOWER(username) = ?',
       [username]
     );
-    console.log("User Rows:", userRows);
+    // console.log("User Rows:", userRows);
 
     // Test query using a constant works as expected:
     const [userRows1] = await connection.query(
       'SELECT * FROM users WHERE LOWER(username) = ?',
       ["user2".toLowerCase()]
     );
-    console.log("User Rows (literal):", userRows1);
+    // console.log("User Rows (literal):", userRows1);
 
     // Ensure we have a user before proceeding
     if (!userRows.length) {
@@ -182,15 +182,15 @@ router.post('/confirm-purchase/:purchaseId', async (req, res) => {
       [username]
     );
 
+    console.log("User: ", user);
 
-
-    let notificationMsg = `Hoo-ray, Your purchase of ${increaseAmount} coins has been confirmed and processed!`
+    let notificationMsg = `Hoo-ray, ${username} Your purchase of ${increaseAmount} coins has been confirmed and processed!`
 
     try {
       const [result] = await db.query(
         `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
     VALUES (?, ?, ?, ?, ?, ?)`,
-        ["purchase-confirmed", user.user_id, notificationMsg, "0", user.username, new Date()]
+        ["purchase-confirmed", user[0].user_id, notificationMsg, "0", username, new Date()]
       );
 
       console.log("New notification successfully created:", notificationMsg);
