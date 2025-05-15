@@ -397,7 +397,7 @@ router.post('/add-rating', authenticateToken, async (req, res) => {
 
 // 2. PUT /user/:userId/favorite - Update favorite status
 router.put('/:userId/favorite', authenticateToken, async (req, res) => {
-  const { isFavorite } = req.body;
+  const { isFavorite, user } = req.body;
   const favoriteUserId = req.params.userId;
 
   try {
@@ -406,8 +406,9 @@ router.put('/:userId/favorite', authenticateToken, async (req, res) => {
 
     try {
       // Get current user's favorites
-      const [users] = await connection.query('SELECT favorites FROM users WHERE id = ?', [req.user.user_id]);
-      let favorites = users[0].favorites ? JSON.parse(users[0].favorites) : [];
+      // const [users] = await connection.query('SELECT favorites FROM users WHERE id = ?', [req.user.user_id]);
+      let favorites = user.favorites ? JSON.parse(users.favorites) : [];
+      // let favorites = users[0].favorites ? JSON.parse(users[0].favorites) : [];
 
       if (isFavorite) {
         // Add to favorites if not already present
