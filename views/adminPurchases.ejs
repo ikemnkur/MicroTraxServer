@@ -403,7 +403,7 @@
                     // Format amount as currency if it's a number
                     const numValue = parseFloat(value);
                     if (!isNaN(numValue)) {
-                      value = (numValue / 100).toFixed(2); // Assuming amount is in cents
+                      value = numValue + " coins"; // Assuming amount is in cents
                     }
                   } else if (field === 'date') {
                     // Format date in a more readable way
