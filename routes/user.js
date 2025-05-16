@@ -211,16 +211,16 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
       7: 500  // Ultimate
     };
 
-      // Define daily limits based on account tier
-      const dailyCoinLimits = {
-        1: 100,    // Basic
-        2: 500,    // Standard
-        3: 1000,   // Premium
-        4: 5000,   // Gold
-        5: 10000,  // Platinum
-        6: 50000,  // Diamond
-        7: 100000  // Ultimate
-      };
+    // Define daily limits based on account tier
+    const dailyCoinLimits = {
+      1: 100,    // Basic
+      2: 500,    // Standard
+      3: 1000,   // Premium
+      4: 5000,   // Gold
+      5: 10000,  // Platinum
+      6: 50000,  // Diamond
+      7: 100000  // Ultimate
+    };
 
     const dashboardData = {
       balance: userData[0].balance ?? 0,
@@ -335,8 +335,8 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
     );
     const numberOfLikes = likes[0].numberOfLikes;
 
-     // 2) Count how many times like_status = 1 for this user
-     const [posts] = await db.query(
+    // 2) Count how many times like_status = 1 for this user
+    const [posts] = await db.query(
       'SELECT COUNT(*) AS numberOfPosts FROM public_content WHERE host_user_id = ?',
       [userIdOrUsername]
     );
@@ -347,13 +347,22 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
     if (users.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
+    
+
+    // Fetch user details
+    const [favorites] = await db.query(
+      'SELECT favorites FROM users WHERE user_id = ?',
+      [userIdOrUsername]
+    );
+    favs = favorites[0].favorites
 
     // 4) Add the rating and likes info to the user object
     users[0].avgRating = avgRating;
     users[0].numberOfLikes = numberOfLikes;
     users[0].numberOfPosts = numberOfPosts;
+    users[0].numberOfFavorites = favorites[0].favorites ? JSON.parse(favorites[0].favorites).length : 0;
 
-    console.log("#Posts: ", numberOfPosts )
+    console.log("#Posts: ", favs)
 
     // Optionally check if user is in the current user's favorites
     const user = users[0];
@@ -429,8 +438,17 @@ router.put('/:userId/favorite', authenticateToken, async (req, res) => {
 
       console.log("fav string: ", fav_str)
 
+      num_of_fav = favorites.length;
+
+      console.log("num_of_fav: ", num_of_fav)
+
       // Update favorites
-      await connection.query('UPDATE users SET favorites = ? WHERE id = ?', [fav_str, req.user.user_id]);
+      await connection.query('UPDATE users SET favorites = ? WHERE user_id = ?', [fav_str, req.user.user_id]);
+
+      // // Update favorites
+      // await connection.query('UPDATE users SET num_fav = ? WHERE user_id = ?', [num_of_fav, favoriteUserId]);
+
+      await db.query('UPDATE users SET num_fav = num_fav + ? WHERE user_id =  ?', [1, favoriteUserId]);
 
       await connection.commit();
       res.json({ message: isFavorite ? 'User added to favorites' : 'User removed from favorites' });
@@ -448,7 +466,7 @@ router.put('/:userId/favorite', authenticateToken, async (req, res) => {
 
 // 3. POST /user/:userId/report - Submit a report
 router.post('/:userId/report', authenticateToken, async (req, res) => {
-  const {reportMessage, reportedUser, reportingUser} = req.body;
+  const { reportMessage, reportedUser, reportingUser } = req.body;
   const reportedUserId = req.params.userId;
 
   try {
