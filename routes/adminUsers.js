@@ -56,11 +56,21 @@ router.get('/user-info/:username', async (req, res) => {
        ORDER BY created_at DESC`,
       [username, username]
     );
+
+      // Fetch transactions involving the user as sender or receiver
+      const [contentRows] = await connection.query(
+        `SELECT * FROM public_content
+         WHERE host_username = ? 
+         ORDER BY created_at DESC`,
+        [username]
+      );
+      
     
     res.json({ 
       user: userRows[0], 
       transactions: transactionRows,
-      account: accountData
+      account: accountData,
+      public_content: contentRows
     });
   } catch (error) {
     console.error('Error fetching user info:', error);

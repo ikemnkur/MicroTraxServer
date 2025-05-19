@@ -11,7 +11,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const [users] = await db.query(
       `SELECT u.user_id, u.username, u.email, u.user_id, u.firstName, u.lastName, u.phoneNumber, u.birthDate, u.unlocks, u.subscriptions,
-              u.accountTier, u.timezone, a.balance, a.spendable, a.redeemable, u.bio, u.encryptionKey, u.account_id, u.profilePic
+              u.accountTier, u.timezone, a.balance, a.spendable, a.redeemable, u.bio, u.encryptionKey, u.account_id, u.profilePic, u.favorites
        FROM users u
        LEFT JOIN accounts a ON u.user_id = a.user_id
        WHERE u.user_id = ?`,
@@ -347,7 +347,7 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
     if (users.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
-    
+
 
     // Fetch user details
     const [favorites] = await db.query(
@@ -413,45 +413,53 @@ router.post('/add-rating', authenticateToken, async (req, res) => {
 router.put('/:userId/favorite', authenticateToken, async (req, res) => {
   const { isFavorite, user } = req.body;
   const favoriteUserId = req.params.userId;
-
+  
   try {
     const connection = await db.getConnection();
     await connection.beginTransaction();
-
+    
     try {
       // Get current user's favorites
-      // const [users] = await connection.query('SELECT favorites FROM users WHERE id = ?', [req.user.user_id]);
       let favorites = user.favorites ? JSON.parse(user.favorites) : [];
-      // let favorites = users[0].favorites ? JSON.parse(users[0].favorites) : [];
-
+      
       if (isFavorite) {
         // Add to favorites if not already present
         if (!favorites.includes(favoriteUserId)) {
           favorites.push(favoriteUserId);
+          const fav_str = JSON.stringify(favorites);
+          console.log("favorites_string: ", fav_str);
+          const num_of_fav = favorites.length;
+          console.log("number_of_favorites_received: ", num_of_fav);
+          
+          // Update list of favorites for the current user
+          await connection.query('UPDATE users SET favorites = ? WHERE user_id = ?', 
+            [fav_str, req.user.user_id]);
+            
+          // Update favorites count by 1 for the user receiving "favorited or liked" status
+          // FIXED: Use the same connection object, not db
+          await connection.query('UPDATE users SET num_fav = num_fav + ? WHERE user_id = ?', 
+            [1, favoriteUserId]);
         }
       } else {
         // Remove from favorites
+        // Update favorites count by -1 for the user losing "favorited or liked" status
+        // FIXED: Use the same connection object, not db
+        await connection.query('UPDATE users SET num_fav = num_fav - ? WHERE user_id = ?', 
+          [1, favoriteUserId]);
+          
         favorites = favorites.filter(id => id !== favoriteUserId);
+        
+        // FIXED: Missing update to favorites after removal
+        const fav_str = JSON.stringify(favorites);
+        await connection.query('UPDATE users SET favorites = ? WHERE user_id = ?', 
+          [fav_str, req.user.user_id]);
       }
-
-      fav_str = JSON.stringify(favorites);
-
-      console.log("fav string: ", fav_str)
-
-      num_of_fav = favorites.length;
-
-      console.log("num_of_fav: ", num_of_fav)
-
-      // Update favorites
-      await connection.query('UPDATE users SET favorites = ? WHERE user_id = ?', [fav_str, req.user.user_id]);
-
-      // // Update favorites
-      // await connection.query('UPDATE users SET num_fav = ? WHERE user_id = ?', [num_of_fav, favoriteUserId]);
-
-      await db.query('UPDATE users SET num_fav = num_fav + ? WHERE user_id =  ?', [1, favoriteUserId]);
-
+      
       await connection.commit();
-      res.json({ message: isFavorite ? 'User added to favorites' : 'User removed from favorites' });
+      res.json({ 
+        message: isFavorite ? 'User added to favorites' : 'User removed from favorites',
+        favorites: favorites
+      });
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -460,7 +468,7 @@ router.put('/:userId/favorite', authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
