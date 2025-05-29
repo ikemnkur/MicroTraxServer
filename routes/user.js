@@ -360,16 +360,17 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
 
     // Fetch user details
     const [favorites] = await db.query(
-      'SELECT favorites FROM users WHERE user_id = ?',
+     'SELECT favorites FROM users WHERE user_id = ?',
       [userIdOrUsername]
     );
-    
+
     favs = favorites[0].favorites
 
     // 4) Add the rating and likes info to the user object
     users[0].avgRating = avgRating;
     users[0].numberOfLikes = numberOfLikes;
     users[0].numberOfPosts = numberOfPosts;
+    console.log("Favorites: ", favorites[0].favorites)
     users[0].numberOfFavorites = favorites[0].favorites ? JSON.parse(favorites[0].favorites).length : 0;
 
     console.log("#Posts: ", favs)
