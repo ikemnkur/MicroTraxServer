@@ -40,11 +40,20 @@ router.put('/profile', authenticateToken, async (req, res) => {
 
     try {
       // Update user information
-      await connection.query(
+      if(profilePic != null || !profilePic){
+        await connection.query(
+        'UPDATE users SET username = ?, email = ?, firstName = ?, lastName = ?, phoneNumber = ?, birthDate = ?, encryptionKey = ?, accountTier = ?, timezone = ?, profilePic = ? WHERE user_id = ?',
+        [username, email, firstName, lastName, phoneNumber, birthDate, encryptionKey, accountTier, timezone, profilePic, req.user.user_id]
+      );
+      } else { 
+        //revert to only this is the script fails
+        await connection.query(
         'UPDATE users SET username = ?, email = ?, firstName = ?, lastName = ?, phoneNumber = ?, birthDate = ?, encryptionKey = ?, accountTier = ?, timezone = ? WHERE user_id = ?',
         [username, email, firstName, lastName, phoneNumber, birthDate, encryptionKey, accountTier, timezone, req.user.user_id]
       );
 
+      }
+      
       await connection.query(
         'UPDATE accounts SET tier = ? WHERE user_id = ?',
         [accountTier, req.user.user_id]
@@ -354,6 +363,7 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
       'SELECT favorites FROM users WHERE user_id = ?',
       [userIdOrUsername]
     );
+    
     favs = favorites[0].favorites
 
     // 4) Add the rating and likes info to the user object

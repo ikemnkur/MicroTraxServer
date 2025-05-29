@@ -11,9 +11,16 @@ router.get('/unlock-content/:itemId', async (req, res) => {
             'SELECT * FROM public_content WHERE reference_id = ?',
             [req.params.itemId]
         );
+        const [userpfp] = await db.query(
+            'SELECT profilePic FROM users WHERE user_id = ?',
+            [req.user.user_id]
+        );
+
         if (content.length === 0) {
             return res.status(404).json({ message: 'Content not found' });
         }
+        console.log("User PFP: ", userpfp.profilePic )
+        content[0].profilePic  = userpfp.profilePic
         res.json(content[0]);
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
