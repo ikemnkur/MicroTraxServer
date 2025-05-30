@@ -40,20 +40,20 @@ router.put('/profile', authenticateToken, async (req, res) => {
 
     try {
       // Update user information
-      if(profilePic != null || !profilePic){
+      if (profilePic != null || !profilePic) {
         await connection.query(
-        'UPDATE users SET username = ?, email = ?, firstName = ?, lastName = ?, phoneNumber = ?, birthDate = ?, encryptionKey = ?, accountTier = ?, timezone = ?, profilePic = ? WHERE user_id = ?',
-        [username, email, firstName, lastName, phoneNumber, birthDate, encryptionKey, accountTier, timezone, profilePic, req.user.user_id]
-      );
-      } else { 
+          'UPDATE users SET username = ?, email = ?, firstName = ?, lastName = ?, phoneNumber = ?, birthDate = ?, encryptionKey = ?, accountTier = ?, timezone = ?, profilePic = ? WHERE user_id = ?',
+          [username, email, firstName, lastName, phoneNumber, birthDate, encryptionKey, accountTier, timezone, profilePic, req.user.user_id]
+        );
+      } else {
         //revert to only this is the script fails
         await connection.query(
-        'UPDATE users SET username = ?, email = ?, firstName = ?, lastName = ?, phoneNumber = ?, birthDate = ?, encryptionKey = ?, accountTier = ?, timezone = ? WHERE user_id = ?',
-        [username, email, firstName, lastName, phoneNumber, birthDate, encryptionKey, accountTier, timezone, req.user.user_id]
-      );
+          'UPDATE users SET username = ?, email = ?, firstName = ?, lastName = ?, phoneNumber = ?, birthDate = ?, encryptionKey = ?, accountTier = ?, timezone = ? WHERE user_id = ?',
+          [username, email, firstName, lastName, phoneNumber, birthDate, encryptionKey, accountTier, timezone, req.user.user_id]
+        );
 
       }
-      
+
       await connection.query(
         'UPDATE accounts SET tier = ? WHERE user_id = ?',
         [accountTier, req.user.user_id]
@@ -360,10 +360,17 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
 
     // Fetch user details
     const [favorites] = await db.query(
-     'SELECT favorites FROM users WHERE user_id = ?',
+      'SELECT favorites FROM users WHERE user_id = ?',
+      [req.user.user_id]
+    );
+
+    // Fetch user details
+    const [id] = await db.query(
+      'SELECT id FROM users WHERE user_id = ?',
       [userIdOrUsername]
     );
 
+    console.log("ID#: ", id[0].id)
     favs = favorites[0].favorites
 
     // 4) Add the rating and likes info to the user object
@@ -371,15 +378,19 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
     users[0].numberOfLikes = numberOfLikes;
     users[0].numberOfPosts = numberOfPosts;
     console.log("Favorites: ", favorites[0].favorites)
-    users[0].numberOfFavorites = favorites[0].favorites ? JSON.parse(favorites[0].favorites).length : 0;
+    let fav = favorites[0].favorites.replaceAll(" ", '');
+    let favoriteList = fav.split(",");
+    let favnum = favoriteList.length;
+    console.log("Favorites: ", favnum)
+    users[0].numberOfFavorites = favnum;
 
-    console.log("#Posts: ", favs)
+    // console.log("#Posts: ", favs)
 
     // Optionally check if user is in the current user's favorites
     const user = users[0];
-    const isFavorite = user.favorites
-      ? JSON.parse(user.favorites).includes(req.user.user_id)
-      : false;
+    const isFavorite = favoriteList.includes(id[0].id.toString());
+    //   ? JSON.parse(user.favorites).includes(req.user.user_id)
+    //   : false;
 
     // Remove any sensitive details before sending
     delete user.password;
@@ -424,50 +435,66 @@ router.post('/add-rating', authenticateToken, async (req, res) => {
 router.put('/:userId/favorite', authenticateToken, async (req, res) => {
   const { isFavorite, user } = req.body;
   const favoriteUserId = req.params.userId;
-  
+
   try {
     const connection = await db.getConnection();
     await connection.beginTransaction();
-    
+
     try {
       // Get current user's favorites
-      let favorites = user.favorites ? JSON.parse(user.favorites) : [];
-      
+      // Fetch user details
+      // Fetch user details
+      const [id] = await db.query(
+        'SELECT id FROM users WHERE user_id = ?',
+        [favoriteUserId]
+      );
+      console.log("ID#: ", id[0].id)
+      const [favoritesObj] = await db.query(
+        'SELECT favorites FROM users WHERE user_id = ?',
+        [req.user.user_id]
+      );
+      let fav = favoritesObj[0].favorites.replaceAll(" ", '');
+      let favorites = fav.split(",");
+      let favnum = favorites.length;
+      console.log("Favorites: ", favorites);
+      console.log("Number of Favorites: ", favnum);
+      /// let favorites = user.favorites ? JSON.parse(user.favorites) : [];
+
       if (isFavorite) {
         // Add to favorites if not already present
-        if (!favorites.includes(favoriteUserId)) {
-          favorites.push(favoriteUserId);
+        if (!favorites.includes(id[0].id)) {
+          favorites.push(id[0].id);
           const fav_str = JSON.stringify(favorites);
           console.log("favorites_string: ", fav_str);
           const num_of_fav = favorites.length;
           console.log("number_of_favorites_received: ", num_of_fav);
-          
+
           // Update list of favorites for the current user
-          await connection.query('UPDATE users SET favorites = ? WHERE user_id = ?', 
+          await connection.query('UPDATE users SET favorites = ? WHERE user_id = ?',
             [fav_str, req.user.user_id]);
-            
+
           // Update favorites count by 1 for the user receiving "favorited or liked" status
           // FIXED: Use the same connection object, not db
-          await connection.query('UPDATE users SET num_fav = num_fav + ? WHERE user_id = ?', 
+          await connection.query('UPDATE users SET num_fav = num_fav + ? WHERE user_id = ?',
             [1, favoriteUserId]);
         }
       } else {
         // Remove from favorites
         // Update favorites count by -1 for the user losing "favorited or liked" status
         // FIXED: Use the same connection object, not db
-        await connection.query('UPDATE users SET num_fav = num_fav - ? WHERE user_id = ?', 
+        await connection.query('UPDATE users SET num_fav = num_fav - ? WHERE user_id = ?',
           [1, favoriteUserId]);
-          
+
         favorites = favorites.filter(id => id !== favoriteUserId);
-        
+
         // FIXED: Missing update to favorites after removal
         const fav_str = JSON.stringify(favorites);
-        await connection.query('UPDATE users SET favorites = ? WHERE user_id = ?', 
+        await connection.query('UPDATE users SET favorites = ? WHERE user_id = ?',
           [fav_str, req.user.user_id]);
       }
-      
+
       await connection.commit();
-      res.json({ 
+      res.json({
         message: isFavorite ? 'User added to favorites' : 'User removed from favorites',
         favorites: favorites
       });
