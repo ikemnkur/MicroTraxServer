@@ -11,7 +11,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const [users] = await db.query(
       `SELECT u.user_id, u.username, u.email, u.user_id, u.firstName, u.lastName, u.phoneNumber, u.birthDate, u.unlocks, u.subscriptions,
-              u.accountTier, u.timezone, a.balance, a.spendable, a.redeemable, u.bio, u.encryptionKey, u.account_id, u.profilePic, u.favorites
+              u.accountTier, u.timezone, a.balance, a.spendable, a.redeemable, u.bio, u.encryptionKey, u.account_id, u.profilePic
        FROM users u
        LEFT JOIN accounts a ON u.user_id = a.user_id
        WHERE u.user_id = ?`,
@@ -40,23 +40,9 @@ router.put('/profile', authenticateToken, async (req, res) => {
 
     try {
       // Update user information
-      if (profilePic != null || !profilePic) {
-        await connection.query(
-          'UPDATE users SET username = ?, email = ?, firstName = ?, lastName = ?, phoneNumber = ?, birthDate = ?, encryptionKey = ?, accountTier = ?, timezone = ?, profilePic = ? WHERE user_id = ?',
-          [username, email, firstName, lastName, phoneNumber, birthDate, encryptionKey, accountTier, timezone, profilePic, req.user.user_id]
-        );
-      } else {
-        //revert to only this is the script fails
-        await connection.query(
-          'UPDATE users SET username = ?, email = ?, firstName = ?, lastName = ?, phoneNumber = ?, birthDate = ?, encryptionKey = ?, accountTier = ?, timezone = ? WHERE user_id = ?',
-          [username, email, firstName, lastName, phoneNumber, birthDate, encryptionKey, accountTier, timezone, req.user.user_id]
-        );
-
-      }
-
       await connection.query(
-        'UPDATE accounts SET tier = ? WHERE user_id = ?',
-        [accountTier, req.user.user_id]
+        'UPDATE users SET username = ?, email = ?, firstName = ?, lastName = ?, phoneNumber = ?, birthDate = ?, encryptionKey = ?, accountTier = ?, timezone = ? WHERE user_id = ?',
+        [username, email, firstName, lastName, phoneNumber, birthDate, encryptionKey, accountTier, timezone, req.user.user_id]
       );
 
       console.log()
@@ -220,16 +206,16 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
       7: 500  // Ultimate
     };
 
-    // Define daily limits based on account tier
-    const dailyCoinLimits = {
-      1: 100,    // Basic
-      2: 500,    // Standard
-      3: 1000,   // Premium
-      4: 5000,   // Gold
-      5: 10000,  // Platinum
-      6: 50000,  // Diamond
-      7: 100000  // Ultimate
-    };
+      // Define daily limits based on account tier
+      const dailyCoinLimits = {
+        1: 100,    // Basic
+        2: 500,    // Standard
+        3: 1000,   // Premium
+        4: 5000,   // Gold
+        5: 10000,  // Platinum
+        6: 50000,  // Diamond
+        7: 100000  // Ultimate
+      };
 
     const dashboardData = {
       balance: userData[0].balance ?? 0,
@@ -344,8 +330,8 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
     );
     const numberOfLikes = likes[0].numberOfLikes;
 
-    // 2) Count how many times like_status = 1 for this user
-    const [posts] = await db.query(
+     // 2) Count how many times like_status = 1 for this user
+     const [posts] = await db.query(
       'SELECT COUNT(*) AS numberOfPosts FROM public_content WHERE host_user_id = ?',
       [userIdOrUsername]
     );
@@ -357,40 +343,18 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
       return res.status(404).json({ message: 'User not found' });
     }
 
-
-    // Fetch user details
-    const [favorites] = await db.query(
-      'SELECT favorites FROM users WHERE user_id = ?',
-      [req.user.user_id]
-    );
-
-    // Fetch user details
-    const [id] = await db.query(
-      'SELECT id FROM users WHERE user_id = ?',
-      [userIdOrUsername]
-    );
-
-    console.log("ID#: ", id[0].id)
-    favs = favorites[0].favorites
-
     // 4) Add the rating and likes info to the user object
     users[0].avgRating = avgRating;
     users[0].numberOfLikes = numberOfLikes;
     users[0].numberOfPosts = numberOfPosts;
-    console.log("Favorites: ", favorites[0].favorites)
-    let fav = favorites[0].favorites.replaceAll(" ", '');
-    let favoriteList = fav.split(",");
-    let favnum = favoriteList.length;
-    console.log("Favorites: ", favnum)
-    users[0].numberOfFavorites = favnum;
 
-    // console.log("#Posts: ", favs)
+    console.log("#Posts: ", numberOfPosts )
 
     // Optionally check if user is in the current user's favorites
     const user = users[0];
-    const isFavorite = favoriteList.includes(id[0].id.toString());
-    //   ? JSON.parse(user.favorites).includes(req.user.user_id)
-    //   : false;
+    const isFavorite = user.favorites
+      ? JSON.parse(user.favorites).includes(req.user.user_id)
+      : false;
 
     // Remove any sensitive details before sending
     delete user.password;
@@ -442,62 +406,25 @@ router.put('/:userId/favorite', authenticateToken, async (req, res) => {
 
     try {
       // Get current user's favorites
-      // Fetch user details
-      // Fetch user details
-      const [id] = await db.query(
-        'SELECT id FROM users WHERE user_id = ?',
-        [favoriteUserId]
-      );
-      console.log("ID#: ", id[0].id)
-      const [favoritesObj] = await db.query(
-        'SELECT favorites FROM users WHERE user_id = ?',
-        [req.user.user_id]
-      );
-      let fav = favoritesObj[0].favorites.replaceAll(" ", '');
-      let favorites = fav.split(",");
-      let favnum = favorites.length;
-      console.log("Favorites: ", favorites);
-      console.log("Number of Favorites: ", favnum);
-      /// let favorites = user.favorites ? JSON.parse(user.favorites) : [];
+      // const [users] = await connection.query('SELECT favorites FROM users WHERE id = ?', [req.user.user_id]);
+      let favorites = user.favorites ? JSON.parse(users.favorites) : [];
+      // let favorites = users[0].favorites ? JSON.parse(users[0].favorites) : [];
 
       if (isFavorite) {
         // Add to favorites if not already present
-        if (!favorites.includes(id[0].id)) {
-          favorites.push(id[0].id);
-          const fav_str = JSON.stringify(favorites);
-          console.log("favorites_string: ", fav_str);
-          const num_of_fav = favorites.length;
-          console.log("number_of_favorites_received: ", num_of_fav);
-
-          // Update list of favorites for the current user
-          await connection.query('UPDATE users SET favorites = ? WHERE user_id = ?',
-            [fav_str, req.user.user_id]);
-
-          // Update favorites count by 1 for the user receiving "favorited or liked" status
-          // FIXED: Use the same connection object, not db
-          await connection.query('UPDATE users SET num_fav = num_fav + ? WHERE user_id = ?',
-            [1, favoriteUserId]);
+        if (!favorites.includes(favoriteUserId)) {
+          favorites.push(favoriteUserId);
         }
       } else {
         // Remove from favorites
-        // Update favorites count by -1 for the user losing "favorited or liked" status
-        // FIXED: Use the same connection object, not db
-        await connection.query('UPDATE users SET num_fav = num_fav - ? WHERE user_id = ?',
-          [1, favoriteUserId]);
-
         favorites = favorites.filter(id => id !== favoriteUserId);
-
-        // FIXED: Missing update to favorites after removal
-        const fav_str = JSON.stringify(favorites);
-        await connection.query('UPDATE users SET favorites = ? WHERE user_id = ?',
-          [fav_str, req.user.user_id]);
       }
 
+      // Update favorites
+      await connection.query('UPDATE users SET favorites = ? WHERE id = ?', [JSON.stringify(favorites), req.user.user_id]);
+
       await connection.commit();
-      res.json({
-        message: isFavorite ? 'User added to favorites' : 'User removed from favorites',
-        favorites: favorites
-      });
+      res.json({ message: isFavorite ? 'User added to favorites' : 'User removed from favorites' });
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -506,19 +433,19 @@ router.put('/:userId/favorite', authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
 // 3. POST /user/:userId/report - Submit a report
 router.post('/:userId/report', authenticateToken, async (req, res) => {
-  const { reportMessage, reportedUser, reportingUser } = req.body;
+  const { reportMessage } = req.body;
   const reportedUserId = req.params.userId;
 
   try {
     await db.query(
-      'INSERT INTO user_reports (reporter_id, reported_user_id, report_message, reportedUsername, reportingUsername) VALUES (?, ?, ?, ?, ?)',
-      [req.user.user_id, reportedUserId, reportMessage, reportedUser, reportingUser]
+      'INSERT INTO user_reports (reporter_id, reported_user_id, report_message) VALUES (?, ?, ?)',
+      [req.user.user_id, reportedUserId, reportMessage]
     );
 
     res.status(201).json({ message: 'Report submitted successfully' });
@@ -529,17 +456,17 @@ router.post('/:userId/report', authenticateToken, async (req, res) => {
 });
 
 // 3. POST /user/:userId/report - Submit a report
-router.post('/:username/report', authenticateToken, async (req, res) => {
-  const { reportMessage } = req.body;
-  const reportedUsername = req.params.username;
+router.post('/:userId/message', authenticateToken, async (req, res) => {
+  const { userMessage, messagedUser, messagingUser } = req.body;
+  const messageUserId = req.params.userId;
 
   try {
     await db.query(
       'INSERT INTO user_reports (reporter_id, reported_user_id, report_message) VALUES (?, ?, ?)',
-      [req.user.user_id, reportedUserId, reportMessage]
+      [req.user.user_id, messageUserId, userMessage]
     );
 
-    res.status(201).json({ message: 'Report submitted successfully' });
+    res.status(201).json({ message: 'Message to user submitted successfully' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

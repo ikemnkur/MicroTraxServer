@@ -99,3 +99,89 @@ router.delete('/delete-your-content/:id', authenticateToken, async (req, res) =>
 });
 
 module.exports = router;
+
+
+// Add these routes to your content.js backend file
+
+// Get comments for a specific content
+router.get('/comments/:contentId', async (req, res) => {
+  const { contentId } = req.params;
+  
+  try {
+    const [rows] = await db.query(
+      'SELECT comments FROM public_content WHERE id = ?',
+      [contentId]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Content not found' });
+    }
+    
+    // Return the comments field (which should be a JSON string)
+    res.json({ 
+      comments: rows[0].comments 
+    });
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update comments for a specific content
+router.post('/update-comments', authenticateToken, async (req, res) => {
+  const { contentId, comments } = req.body;
+  
+  try {
+    // Validate that comments is a valid JSON string
+    let commentsJson;
+    try {
+      commentsJson = typeof comments === 'string' ? comments : JSON.stringify(comments);
+      // Test if it's valid JSON
+      JSON.parse(commentsJson);
+    } catch (parseError) {
+      return res.status(400).json({ message: 'Invalid comments format' });
+    }
+    
+    const [result] = await db.query(
+      'UPDATE public_content SET comments = ? WHERE id = ?',
+      [commentsJson, contentId]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Content not found' });
+    }
+    
+    res.json({ message: 'Comments updated successfully' });
+  } catch (error) {
+    console.error('Error updating comments:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Optional: Get comments with user verification (for admin purposes)
+router.get('/comments/:contentId/admin', authenticateToken, async (req, res) => {
+  const { contentId } = req.params;
+  
+  try {
+    const [rows] = await db.query(
+      'SELECT comments, host_user_id FROM public_content WHERE id = ?',
+      [contentId]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Content not found' });
+    }
+    
+    // Check if user is the content owner or admin
+    if (rows[0].host_user_id !== req.user.user_id && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+    
+    res.json({ 
+      comments: rows[0].comments 
+    });
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
