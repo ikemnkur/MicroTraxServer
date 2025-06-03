@@ -18,7 +18,7 @@ function verifyPassword(password, salt, hash) {
 
 router.post('/register', async (req, res) => {
   const { username, email, password } = req.body;
-  
+
   try {
     const connection = await db.getConnection();
     await connection.beginTransaction();
@@ -52,7 +52,7 @@ router.post('/register', async (req, res) => {
       // Check if the default tier exists
       const defaultTierId = 1;
       const [tiers] = await connection.query('SELECT id FROM account_tiers WHERE id = ?', [defaultTierId]);
-      
+
       if (tiers.length === 0) {
         throw new Error('Default account tier does not exist');
       }
@@ -65,7 +65,13 @@ router.post('/register', async (req, res) => {
 
       await connection.commit();
 
-      const token = jwt.sign({ id: userId, accountId }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      // const token = jwt.sign({ id: userId, accountId }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      const token = jwt.sign({
+        id: user.id,
+        user_id: user.user_id,
+        username: user.username,  // Add this line
+        accountId: user.accountId
+      }, process.env.JWT_SECRET, { expiresIn: '1h' });
       res.status(201).json({ token, user: { id: userId, username, email, accountId } });
 
     } catch (error) {
@@ -98,7 +104,13 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ id: user.id, user_id: user.user_id, accountId: user.account_id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    // const token = jwt.sign({ id: user.id, user_id: user.user_id, accountId: user.account_id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({
+      id: user.id,
+      user_id: user.user_id,
+      username: user.username,  // Add this line
+      accountId: user.accountId
+    }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     res.json({ token, user: { id: user.id, username: user.username, email: user.email, accountId: user.account_id } });
   } catch (error) {
