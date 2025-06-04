@@ -29,11 +29,11 @@ function buildSearchAndFilter(queryParams) {
 
 // 1) Fetch Purchases in Last 48 Hours
 router.get('/purchases', async (req, res) => {
+
   try {
     const { query, params } = buildSearchAndFilter(req.query);
     const sql = `
-      SELECT id, username, amount, date, status, reference_code, transactionId, created_at
-      FROM purchases
+      SELECT * FROM purchases
       ${query}
     `;
     const [rows] = await db.query(sql, params);
@@ -46,25 +46,39 @@ router.get('/purchases', async (req, res) => {
 
 // 2) Get user details and transactions by username
 router.get('/user-info/:username', async (req, res) => {
+  let connection;
   try {
-    const { username } = req.params;
+    connection = await db.getConnection();
+    
+    let { username } = req.params;
+    // Trim and convert to lowercase for consistency
+    username = username.trim().toLowerCase();
+    console.log("Username (processed):", username);
 
-    // Fetch user details
-    const [userRows] = await db.query(
-      'SELECT * FROM users WHERE username = ?',
+    // Fetch user details using a case-insensitive comparison
+    const [userRows] = await connection.query(
+      'SELECT * FROM users WHERE LOWER(username) = ?',
       [username]
     );
+    // console.log("User Rows:", userRows);
 
-    console.log("UR: ", userRows)
+    // Test query using a constant works as expected:
+    const [userRows1] = await connection.query(
+      'SELECT * FROM users WHERE LOWER(username) = ?',
+      ["user2".toLowerCase()]
+    );
+    // console.log("User Rows (literal):", userRows1);
 
-    // Fetch user details
+    // Ensure we have a user before proceeding
+    if (!userRows.length) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Fetch user account details using the user_id from the fetched user
     const [userAccRows] = await db.query(
       'SELECT * FROM accounts WHERE user_id = ?',
       [userRows[0].user_id]
     );
-
-    const user = userRows.length ? userRows[0] : null;
-    const userAcc = userAccRows.length ? userAccRows[0] : null;
 
     // Fetch transactions involving the user as sender or receiver
     const [transactionRows] = await db.query(
@@ -74,12 +88,63 @@ router.get('/user-info/:username', async (req, res) => {
       [username, username]
     );
 
-    res.json({ user, transactions: transactionRows, account: userAcc });
+    res.json({ user: userRows[0], transactions: transactionRows, account: userAccRows[0] });
   } catch (error) {
     console.error('Error fetching user info:', error);
     res.sendStatus(500);
+  } finally {
+    if (connection) connection.release();
   }
 });
+
+
+// // 2) Get user details and transactions by username
+// router.get('/user-info/:username', async (req, res) => {
+
+//   try {
+//     const connection = await db.getConnection();
+    
+//     const { username } = req.params;
+//     console.log("Username: ", username)
+
+//     // Fetch user details - this does not work
+//     const [userRows] = await connection.query(
+//       'SELECT * FROM users WHERE username = ?',
+//       [username]
+//     );
+//     console.log("UR: ", userRows)
+
+//     // Fetch user details - this works
+//     const [userRows1] = await connection.query(
+//       'SELECT * FROM users WHERE username = ?',
+//       ["user2"]
+//     );
+//     console.log("UR: ", userRows1)
+
+
+//     // Fetch user details
+//     const [userAccRows] = await db.query(
+//       'SELECT * FROM accounts WHERE user_id = ?',
+//       [userRows[0].user_id]
+//     );
+
+//     const user = userRows.length ? userRows[0] : null;
+//     const userAcc = userAccRows.length ? userAccRows[0] : null;
+
+//     // Fetch transactions involving the user as sender or receiver
+//     const [transactionRows] = await db.query(
+//       `SELECT * FROM transactions
+//        WHERE receiving_user = ? OR sending_user = ?
+//        ORDER BY created_at DESC`,
+//       [username, username]
+//     );
+
+//     res.json({ user, transactions: transactionRows, account: userAcc });
+//   } catch (error) {
+//     console.error('Error fetching user info:', error);
+//     res.sendStatus(500);
+//   }
+// });
 
 
 // 3) Confirm (Complete) a Purchase
@@ -117,15 +182,15 @@ router.post('/confirm-purchase/:purchaseId', async (req, res) => {
       [username]
     );
 
+    console.log("User: ", user);
 
-
-    let notificationMsg = `Hoo-ray, Your purchase of ${increaseAmount} coins has been confirmed and processed!`
+    let notificationMsg = `Hoo-ray, ${username} Your purchase of ${increaseAmount} coins has been confirmed and processed!`
 
     try {
       const [result] = await db.query(
         `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
     VALUES (?, ?, ?, ?, ?, ?)`,
-        ["purchase-confirmed", user.user_id, notificationMsg, "0", user.username, new Date()]
+        ["purchase-confirmed", user[0].user_id, notificationMsg, "0", username, new Date()]
       );
 
       console.log("New notification successfully created:", notificationMsg);
