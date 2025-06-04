@@ -7,15 +7,51 @@ const { v4: uuidv4 } = require('uuid');
 
 router.get('/unlock-content/:itemId', async (req, res) => {
     try {
+        // console.log("req: ", req)
         const [content] = await db.query(
             'SELECT * FROM public_content WHERE reference_id = ?',
             [req.params.itemId]
         );
+        console.log("Content: ", content[0])   
+        const [userpfp] = await db.query(
+            'SELECT profilePic FROM users WHERE username = ?',
+            [content[0].host_username]
+        );
+        console.log("User PFP: ", userpfp.profilePic )
         if (content.length === 0) {
             return res.status(404).json({ message: 'Content not found' });
         }
+        // console.log("User PFP: ", userpfp.profilePic )
+        content[0].profilePic  = userpfp.profilePic
         res.json(content[0]);
     } catch (error) {
+        console.error('Error fetching content:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+
+router.put('/unlock-content/:itemId/comment', async (req, res) => {
+    try {
+        // console.log("req: ", req) 
+        const [content] = await db.query(
+            'SELECT * FROM public_content WHERE reference_id = ?',
+            [req.params.itemId]
+        );
+        console.log("Content: ", content[0])   
+        const [userpfp] = await db.query(
+            'SELECT profilePic FROM users WHERE username = ?',
+            [content[0].host_username]
+        );
+        console.log("User PFP: ", userpfp.profilePic )
+        if (content.length === 0) {
+            return res.status(404).json({ message: 'Content not found' });
+        }
+        // console.log("User PFP: ", userpfp.profilePic )
+        content[0].profilePic  = userpfp.profilePic
+        res.json(content[0]);
+    } catch (error) {
+        console.error('Error fetching content:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });
