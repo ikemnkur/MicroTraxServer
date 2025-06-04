@@ -12,7 +12,7 @@ const getOrCreateConversation = async (user1, user2) => {
     throw new Error('Both user1 and user2 are required');
   }
 
-  console.log(`Getting/creating conversation between ${user1} and ${user2}`);
+//   console.log(`Getting/creating conversation between ${user1} and ${user2}`);
 
   // Always order users alphabetically to ensure uniqueness
   const [userA, userB] = [user1, user2].sort();
@@ -157,7 +157,7 @@ router.post('/send', authenticateToken, async (req, res) => {
       return res.status(401).json({ message: 'User not authenticated properly' });
     }
 
-    console.log(`Send message request - from: ${currentUser}, to: ${toUser}, message: ${messageText}`);
+    // console.log(`Send message request - from: ${currentUser}, to: ${toUser}, message: ${messageText}`);
 
     // Validate required fields
     if (!toUser || toUser.trim() === '') {
