@@ -18,9 +18,37 @@ router.get('/profile', authenticateToken, async (req, res) => {
       [req.user.user_id]
     );
 
+    console.log("favorites: ", users[0].favorites);
+
+    listOfFavorites = users[0].favorites ? JSON.parse(users[0].favorites) : [];
+
+    // get the username from the IDs # in teh favorites array
+    const [favoriteUsers] = await db.query(
+      `SELECT u.user_id, u.username, u.profilePic
+       FROM users u
+       WHERE u.id IN (?)`,
+      [listOfFavorites]
+    );
+    
+    // const [favoriteUsers] = await db.query(
+    //   `SELECT u.user_id, u.username, u.profilePic
+    //    FROM users u
+    //    WHERE u.user_id IN (SELECT JSON_UNQUOTE(JSON_EXTRACT(favorites, '$[*]')) FROM users WHERE user_id = ?)`,
+    //   [req.user.user_id]
+    // );
+
+    console.log("Favorite Users: ", favoriteUsers);
+
     if (users.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
+
+    // Add favorite users to the user object
+    users[0].favorites = favoriteUsers.map(user => ({
+      user_id: user.user_id,
+      username: user.username,
+      profilePic: user.profilePic
+    }));
 
     const user = users[0];
     // console.log("Get.Body: ", user);
