@@ -24,12 +24,12 @@ router.get('/profile', authenticateToken, async (req, res) => {
 
     // get the username from the IDs # in teh favorites array
     const [favoriteUsers] = await db.query(
-      `SELECT u.user_id, u.username, u.profilePic
+      `SELECT u.user_id, u.username, u.profilePic, u.bio
        FROM users u
        WHERE u.id IN (?)`,
       [listOfFavorites]
     );
-    
+
     // const [favoriteUsers] = await db.query(
     //   `SELECT u.user_id, u.username, u.profilePic
     //    FROM users u
@@ -47,7 +47,8 @@ router.get('/profile', authenticateToken, async (req, res) => {
     users[0].favorites = favoriteUsers.map(user => ({
       user_id: user.user_id,
       username: user.username,
-      profilePic: user.profilePic
+      profilePic: user.profilePic,
+      bio: user.bio
     }));
 
     const user = users[0];
