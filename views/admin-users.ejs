@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management - Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            padding-top: 20px;
+            padding-bottom: 50px;
+        }
+
+        .table-container {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .user-image {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+
+        .form-label {
+            font-weight: 500;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .modal-dialog {
+            max-width: 700px;
+        }
+
+        .highlight {
+            background-color: #f8f9fa;
+        }
+
+        .nav-pills .nav-link.active {
+            background-color: #6c757d;
+        }
+
+        .edit-mode input:focus,
+        .edit-mode select:focus,
+        .edit-mode textarea:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+
+        #userSearchBox {
+            border-radius: 20px;
+            padding-left: 15px;
+        }
+
+        .back-to-admin {
+            margin-bottom: 20px;
+        }
+
+        .has-changes {
+            border-left: 4px solid #ffc107;
+        }
+        
+        .content-card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .content-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .content-stats {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        
+        .content-stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .content-edit-form {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>User Management</h1>
+            <a href="/admin" class="btn btn-outline-secondary back-to-admin">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+
+        <!-- Search and user actions -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <input type="text" id="userSearchBox" class="form-control" placeholder="Search by username...">
+                            
+                            <button id="searchButton" class="btn btn-primary" style="margin: 10px; border-radius: 5px;">
+                                <i class="bi bi-search"></i> Search
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <button id="saveChangesBtn" class="btn btn-success" disabled>
+                            <i class="bi bi-check-circle"></i> Save Changes
+                        </button>
+                        <button id="discardChangesBtn" class="btn btn-outline-secondary" disabled>
+                            <i class="bi bi-x-circle"></i> Discard Changes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User not found message -->
+        <div id="userNotFound" class="alert alert-warning hidden">
+            User not found. Please try a different username.
+        </div>
+
+        <!-- User data -->
+        <div id="userData" class="card mb-4 hidden">
+            <div class="card-header">
+                <ul class="nav nav-pills card-header-pills" id="userTabs">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="profileTab" data-bs-toggle="tab" href="#profileContent">Profile</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="accountTab" data-bs-toggle="tab" href="#accountContent">Account</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="transactionsTab" data-bs-toggle="tab" href="#transactionsContent">Transactions</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="contentTab" data-bs-toggle="tab" href="#userContentArea">Content</a>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body">
+                <div class="tab-content">
+                    <!-- Profile Tab -->
+                    <div class="tab-pane fade show active" id="profileContent">
+                        <div class="row">
+                            <div class="col-md-3 text-center">
+                                <img id="userProfilePic" src="/images/default-profile.png" alt="Profile Picture" class="user-image mb-3">
+                                <h4 id="usernameDisplay"></h4>
+                                <p id="userIdDisplay" class="text-muted small"></p>
+                            </div>
+                            <div class="col-md-9">
+                                <form id="userForm" class="row g-3">
+                                    <div class="col-md-6">
+                                        <label for="firstName" class="form-label">First Name</label>
+                                        <input type="text" class="form-control" id="firstName" name="firstName" disabled>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="lastName" class="form-label">Last Name</label>
+                                        <input type="text" class="form-control" id="lastName" name="lastName" disabled>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="email" class="form-label">Email</label>
+                                        <input type="email" class="form-control" id="email" name="email" disabled>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="phoneNumber" class="form-label">Phone Number</label>
+                                        <input type="text" class="form-control" id="phoneNumber" name="phoneNumber" disabled>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="birthDate" class="form-label">Birth Date</label>
+                                        <input type="date" class="form-control" id="birthDate" name="birthDate" disabled>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="timezone" class="form-label">Timezone</label>
+                                        <input type="text" class="form-control" id="timezone" name="timezone" disabled>
+                                    </div>
+                                    <div class="col-12">
+                                        <label for="bio" class="form-label">Bio</label>
+                                        <textarea class="form-control" id="bio" name="bio" rows="3" disabled></textarea>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Account Tab -->
+                    <div class="tab-pane fade" id="accountContent">
+                        <form id="accountForm" class="row g-3">
+                            <div class="col-md-6">
+                                <label for="accountTier" class="form-label">Account Tier</label>
+                                <select class="form-select" id="accountTier" name="accountTier" disabled>
+                                    <option value="1">Basic (1)</option>
+                                    <option value="2">Premium (2)</option>
+                                    <option value="3">Pro (3)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="rating" class="form-label">Rating</label>
+                                <input type="number" class="form-control" id="rating" name="rating" step="0.1" min="0" max="5" disabled>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="unlocks" class="form-label">Unlocks</label>
+                                <input type="number" class="form-control" id="unlocks" name="unlocks" min="0" disabled>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="subscriptions" class="form-label">Subscriptions</label>
+                                <input type="number" class="form-control" id="subscriptions" name="subscriptions" min="0" disabled>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="created_at" class="form-label">Account Created</label>
+                                <input type="text" class="form-control" id="created_at" disabled readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="paidLast" class="form-label">Last Payment</label>
+                                <input type="text" class="form-control" id="paidLast" name="paidLast" disabled>
+                            </div>
+                            <div class="col-12">
+                                <label for="favorites" class="form-label">Favorites</label>
+                                <textarea class="form-control" id="favorites" name="favorites" rows="3" disabled></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label for="data" class="form-label">Data</label>
+                                <textarea class="form-control" id="data" name="data" rows="3" disabled></textarea>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Transactions Tab -->
+                    <div class="tab-pane fade" id="transactionsContent">
+                        <div class="table-container">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                        <th>Sender</th>
+                                        <th>Receiver</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transactionsTable">
+                                    <!-- Transactions will be inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Content Tab -->
+                    <div class="tab-pane fade" id="userContentArea">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h3>User Content</h3>
+                            <div>
+                                <select id="contentSortOption" class="form-select form-select-sm" style="width: auto; display: inline-block;">
+                                    <option value="date-desc">Newest First</option>
+                                    <option value="date-asc">Oldest First</option>
+                                    <option value="views-desc">Most Views</option>
+                                    <option value="unlocks-desc">Most Unlocks</option>
+                                    <option value="rating-desc">Highest Rating</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div id="contentContainer">
+                            <!-- Content items will be displayed here -->
+                            <div class="text-center py-5" id="noContentMessage" style="display: none;">
+                                <i class="bi bi-file-earmark-x" style="font-size: 3rem; color: #6c757d;"></i>
+                                <p class="mt-3">This user has no public content</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <div class="d-flex justify-content-between">
+                    <button id="editUserBtn" class="btn btn-primary">
+                        <i class="bi bi-pencil"></i> Edit User
+                    </button>
+                    <div>
+                        <button id="resetPasswordBtn" class="btn btn-warning">
+                            <i class="bi bi-key"></i> Reset Password
+                        </button>
+                        <button id="toggleUserBtn" class="btn btn-danger">
+                            <i class="bi bi-person-x"></i> Disable Account
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Password Reset Modal -->
+        <div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-labelledby="resetPasswordModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="resetPasswordModalLabel">Reset Password</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to reset the password for <strong id="resetPasswordUsername"></strong>?</p>
+                        <p>A new password will be generated and sent to the user's email.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-warning" id="confirmResetPassword">Reset Password</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Unsaved Changes Modal -->
+        <div class="modal fade" id="unsavedChangesModal" tabindex="-1" aria-labelledby="unsavedChangesModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="unsavedChangesModalLabel">Unsaved Changes</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>You have unsaved changes. What would you like to do?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="keepEditingBtn">Keep Editing</button>
+                        <button type="button" class="btn btn-danger" id="discardAndContinueBtn">Discard Changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Save Changes Modal -->
+        <div class="modal fade" id="saveChangesModal" tabindex="-1" aria-labelledby="saveChangesModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="saveChangesModalLabel">Save Changes</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to save these changes?</p>
+                        <div id="changesPreview">
+                            <!-- Changes will be displayed here -->
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-success" id="confirmSaveBtn">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Content Edit Modal -->
+        <div class="modal fade" id="contentEditModal" tabindex="-1" aria-labelledby="contentEditModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="contentEditModalLabel">Edit Content</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="contentEditForm" class="row g-3">
+                            <input type="hidden" id="editContentId" name="editContentId">
+                            <input type="hidden" id="editReferenceId" name="editReferenceId">
+                            
+                            <div class="col-md-8">
+                                <label for="editTitle" class="form-label">Title</label>
+                                <input type="text" class="form-control" id="editTitle" name="editTitle" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="editCost" class="form-label">Cost</label>
+                                <input type="number" class="form-control" id="editCost" name="editCost" min="0" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="editType" class="form-label">Type</label>
+                                <select class="form-select" id="editType" name="editType" required>
+                                    <option value="url">URL</option>
+                                    <option value="code">Code</option>
+                                    <option value="video">Video</option>
+                                    <option value="image">Image</option>
+                                    <option value="text">Text</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="editRating" class="form-label">Rating</label>
+                                <input type="number" class="form-control" id="editRating" name="editRating" step="0.01" min="0" max="5" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="editViews" class="form-label">Views</label>
+                                <input type="number" class="form-control" id="editViews" name="editViews" min="0" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="editUnlocks" class="form-label">Unlocks</label>
+                                <input type="number" class="form-control" id="editUnlocks" name="editUnlocks" min="0" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="editLikes" class="form-label">Likes</label>
+                                <input type="number" class="form-control" id="editLikes" name="editLikes" min="0" required>
+                            </div>
+                            <div class="col-12">
+                                <label for="editDescription" class="form-label">Description</label>
+                                <textarea class="form-control" id="editDescription" name="editDescription" rows="3" required></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label for="editContent" class="form-label">Content</label>
+                                <textarea class="form-control" id="editContent" name="editContent" rows="5" required></textarea>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-danger" id="deleteContentBtn">Delete Content</button>
+                        <button type="button" class="btn btn-primary" id="saveContentBtn">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Delete Content Confirmation Modal -->
+        <div class="modal fade" id="deleteContentModal" tabindex="-1" aria-labelledby="deleteContentModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deleteContentModalLabel">Confirm Delete</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to delete this content item?</p>
+                        <p class="text-danger"><strong>This action cannot be undone.</strong></p>
+                        <p>Title: <span id="deleteContentTitle"></span></p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-danger" id="confirmDeleteContent">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentUser = null;
+        let hasUnsavedChanges = false;
+        let originalFormData = {};
+        let userContent = [];
+        let currentContentId = null;
+        
+        // DOM Elements
+        const userSearchBox = document.getElementById('userSearchBox');
+        const searchButton = document.getElementById('searchButton');
+        const userNotFound = document.getElementById('userNotFound');
+        const userData = document.getElementById('userData');
+        const userForm = document.getElementById('userForm');
+        const accountForm = document.getElementById('accountForm');
+        const usernameDisplay = document.getElementById('usernameDisplay');
+        const userIdDisplay = document.getElementById('userIdDisplay');
+        const userProfilePic = document.getElementById('userProfilePic');
+        const transactionsTable = document.getElementById('transactionsTable');
+        const contentContainer = document.getElementById('contentContainer');
+        const noContentMessage = document.getElementById('noContentMessage');
+        const contentSortOption = document.getElementById('contentSortOption');
+        const editUserBtn = document.getElementById('editUserBtn');
+        const saveChangesBtn = document.getElementById('saveChangesBtn');
+        const discardChangesBtn = document.getElementById('discardChangesBtn');
+        const resetPasswordBtn = document.getElementById('resetPasswordBtn');
+        const toggleUserBtn = document.getElementById('toggleUserBtn');
+        const resetPasswordUsername = document.getElementById('resetPasswordUsername');
+        const confirmResetPassword = document.getElementById('confirmResetPassword');
+        const changesPreview = document.getElementById('changesPreview');
+        const confirmSaveBtn = document.getElementById('confirmSaveBtn');
+        
+        // Content Edit Form Elements
+        const contentEditForm = document.getElementById('contentEditForm');
+        const editContentId = document.getElementById('editContentId');
+        const editReferenceId = document.getElementById('editReferenceId');
+        const editTitle = document.getElementById('editTitle');
+        const editCost = document.getElementById('editCost');
+        const editType = document.getElementById('editType');
+        const editDescription = document.getElementById('editDescription');
+        const editContent = document.getElementById('editContent');
+        const editViews = document.getElementById('editViews');
+        const editUnlocks = document.getElementById('editUnlocks');
+        const editLikes = document.getElementById('editLikes');
+        const editRating = document.getElementById('editRating');
+        const saveContentBtn = document.getElementById('saveContentBtn');
+        const deleteContentBtn = document.getElementById('deleteContentBtn');
+        const deleteContentTitle = document.getElementById('deleteContentTitle');
+        const confirmDeleteContent = document.getElementById('confirmDeleteContent');
+        
+        // Bootstrap modals
+        const resetPasswordModal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
+        const unsavedChangesModal = new bootstrap.Modal(document.getElementById('unsavedChangesModal'));
+        const saveChangesModal = new bootstrap.Modal(document.getElementById('saveChangesModal'));
+        const contentEditModal = new bootstrap.Modal(document.getElementById('contentEditModal'));
+        const deleteContentModal = new bootstrap.Modal(document.getElementById('deleteContentModal'));
+        
+        // Initialize page - check if username is in URL
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const usernameParam = urlParams.get('username');
+            
+            if (usernameParam) {
+                userSearchBox.value = usernameParam;
+                searchUser();
+            }
+            
+            // Setup event listeners
+            setupEventListeners();
+        });
+        
+        function setupEventListeners() {
+            // Search user when pressing Enter in search box
+            userSearchBox.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    searchUser();
+                }
+            });
+            
+            // Search button click
+            searchButton.addEventListener('click', searchUser);
+            
+            // Edit user button
+            editUserBtn.addEventListener('click', toggleEditMode);
+            
+            // Save changes button
+            saveChangesBtn.addEventListener('click', function() {
+                showChangesPreview();
+                saveChangesModal.show();
+            });
+            
+            // Discard changes button
+            discardChangesBtn.addEventListener('click', discardChanges);
+            
+            // Reset password button
+            resetPasswordBtn.addEventListener('click', function() {
+                resetPasswordUsername.textContent = currentUser.username;
+                resetPasswordModal.show();
+            });
+            
+            // Confirm reset password button
+            confirmResetPassword.addEventListener('click', resetPassword);
+            
+            // Toggle user account button
+            toggleUserBtn.addEventListener('click', toggleUserAccount);
+            
+            // Form input change detection
+            document.querySelectorAll('#userForm input, #userForm textarea, #accountForm input, #accountForm select, #accountForm textarea').forEach(input => {
+                input.addEventListener('change', function() {
+                    markAsChanged(this);
+                    updateUnsavedChangesState(true);
+                });
+                
+                input.addEventListener('input', function() {
+                    markAsChanged(this);
+                    updateUnsavedChangesState(true);
+                });
+            });
+            
+            // Confirm save button
+            confirmSaveBtn.addEventListener('click', saveChanges);
+            
+            // Content sort option change
+            contentSortOption.addEventListener('change', function() {
+                sortAndDisplayContent();
+            });
+            
+            // Save content button
+            saveContentBtn.addEventListener('click', saveContentChanges);
+            
+            // Delete content button
+            deleteContentBtn.addEventListener('click', function() {
+                deleteContentTitle.textContent = editTitle.value;
+                contentEditModal.hide();
+                deleteContentModal.show();
+            });
+            
+            // Confirm delete content button
+            confirmDeleteContent.addEventListener('click', deleteContent);
+            
+            // Handle navigation away from page with unsaved changes
+            window.addEventListener('beforeunload', function(e) {
+                if (hasUnsavedChanges) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                    return '';
+                }
+            });
+            
+            // Handle tab change with unsaved changes
+            document.querySelectorAll('#userTabs .nav-link').forEach(tab => {
+                tab.addEventListener('click', function(e) {
+                    if (hasUnsavedChanges) {
+                        e.preventDefault();
+                        unsavedChangesModal.show();
+                    }
+                });
+            });
+            
+            // Keep editing button in unsaved changes modal
+            document.getElementById('keepEditingBtn').addEventListener('click', function() {
+                unsavedChangesModal.hide();
+            });
+            
+            // Discard and continue button in unsaved changes modal
+            document.getElementById('discardAndContinueBtn').addEventListener('click', function() {
+                unsavedChangesModal.hide();
+                discardChanges();
+                // Navigate to the tab that was clicked
+                const targetTab = document.querySelector('#userTabs .nav-link:not(.active)');
+                if (targetTab) {
+                    const tabInstance = new bootstrap.Tab(targetTab);
+                    tabInstance.show();
+                }
+            });
+        }
+        
+        async function searchUser() {
+            const username = userSearchBox.value.trim();
+            
+            if (!username) {
+                alert('Please enter a username to search');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/adminu/user-info/${username}`, { 
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    userData.classList.add('hidden');
+                    userNotFound.classList.remove('hidden');
+                    return;
+                }
+                
+                const data = await response.json();
+                currentUser = data.user;
+                userContent = data.public_content || [];
+                
+                // Display user data
+                displayUserData(data);
+                
+                // Display user content
+                displayUserContent();
+                
+                // Store original form data for change tracking
+                storeOriginalFormData();
+                
+                // Show user data section
+                userNotFound.classList.add('hidden');
+                userData.classList.remove('hidden');
+                
+            } catch (error) {
+                console.error('Error searching for user:', error);
+                alert('An error occurred while searching for the user');
+            }
+        }
+        
+        function displayUserData(data) {
+            const user = data.user;
+            
+            // Display username and ID
+            usernameDisplay.textContent = user.username;
+            userIdDisplay.textContent = `ID: ${user.id} | User ID: ${user.user_id}`;
+            
+            // Display profile picture
+            userProfilePic.src = user.profilePic || '/images/default-profile.png';
+            
+            // Fill profile form
+            document.getElementById('firstName').value = user.firstName || '';
+            document.getElementById('lastName').value = user.lastName || '';
+            document.getElementById('email').value = user.email || '';
+            document.getElementById('phoneNumber').value = user.phoneNumber || '';
+            document.getElementById('birthDate').value = user.birthDate ? new Date(user.birthDate).toISOString().split('T')[0] : '';
+            document.getElementById('timezone').value = user.timezone || 'UTC';
+            document.getElementById('bio').value = user.bio || '';
+            
+            // Fill account form
+            document.getElementById('accountTier').value = user.accountTier || '1';
+            document.getElementById('rating').value = user.rating || '2.5';
+            document.getElementById('unlocks').value = user.unlocks || '0';
+            document.getElementById('subscriptions').value = user.subscriptions || '0';
+            document.getElementById('created_at').value = new Date(user.created_at).toLocaleString();
+            document.getElementById('paidLast').value = user.paidLast || '';
+            document.getElementById('favorites').value = user.Favorites || '';
+            document.getElementById('data').value = user.data || '';
+            
+            // Display transactions
+            displayTransactions(data.transactions);
+            
+            // Update toggle account button text
+            updateToggleAccountButton(user.status);
+        }
+        
+        function displayTransactions(transactions) {
+            transactionsTable.innerHTML = '';
+            
+            if (!transactions || transactions.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = '<td colspan="6" class="text-center">No transactions found</td>';
+                transactionsTable.appendChild(row);
+                return;
+            }
+            
+            transactions.forEach(tx => {
+                const row = document.createElement('tr');
+                const date = new Date(tx.created_at).toLocaleString();
+                
+                row.innerHTML = `
+                    <td>${tx.transaction_type}</td>
+                    <td>${tx.amount}</td>
+                    <td><span class="badge bg-${getStatusBadgeColor(tx.status)}">${tx.status}</span></td>
+                    <td>${tx.sending_user}</td>
+                    <td>${tx.receiving_user}</td>
+                    <td>${date}</td>
+                `;
+                
+                transactionsTable.appendChild(row);
+            });
+        }
+        
+        function displayUserContent() {
+            contentContainer.innerHTML = '';
+            
+            if (!userContent || userContent.length === 0) {
+                noContentMessage.style.display = 'block';
+                return;
+            }
+            
+            noContentMessage.style.display = 'none';
+            
+            // Sort content based on selected option
+            sortAndDisplayContent();
+        }
+        
+        function sortAndDisplayContent() {
+            const sortOption = contentSortOption.value;
+            let sortedContent = [...userContent];
+            
+            switch(sortOption) {
+                case 'date-desc':
+                    sortedContent.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                    break;
+                case 'date-asc':
+                    sortedContent.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                    break;
+                case 'views-desc':
+                    sortedContent.sort((a, b) => b.views - a.views);
+                    break;
+                case 'unlocks-desc':
+                    sortedContent.sort((a, b) => b.unlocks - a.unlocks);
+                    break;
+                case 'rating-desc':
+                    sortedContent.sort((a, b) => b.rating - a.rating);
+                    break;
+            }
+            
+            contentContainer.innerHTML = '';
+            
+            sortedContent.forEach(content => {
+                createContentCard(content);
+            });
+        }
+        
+        function createContentCard(content) {
+            const card = document.createElement('div');
+            card.className = 'card content-card';
+            card.dataset.contentId = content.id;
+            card.dataset.referenceId = content.reference_id;
+            
+            // Convert content.content from string to object if it's a string
+            let contentValue = "";
+            try {
+                if (typeof content.content === 'string') {
+                    contentValue = content.content;
+                } else {
+                    contentValue = content.content.content || JSON.stringify(content.content);
+                }
+            } catch (e) {
+                contentValue = JSON.stringify(content.content);
+            }
+            
+            // Format the date
+            const createdDate = new Date(content.created_at).toLocaleString();
+            
+            // Create a badge for content type
+            const typeBadge = getTypeBadge(content.type);
+            
+            card.innerHTML = `
+                <div class="card-header bg-light">
+                    <div class="content-header">
+                        <h5 class="card-title mb-0">${content.title} ${typeBadge}</h5>
+                        <div class="content-actions">
+                            <button class="btn btn-sm btn-outline-primary edit-content-btn">
+                                <i class="bi bi-pencil"></i> Edit
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">Created: ${createdDate} | Reference ID: ${content.reference_id}</p>
+                    <p class="card-text">${content.description}</p>
+                    <div class="content-preview mb-3">
+                        <strong>Content:</strong>
+                        <pre class="border p-2 bg-light rounded" style="max-height: 100px; overflow-y: auto;">${contentValue}</pre>
+                    </div>
+                    <div class="content-stats">
+                        <div class="content-stat">
+                            <i class="bi bi-eye"></i>
+                            <span>${content.views} Views</span>
+                        </div>
+                        <div class="content-stat">
+                            <i class="bi bi-unlock"></i>
+                            <span>${content.unlocks} Unlocks</span>
+                        </div>
+                        <div class="content-stat">
+                            <i class="bi bi-heart"></i>
+                            <span>${content.likes} Likes</span>
+                        </div>
+                        <div class="content-stat">
+                            <i class="bi bi-star"></i>
+                            <span>${content.rating.toFixed(2)} Rating</span>
+                        </div>
+                        <div class="content-stat">
+                            <i class="bi bi-currency-dollar"></i>
+                            <span>${content.cost} Cost</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add event listener for the edit button
+            const editBtn = card.querySelector('.edit-content-btn');
+            editBtn.addEventListener('click', () => {
+                openContentEditModal(content);
+            });
+            
+            contentContainer.appendChild(card);
+        }
+        
+        function getTypeBadge(type) {
+            let badgeClass = '';
+            let icon = '';
+            
+            switch(type) {
+                case 'url':
+                    badgeClass = 'bg-primary';
+                    icon = 'bi-link';
+                    break;
+                case 'code':
+                    badgeClass = 'bg-success';
+                    icon = 'bi-code-slash';
+                    break;
+                case 'video':
+                    badgeClass = 'bg-danger';
+                    icon = 'bi-film';
+                    break;
+                case 'image':
+                    badgeClass = 'bg-info';
+                    icon = 'bi-image';
+                    break;
+                case 'text':
+                    badgeClass = 'bg-secondary';
+                    icon = 'bi-file-text';
+                    break;
+                default:
+                    badgeClass = 'bg-secondary';
+                    icon = 'bi-file';
+            }
+            
+            return `<span class="badge ${badgeClass} ms-2"><i class="bi ${icon}"></i> ${type}</span>`;
+        }
+        
+        function getStatusBadgeColor(status) {
+            switch (status.toLowerCase()) {
+                case 'completed':
+                    return 'success';
+                case 'pending':
+                    return 'warning';
+                case 'failed':
+                    return 'danger';
+                default:
+                    return 'secondary';
+            }
+        }
+        
+        function openContentEditModal(content) {
+            currentContentId = content.id;
+            
+            // Set form values
+            editContentId.value = content.id;
+            editReferenceId.value = content.reference_id;
+            editTitle.value = content.title;
+            editCost.value = content.cost;
+            editType.value = content.type;
+            editDescription.value = content.description;
+            
+            // Handle content value based on type
+            let contentValue = '';
+            try {
+                if (typeof content.content === 'string') {
+                    contentValue = content.content;
+                } else {
+                    contentValue = content.content.content || JSON.stringify(content.content);
+                }
+            } catch (e) {
+                contentValue = JSON.stringify(content.content);
+            }
+            
+            editContent.value = contentValue;
+            editViews.value = content.views;
+            editUnlocks.value = content.unlocks;
+            editLikes.value = content.likes;
+            editRating.value = content.rating;
+            
+            // Show the modal
+            contentEditModal.show();
+        }
+        
+        async function saveContentChanges() {
+            if (!contentEditForm.checkValidity()) {
+                contentEditForm.reportValidity();
+                return;
+            }
+            
+            try {
+                // Prepare content data
+                const contentData = {
+                    id: editContentId.value,
+                    reference_id: editReferenceId.value,
+                    title: editTitle.value,
+                    cost: parseInt(editCost.value),
+                    type: editType.value,
+                    description: editDescription.value,
+                    content: editContent.value,
+                    views: parseInt(editViews.value),
+                    unlocks: parseInt(editUnlocks.value),
+                    likes: parseInt(editLikes.value),
+                    rating: parseFloat(editRating.value)
+                };
+                
+                // Send data to server
+                const response = await fetch('/api/adminu/update-content', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(contentData),
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to update content');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Update content in userContent array
+                    const contentIndex = userContent.findIndex(c => c.id == currentContentId);
+                    if (contentIndex !== -1) {
+                        userContent[contentIndex] = {
+                            ...userContent[contentIndex],
+                            ...contentData
+                        };
+                    }
+                    
+                    // Update UI
+                    displayUserContent();
+                    
+                    // Hide modal
+                    contentEditModal.hide();
+                    
+                    // Show success message
+                    alert('Content updated successfully');
+                } else {
+                    throw new Error(result.message || 'Failed to update content');
+                }
+                
+            } catch (error) {
+                console.error('Error saving content changes:', error);
+                alert(`Error: ${error.message}`);
+            }
+        }
+        
+        async function deleteContent() {
+            try {
+                const contentId = currentContentId;
+                
+                // Send delete request to server
+                const response = await fetch(`/api/adminu/delete-content/${contentId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to delete content');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Remove content from userContent array
+                    userContent = userContent.filter(c => c.id != contentId);
+                    
+                    // Update UI
+                    displayUserContent();
+                    
+                    // Hide modal
+                    deleteContentModal.hide();
+                    
+                    // Show success message
+                    alert('Content deleted successfully');
+                } else {
+                    throw new Error(result.message || 'Failed to delete content');
+                }
+                
+            } catch (error) {
+                console.error('Error deleting content:', error);
+                alert(`Error: ${error.message}`);
+                deleteContentModal.hide();
+            }
+        }
+        
+        function toggleEditMode() {
+            const isEditMode = editUserBtn.textContent.includes('Cancel');
+            
+            if (isEditMode) {
+                // If there are unsaved changes, show confirmation dialog
+                if (hasUnsavedChanges) {
+                    unsavedChangesModal.show();
+                    return;
+                }
+                
+                // Switch back to view mode
+                disableFormEditing();
+                editUserBtn.innerHTML = '<i class="bi bi-pencil"></i> Edit User';
+                updateUnsavedChangesState(false);
+            } else {
+                // Switch to edit mode
+                enableFormEditing();
+                editUserBtn.innerHTML = '<i class="bi bi-x"></i> Cancel Editing';
+            }
+        }
+        
+        function enableFormEditing() {
+            document.querySelectorAll('#userForm input:not([readonly]), #userForm textarea, #accountForm input:not([readonly]), #accountForm select, #accountForm textarea').forEach(input => {
+                input.disabled = false;
+            });
+            
+            document.querySelectorAll('#userForm, #accountForm').forEach(form => {
+                form.classList.add('edit-mode');
+            });
+        }
+        
+        function disableFormEditing() {
+            document.querySelectorAll('#userForm input, #userForm textarea, #accountForm input, #accountForm select, #accountForm textarea').forEach(input => {
+                input.disabled = true;
+                input.classList.remove('has-changes');
+            });
+            
+            document.querySelectorAll('#userForm, #accountForm').forEach(form => {
+                form.classList.remove('edit-mode');
+            });
+        }
+        
+        function storeOriginalFormData() {
+            originalFormData = {};
+            
+            // Store user form data
+            document.querySelectorAll('#userForm input, #userForm textarea').forEach(input => {
+                originalFormData[input.id] = input.value;
+            });
+            
+            // Store account form data
+            document.querySelectorAll('#accountForm input:not([readonly]), #accountForm select, #accountForm textarea').forEach(input => {
+                originalFormData[input.id] = input.value;
+            });
+        }
+        
+        function markAsChanged(element) {
+            if (element.value !== originalFormData[element.id]) {
+                element.classList.add('has-changes');
+            } else {
+                element.classList.remove('has-changes');
+            }
+        }
+        
+        function updateUnsavedChangesState(hasChanges) {
+            hasUnsavedChanges = hasChanges;
+            saveChangesBtn.disabled = !hasChanges;
+            discardChangesBtn.disabled = !hasChanges;
+        }
+        
+        function discardChanges() {
+            // Reset form values to original data
+            Object.keys(originalFormData).forEach(key => {
+                const element = document.getElementById(key);
+                if (element) {
+                    element.value = originalFormData[key];
+                    element.classList.remove('has-changes');
+                }
+            });
+            
+            // Update state
+            updateUnsavedChangesState(false);
+            
+            // If we were in edit mode, stay in edit mode
+            if (editUserBtn.textContent.includes('Cancel')) {
+                enableFormEditing();
+            }
+        }
+        
+        function showChangesPreview() {
+            changesPreview.innerHTML = '';
+            let hasAnyChanges = false;
+            
+            // Create a table to display changes
+            const table = document.createElement('table');
+            table.className = 'table table-sm';
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Field</th>
+                        <th>Original Value</th>
+                        <th>New Value</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            `;
+            
+            const tbody = table.querySelector('tbody');
+            
+            // Check all form inputs for changes
+            document.querySelectorAll('#userForm input, #userForm textarea, #accountForm input:not([readonly]), #accountForm select, #accountForm textarea').forEach(input => {
+                if (input.value !== originalFormData[input.id]) {
+                    hasAnyChanges = true;
+                    
+                    const row = document.createElement('tr');
+                    const fieldLabel = input.previousElementSibling ? input.previousElementSibling.textContent : input.id;
+                    
+                    row.innerHTML = `
+                        <td>${fieldLabel}</td>
+                        <td>${originalFormData[input.id] || '(empty)'}</td>
+                        <td>${input.value || '(empty)'}</td>
+                    `;
+                    
+                    tbody.appendChild(row);
+                }
+            });
+            
+            if (hasAnyChanges) {
+                changesPreview.appendChild(table);
+            } else {
+                changesPreview.innerHTML = '<p>No changes detected</p>';
+            }
+        }
+        
+        async function saveChanges() {
+            try {
+                // Collect changed data
+                const changedData = {
+                    id: currentUser.id,
+                    user_id: currentUser.user_id
+                };
+                
+                document.querySelectorAll('#userForm input, #userForm textarea, #accountForm input:not([readonly]), #accountForm select, #accountForm textarea').forEach(input => {
+                    if (input.value !== originalFormData[input.id]) {
+                        changedData[input.id] = input.value;
+                    }
+                });
+                
+                // Send data to server
+                const response = await fetch('/api/adminu/update-user', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(changedData),
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to update user data');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Update the current user data
+                    Object.assign(currentUser, changedData);
+                    
+                    // Update original form data
+                    storeOriginalFormData();
+                    
+                    // Reset UI state
+                    updateUnsavedChangesState(false);
+                    disableFormEditing();
+                    editUserBtn.innerHTML = '<i class="bi bi-pencil"></i> Edit User';
+                    
+                    // Hide modal
+                    saveChangesModal.hide();
+                    
+                    // Show success message
+                    alert('User data updated successfully');
+                } else {
+                    throw new Error(result.message || 'Failed to update user data');
+                }
+                
+            } catch (error) {
+                console.error('Error saving changes:', error);
+                alert(`Error: ${error.message}`);
+                saveChangesModal.hide();
+            }
+        }
+        
+        async function resetPassword() {
+            try {
+                const response = await fetch(`/api/adminu/reset-password/${currentUser.id}`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to reset password');
+                }
+                
+                const result = await response.json();
+                
+                resetPasswordModal.hide();
+                
+                if (result.success) {
+                    alert(`Password has been reset for ${currentUser.username} and sent to their email.`);
+                } else {
+                    throw new Error(result.message || 'Failed to reset password');
+                }
+                
+            } catch (error) {
+                console.error('Error resetting password:', error);
+                alert(`Error: ${error.message}`);
+                resetPasswordModal.hide();
+            }
+        }
+        
+        function updateToggleAccountButton(status) {
+            if (status === 'disabled') {
+                toggleUserBtn.innerHTML = '<i class="bi bi-person-check"></i> Enable Account';
+                toggleUserBtn.classList.remove('btn-danger');
+                toggleUserBtn.classList.add('btn-success');
+            } else {
+                toggleUserBtn.innerHTML = '<i class="bi bi-person-x"></i> Disable Account';
+                toggleUserBtn.classList.remove('btn-success');
+                toggleUserBtn.classList.add('btn-danger');
+            }
+        }
+        
+        async function toggleUserAccount() {
+            const action = toggleUserBtn.textContent.includes('Disable') ? 'disable' : 'enable';
+            
+            if (!confirm(`Are you sure you want to ${action} this account?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/adminu/${action}-user/${currentUser.id}`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to ${action} user account`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const newStatus = action === 'disable' ? 'disabled' : 'active';
+                    updateToggleAccountButton(newStatus);
+                    alert(`User account has been ${action}d`);
+                } else {
+                    throw new Error(result.message || `Failed to ${action} user account`);
+                }
+                
+            } catch (error) {
+                console.error(`Error ${action}ing user account:`, error);
+                alert(`Error: ${error.message}`);
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Reports - Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            padding-top: 20px;
+            padding-bottom: 50px;
+        }
+
+        .table-container {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .nav-pills .nav-link.active {
+            background-color: #6c757d;
+        }
+
+        .report-card {
+            transition: all 0.3s ease;
+            margin-bottom: 15px;
+            border-left: 5px solid #6c757d;
+        }
+
+        .report-card:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .report-card.new {
+            border-left-color: #dc3545;
+        }
+
+        .report-card.in-progress {
+            border-left-color: #ffc107;
+        }
+
+        .report-card.resolved {
+            border-left-color: #198754;
+        }
+
+        .report-card.dismissed {
+            border-left-color: #6c757d;
+            opacity: 0.8;
+        }
+
+        .status-badge {
+            font-size: 0.8rem;
+            padding: 5px 10px;
+            border-radius: 20px;
+        }
+
+        .back-to-admin {
+            margin-bottom: 20px;
+        }
+
+        .report-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .report-message {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+
+        #filterBar {
+            margin-bottom: 20px;
+        }
+
+        .avatar-img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .text-truncate-container {
+            max-height: 80px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .text-truncate-container.expanded {
+            max-height: none;
+        }
+
+        .text-truncate-fade {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 40px;
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 1));
+        }
+
+        .expand-btn {
+            position: absolute;
+            bottom: 5px;
+            right: 10px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 15px;
+            padding: 2px 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            z-index: 1;
+        }
+
+        .report-actions {
+            padding-top: 10px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .profile-link {
+            color: #0d6efd;
+            text-decoration: none;
+        }
+
+        .profile-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>User Reports</h1>
+            <a href="/admin" class="btn btn-outline-secondary back-to-admin">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+
+        <!-- Filter and search -->
+        <div class="card mb-4" id="filterBar">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <input type="text" id="searchInput" class="form-control" placeholder="Search reports...">
+                            <button class="btn btn-outline-secondary" type="button" id="searchBtn">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="statusFilter">
+                            <option value="all">All Statuses</option>
+                            <option value="new">New</option>
+                            <option value="in-progress">In Progress</option>
+                            <option value="resolved">Resolved</option>
+                            <option value="dismissed">Dismissed</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="sortOrder">
+                            <option value="newest">Newest First</option>
+                            <option value="oldest">Oldest First</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-primary w-100" id="refreshBtn">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reports statistics -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-white bg-danger">
+                    <div class="card-body">
+                        <h5 class="card-title">New Reports</h5>
+                        <h2 class="card-text" id="newCount">0</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-dark bg-warning">
+                    <div class="card-body">
+                        <h5 class="card-title">In Progress</h5>
+                        <h2 class="card-text" id="inProgressCount">0</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-success">
+                    <div class="card-body">
+                        <h5 class="card-title">Resolved</h5>
+                        <h2 class="card-text" id="resolvedCount">0</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-secondary">
+                    <div class="card-body">
+                        <h5 class="card-title">Dismissed</h5>
+                        <h2 class="card-text" id="dismissedCount">0</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reports list -->
+        <div id="reportsContainer">
+            <!-- Reports will be loaded here -->
+            <div class="text-center py-5" id="loadingIndicator">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading reports...</p>
+            </div>
+
+            <div id="noReportsMessage" class="alert alert-info text-center hidden" style="display: none;">
+                No reports found matching your criteria.
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <nav aria-label="Reports pagination" class="mt-4">
+            <ul class="pagination justify-content-center" id="pagination">
+                <!-- Pagination will be generated here -->
+            </ul>
+        </nav>
+
+        <!-- View Report Detail Modal -->
+        <div class="modal fade" id="reportDetailModal" tabindex="-1" aria-labelledby="reportDetailModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="reportDetailModalLabel">Report Details</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="reportDetailContent">
+                        <!-- Report details will be populated here -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <div class="btn-group" id="updateStatusBtnGroup">
+                            <button type="button" class="btn btn-warning" data-status="in-progress">Mark In Progress</button>
+                            <button type="button" class="btn btn-success" data-status="resolved">Mark Resolved</button>
+                            <button type="button" class="btn btn-secondary" data-status="dismissed">Dismiss</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notes Modal -->
+        <div class="modal fade" id="addNotesModal" tabindex="-1" aria-labelledby="addNotesModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addNotesModalLabel">Add Notes</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="notesForm">
+                            <div class="mb-3">
+                                <label for="statusNotes" class="form-label">Notes</label>
+                                <textarea class="form-control" id="statusNotes" rows="4" placeholder="Add notes about this status change..."></textarea>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="saveNotesBtn">Save Notes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let allReports = [];
+        let filteredReports = [];
+        let currentPage = 1;
+        const reportsPerPage = 10;
+        let currentReportId = null;
+        let currentStatus = null;
+
+        // Elements
+        const reportsContainer = document.getElementById('reportsContainer');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const noReportsMessage = document.getElementById('noReportsMessage');
+        const pagination = document.getElementById('pagination');
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const statusFilter = document.getElementById('statusFilter');
+        const sortOrder = document.getElementById('sortOrder');
+        const refreshBtn = document.getElementById('refreshBtn');
+        
+        // Counters
+        const newCount = document.getElementById('newCount');
+        const inProgressCount = document.getElementById('inProgressCount');
+        const resolvedCount = document.getElementById('resolvedCount');
+        const dismissedCount = document.getElementById('dismissedCount');
+        
+        // Modals
+        const reportDetailModal = new bootstrap.Modal(document.getElementById('reportDetailModal'));
+        const addNotesModal = new bootstrap.Modal(document.getElementById('addNotesModal'));
+        const reportDetailContent = document.getElementById('reportDetailContent');
+        const updateStatusBtnGroup = document.getElementById('updateStatusBtnGroup');
+        const saveNotesBtn = document.getElementById('saveNotesBtn');
+        const statusNotes = document.getElementById('statusNotes');
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadReports();
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            // Search button
+            searchBtn.addEventListener('click', function() {
+                filterReports();
+            });
+
+            // Search input on enter
+            searchInput.addEventListener('keyup', function(e) {
+                if (e.key === 'Enter') {
+                    filterReports();
+                }
+            });
+
+            // Filter changes
+            statusFilter.addEventListener('change', filterReports);
+            sortOrder.addEventListener('change', filterReports);
+            
+            // Refresh button
+            refreshBtn.addEventListener('click', loadReports);
+            
+            // Update status buttons
+            updateStatusBtnGroup.addEventListener('click', function(e) {
+                if (e.target.hasAttribute('data-status')) {
+                    const newStatus = e.target.getAttribute('data-status');
+                    currentStatus = newStatus;
+                    addNotesModal.show();
+                }
+            });
+            
+            // Save notes button
+            saveNotesBtn.addEventListener('click', function() {
+                updateReportStatus(currentReportId, currentStatus, statusNotes.value);
+                addNotesModal.hide();
+                reportDetailModal.hide();
+            });
+        }
+
+        async function loadReports() {
+            showLoading(true);
+            
+            try {
+                const response = await fetch('/api/adminr/reports', {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load reports');
+                }
+                
+                const data = await response.json();
+                allReports = data.reports;
+                
+                // Update counters
+                updateCounters();
+                
+                // Apply default filtering
+                filterReports();
+                
+            } catch (error) {
+                console.error('Error loading reports:', error);
+                showError('Failed to load reports. Please try again later.');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function updateCounters() {
+            const counts = {
+                'new': 0,
+                'in-progress': 0,
+                'resolved': 0,
+                'dismissed': 0
+            };
+            
+            allReports.forEach(report => {
+                const status = report.status || 'new';
+                counts[status] = (counts[status] || 0) + 1;
+            });
+            
+            newCount.textContent = counts['new'];
+            inProgressCount.textContent = counts['in-progress'];
+            resolvedCount.textContent = counts['resolved'];
+            dismissedCount.textContent = counts['dismissed'];
+        }
+
+        function filterReports() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const statusValue = statusFilter.value;
+            const sortValue = sortOrder.value;
+            
+            filteredReports = allReports.filter(report => {
+                // Apply status filter
+                if (statusValue !== 'all' && (report.status || 'new') !== statusValue) {
+                    return false;
+                }
+                
+                // Apply search filter
+                if (searchTerm) {
+                    const searchFields = [
+                        report.reportedUsername,
+                        report.reportingUsername,
+                        report.report_message
+                    ];
+                    
+                    return searchFields.some(field => 
+                        field && field.toLowerCase().includes(searchTerm)
+                    );
+                }
+                
+                return true;
+            });
+            
+            // Apply sorting
+            filteredReports.sort((a, b) => {
+                const dateA = new Date(a.created_at);
+                const dateB = new Date(b.created_at);
+                
+                return sortValue === 'newest' ? dateB - dateA : dateA - dateB;
+            });
+            
+            // Reset to first page
+            currentPage = 1;
+            
+            // Render the reports
+            renderReports();
+        }
+
+        function renderReports() {
+            // Calculate pagination
+            const totalPages = Math.ceil(filteredReports.length / reportsPerPage);
+            const startIndex = (currentPage - 1) * reportsPerPage;
+            const endIndex = Math.min(startIndex + reportsPerPage, filteredReports.length);
+            const currentReports = filteredReports.slice(startIndex, endIndex);
+            
+            // Clear container
+            reportsContainer.innerHTML = '';
+            
+            // Check if there are reports to display
+            if (currentReports.length === 0) {
+                noReportsMessage.style.display = 'block';
+                reportsContainer.appendChild(noReportsMessage);
+                pagination.innerHTML = '';
+                return;
+            }
+            
+            noReportsMessage.style.display = 'none';
+            
+            // Render reports
+            currentReports.forEach(report => {
+                const reportCard = createReportCard(report);
+                reportsContainer.appendChild(reportCard);
+            });
+            
+            // Render pagination
+            renderPagination(totalPages);
+        }
+
+        function createReportCard(report) {
+            const status = report.status || 'new';
+            const created = new Date(report.created_at).toLocaleString();
+            
+            const card = document.createElement('div');
+            card.className = `card report-card ${status}`;
+            card.dataset.id = report.id;
+            
+            // Create card content
+            card.innerHTML = `
+                <div class="card-body">
+                    <div class="report-info">
+                        <div>
+                            <h5 class="card-title">
+                                Report #${report.id} - 
+                                <a href="/admin/users?username=${report.reportedUsername}" class="profile-link">
+                                    ${report.reportedUsername}
+                                </a> 
+                                reported by 
+                                <a href="/admin/users?username=${report.reportingUsername}" class="profile-link">
+                                    ${report.reportingUsername}
+                                </a>
+                            </h5>
+                            <p class="card-subtitle text-muted">
+                                <small>${created}</small>
+                            </p>
+                        </div>
+                        <div>
+                            <span class="badge ${getStatusBadgeClass(status)} status-badge">
+                                ${formatStatus(status)}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="text-truncate-container" data-id="${report.id}">
+                        <div class="report-message">
+                            ${report.report_message}
+                        </div>
+                        <div class="text-truncate-fade"></div>
+                        <button class="expand-btn">More</button>
+                    </div>
+                    <div class="report-actions text-end">
+                        <button class="btn btn-sm btn-primary view-report-btn" data-id="${report.id}">
+                            View Details
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Add event listeners
+            const expandBtn = card.querySelector('.expand-btn');
+            expandBtn.addEventListener('click', function() {
+                const container = card.querySelector('.text-truncate-container');
+                container.classList.toggle('expanded');
+                expandBtn.textContent = container.classList.contains('expanded') ? 'Less' : 'More';
+            });
+            
+            const viewReportBtn = card.querySelector('.view-report-btn');
+            viewReportBtn.addEventListener('click', function() {
+                showReportDetails(report.id);
+            });
+            
+            return card;
+        }
+
+        function getStatusBadgeClass(status) {
+            switch (status) {
+                case 'new': return 'bg-danger';
+                case 'in-progress': return 'bg-warning text-dark';
+                case 'resolved': return 'bg-success';
+                case 'dismissed': return 'bg-secondary';
+                default: return 'bg-secondary';
+            }
+        }
+
+        function formatStatus(status) {
+            switch (status) {
+                case 'new': return 'New';
+                case 'in-progress': return 'In Progress';
+                case 'resolved': return 'Resolved';
+                case 'dismissed': return 'Dismissed';
+                default: return 'Unknown';
+            }
+        }
+
+        function renderPagination(totalPages) {
+            pagination.innerHTML = '';
+            
+            if (totalPages <= 1) {
+                return;
+            }
+            
+            // Previous button
+            const prevLi = document.createElement('li');
+            prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+            prevLi.innerHTML = `
+                <a class="page-link" href="#" aria-label="Previous">
+                    <span aria-hidden="true">&laquo;</span>
+                </a>
+            `;
+            prevLi.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (currentPage > 1) {
+                    currentPage--;
+                    renderReports();
+                }
+            });
+            pagination.appendChild(prevLi);
+            
+            // Page numbers
+            for (let i = 1; i <= totalPages; i++) {
+                const pageLi = document.createElement('li');
+                pageLi.className = `page-item ${i === currentPage ? 'active' : ''}`;
+                pageLi.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+                pageLi.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    currentPage = i;
+                    renderReports();
+                });
+                pagination.appendChild(pageLi);
+            }
+            
+            // Next button
+            const nextLi = document.createElement('li');
+            nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+            nextLi.innerHTML = `
+                <a class="page-link" href="#" aria-label="Next">
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            `;
+            nextLi.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    renderReports();
+                }
+            });
+            pagination.appendChild(nextLi);
+        }
+
+        function showReportDetails(reportId) {
+            const report = allReports.find(r => r.id === reportId);
+            
+            if (!report) {
+                return;
+            }
+            
+            currentReportId = reportId;
+            
+            // Format date
+            const created = new Date(report.created_at).toLocaleString();
+            const status = report.status || 'new';
+            
+            // Populate modal content
+            reportDetailContent.innerHTML = `
+                <div class="mb-3">
+                    <span class="badge ${getStatusBadgeClass(status)} status-badge">
+                        ${formatStatus(status)}
+                    </span>
+                    <small class="text-muted ms-2">Report #${report.id}</small>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h5>Reported User</h5>
+                        <div class="d-flex align-items-center">
+                            <img src="/images/default-profile.png" alt="${report.reportedUsername}" class="avatar-img me-2">
+                            <div>
+                                <a href="/admin/users?username=${report.reportedUsername}" class="profile-link">
+                                    ${report.reportedUsername}
+                                </a>
+                                <div>
+                                    <small class="text-muted">ID: ${report.reported_user_id}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Reporting User</h5>
+                        <div class="d-flex align-items-center">
+                            <img src="/images/default-profile.png" alt="${report.reportingUsername}" class="avatar-img me-2">
+                            <div>
+                                <a href="/admin/users?username=${report.reportingUsername}" class="profile-link">
+                                    ${report.reportingUsername}
+                                </a>
+                                <div>
+                                    <small class="text-muted">ID: ${report.reporter_id}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <h5>Report Message</h5>
+                <div class="report-message mb-4">
+                    ${report.report_message}
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Submitted On</h5>
+                        <p>${created}</p>
+                    </div>
+                    <div class="col-md-6">
+                        ${report.status_updated_at ? `
+                            <h5>Last Updated</h5>
+                            <p>${new Date(report.status_updated_at).toLocaleString()}</p>
+                        ` : ''}
+                    </div>
+                </div>
+                
+                ${report.admin_notes ? `
+                    <h5>Admin Notes</h5>
+                    <div class="report-message">
+                        ${report.admin_notes}
+                    </div>
+                ` : ''}
+            `;
+            
+            // Update buttons based on current status
+            updateStatusBtnGroup.querySelectorAll('button').forEach(btn => {
+                const btnStatus = btn.getAttribute('data-status');
+                if (btnStatus === status) {
+                    btn.disabled = true;
+                } else {
+                    btn.disabled = false;
+                }
+            });
+            
+            // Show modal
+            reportDetailModal.show();
+        }
+
+        async function updateReportStatus(reportId, newStatus, notes) {
+            try {
+                const response = await fetch(`/api/adminr/reports/${reportId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        status: newStatus,
+                        notes: notes
+                    }),
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to update report status');
+                }
+                
+                // Update report in local data
+                const reportIndex = allReports.findIndex(r => r.id === reportId);
+                if (reportIndex !== -1) {
+                    allReports[reportIndex].status = newStatus;
+                    allReports[reportIndex].admin_notes = notes;
+                    allReports[reportIndex].status_updated_at = new Date().toISOString();
+                }
+                
+                // Clear notes field
+                statusNotes.value = '';
+                
+                // Refresh UI
+                updateCounters();
+                filterReports();
+                
+                showSuccess(`Report #${reportId} has been marked as ${formatStatus(newStatus)}`);
+                
+            } catch (error) {
+                console.error('Error updating report status:', error);
+                showError('Failed to update report status. Please try again.');
+            }
+        }
+
+        function showLoading(isLoading) {
+            if (isLoading) {
+                loadingIndicator.style.display = 'block';
+                reportsContainer.innerHTML = '';
+                reportsContainer.appendChild(loadingIndicator);
+            } else {
+                loadingIndicator.style.display = 'none';
+            }
+        }
+
+        function showError(message) {
+            const alertElement = document.createElement('div');
+            alertElement.className = 'alert alert-danger alert-dismissible fade show';
+            alertElement.role = 'alert';
+            alertElement.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            
+            // Insert at top of container
+            document.querySelector('.container').insertBefore(alertElement, document.querySelector('.container').firstChild);
+            
+            // Auto dismiss after 5 seconds
+            setTimeout(() => {
+                alertElement.remove();
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            const alertElement = document.createElement('div');
+            alertElement.className = 'alert alert-success alert-dismissible fade show';
+            alertElement.role = 'alert';
+            alertElement.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            
+            // Insert at top of container
+            document.querySelector('.container').insertBefore(alertElement, document.querySelector('.container').firstChild);
+            
+            // Auto dismiss after 3 seconds
+            setTimeout(() => {
+                alertElement.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+
+</html>

@@ -1,289 +1,795 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <title>Admin Purchases (Last 48 Hours)</title>
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-  />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Purchases - Admin Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
   <style>
-    /* Basic styling similar to your React component */
-    .controls-container {
-      display: flex;
-      gap: 10px;
+    body {
+      padding-top: 20px;
+      padding-bottom: 50px;
+    }
+
+    .table-container {
+      max-height: 600px;
+      overflow-y: auto;
+    }
+
+    .user-image {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+
+    .form-label {
+      font-weight: 500;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .modal-dialog {
+      max-width: 700px;
+    }
+
+    .highlight {
+      background-color: #f8f9fa;
+    }
+
+    .nav-pills .nav-link.active {
+      background-color: #6c757d;
+    }
+
+    #searchInput {
+      border-radius: 20px;
+      padding-left: 15px;
+    }
+
+    .back-to-admin {
       margin-bottom: 20px;
     }
-    .purchase-list {
-      list-style-type: none;
-      padding: 0;
-    }
+
     .purchase-item {
-      padding: 10px;
-      margin-bottom: 5px;
-      border: 1px solid #ddd;
       cursor: pointer;
+      border-left: 4px solid transparent;
+      transition: all 0.2s ease;
     }
-    .modal-backdrop {
-      position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background-color: rgba(0,0,0,0.5);
-      display: none; /* Hidden by default */
+
+    .purchase-item:hover {
+      background-color: #f8f9fa;
+      border-left-color: #0d6efd;
     }
-    .modal-backdrop.active {
-      display: block; /* Show the overlay if active */
+
+    .purchase-item.selected {
+      background-color: #e9f0ff;
+      border-left-color: #0d6efd;
     }
-    .modal-content {
-      background-color: white;
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      padding: 20px;
-      border-radius: 8px;
-      min-width: 300px;
+
+    .status-badge {
+      display: inline-block;
+      padding: 0.25em 0.6em;
+      font-size: 75%;
+      font-weight: 700;
+      line-height: 1;
+      text-align: center;
+      white-space: nowrap;
+      vertical-align: baseline;
+      border-radius: 0.25rem;
+    }
+
+    .status-pending {
+      background-color: #ffc107;
+      color: #212529;
+    }
+
+    .status-completed {
+      background-color: #198754;
+      color: white;
+    }
+
+    .status-rejected {
+      background-color: #dc3545;
+      color: white;
+    }
+
+    .transaction-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .transaction-item {
+      border-left: 3px solid #e9ecef;
+      padding-left: 10px;
+      margin-bottom: 10px;
+    }
+
+    .transaction-item.credit {
+      border-left-color: #28a745;
+    }
+
+    .transaction-item.debit {
+      border-left-color: #dc3545;
+    }
+
+    .details-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 15px;
+    }
+
+    .details-table th, .details-table td {
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid #e9ecef;
+    }
+
+    .details-table .group-header {
+      background-color: #f8f9fa;
+      font-weight: 600;
+    }
+
+    .field-name {
+      font-weight: 500;
+      color: #495057;
+    }
+
+    .accordion-button:not(.collapsed) {
+      background-color: #e7f1ff;
+      color: #0d6efd;
+    }
+
+    .transaction-type {
+      padding: 0.25em 0.6em;
+      font-size: 75%;
+      font-weight: 700;
+      border-radius: 0.25rem;
+    }
+
+    .type-purchase {
+      background-color: #cfe2ff;
+      color: #084298;
+    }
+
+    .type-send {
+      background-color: #d1e7dd;
+      color: #0f5132;
+    }
+
+    .type-unlock-content {
+      background-color: #e2e3e5;
+      color: #41464b;
+    }
+
+    .type-refund {
+      background-color: #fff3cd;
+      color: #664d03;
+    }
+
+    .amount-positive {
+      color: #198754;
+      font-weight: 600;
+    }
+
+    .amount-negative {
+      color: #dc3545;
+      font-weight: 600;
     }
   </style>
 </head>
-<body class="m-4">
-  <h1>Admin Purchases (Last 48 Hours)</h1>
 
-  <!-- Search / Filter / Sort Controls -->
-  <div class="controls-container">
-    <input
-      id="searchInput"
-      type="text"
-      placeholder="Search by username, reference, etc."
-      class="form-control"
-    />
+<body>
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h1>Admin Purchases (Last 48 Hours)</h1>
+      <a href="/admin" class="btn btn-outline-secondary back-to-admin">
+        <i class="bi bi-arrow-left"></i> Back to Dashboard
+      </a>
+    </div>
 
-    <select id="statusFilter" class="form-select">
-      <option value="">All Statuses</option>
-      <option value="Pending">Pending</option>
-      <option value="Completed">Completed</option>
-    </select>
+    <!-- Search and filter controls -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="row align-items-center">
+          <div class="col-md-5">
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input type="text" id="searchInput" class="form-control" placeholder="Search by username, reference, etc.">
+            </div>
+          </div>
+          <div class="col-md-3">
+            <select id="statusFilter" class="form-select">
+              <option value="">All Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Completed">Completed</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <div class="btn-group" id="sortContainer">
+              <button class="btn btn-outline-secondary" data-field="created_at">
+                <i class="bi bi-calendar3"></i> Date
+              </button>
+              <button class="btn btn-outline-secondary" data-field="username">
+                <i class="bi bi-person"></i> Username
+              </button>
+              <button class="btn btn-outline-secondary" data-field="amount">
+                <i class="bi bi-currency-dollar"></i> Amount
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    <div id="sortContainer">
-      <button
-        class="btn btn-secondary"
-        data-field="created_at"
-      >
-        Date
-      </button>
-      <button
-        class="btn btn-secondary"
-        data-field="username"
-      >
-        Username
-      </button>
+    <!-- Main content area -->
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Purchase Requests</h5>
+        <span class="badge bg-primary" id="purchaseCount">0 items</span>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-container">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Username</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="purchaseList">
+              <% purchases.forEach((purchase) => { %>
+              <tr class="purchase-item" data-id="<%= purchase.id %>" data-username="<%= purchase.username %>"
+                data-amount="<%= purchase.amount %>" data-status="<%= purchase.status %>"
+                data-created="<%= purchase.created_at %>" data-data="<%= purchase.data %>">
+                <td><strong><%= purchase.username %></strong></td>
+                <td><%= purchase.amount %> coins</td>
+                <td>
+                  <span class="status-badge status-<%= purchase.status.toLowerCase() %>">
+                    <%= purchase.status || 'N/A' %>
+                  </span>
+                </td>
+                <td><%= new Date(purchase.created_at).toLocaleString() %></td>
+                <td class="text-end">
+                  <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-outline-info toggle-details">
+                      <i class="bi bi-info-circle"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-primary toggle-transactions">
+                      <i class="bi bi-credit-card"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-success process-purchase">
+                      <i class="bi bi-check-circle"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr class="purchase-details-row d-none">
+                <td colspan="5" class="p-0">
+                  <div class="purchase-details bg-light p-3">
+                    <!-- Purchase details will be loaded here -->
+                  </div>
+                </td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer text-muted">
+        <small><i class="bi bi-info-circle"></i> Click on a row to view details, double-click to process</small>
+      </div>
     </div>
   </div>
 
-  <!-- Purchases List -->
-  <ul id="purchaseList" class="purchase-list">
-    <% purchases.forEach((purchase) => { %>
-      <li
-        class="purchase-item"
-        data-id="<%= purchase.id %>"
-        data-username="<%= purchase.username %>"
-        data-amount="<%= purchase.amount %>"
-        data-status="<%= purchase.status %>"
-        data-created="<%= purchase.created_at %>"
-      >
-        <strong><%= purchase.username %></strong> - <%= purchase.amount %> coins
-        <br />
-        Status: <%= purchase.status || 'N/A' %> | Created: <%= purchase.created_at %>
-      </li>
-    <% }) %>
-  </ul>
-
-  <!-- User Info Section -->
-  <div id="userInfoContainer" class="border p-3 mt-3" style="display:none;">
-    <h2 id="userInfoTitle"></h2>
-    <p id="userEmail"></p>
-    <p id="userBalance"></p>
-    <h3>User Transactions:</h3>
-    <ul id="userTransactions"></ul>
+  <!-- Confirm Modal -->
+  <div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="confirmModalLabel">Confirm Action</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p id="confirmMessage" class="mb-3">Are you sure you want to confirm this purchase?</p>
+          <div class="alert alert-info">
+            <div class="row mb-2">
+              <div class="col-4 fw-bold">Username:</div>
+              <div class="col-8" id="modalUsername"></div>
+            </div>
+            <div class="row mb-2">
+              <div class="col-4 fw-bold">Amount:</div>
+              <div class="col-8" id="modalAmount"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="confirmNoBtn">Cancel</button>
+          <button type="button" class="btn btn-danger" id="confirmRejectBtn">Reject</button>
+          <button type="button" class="btn btn-primary" id="confirmYesBtn">Confirm</button>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- Confirm Purchase Modal -->
-  <div id="confirmModal" class="modal-backdrop">
-    <div class="modal-content">
-      <h3 id="confirmMessage"></h3>
-      <div class="d-flex justify-content-center mt-3">
-        <button id="confirmYesBtn" class="btn btn-primary m-1">Confirm</button>
-        <button id="confirmNoBtn" class="btn btn-secondary m-1">Cancel</button>
-        <button id="confirmRejectBtn" class="btn btn-secondary m-1">Reject</button>
+  <!-- Transaction Details Modal -->
+  <div class="modal fade" id="transactionsModal" tabindex="-1" aria-labelledby="transactionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="transactionsModalTitle">User Transactions</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="user-details mb-4">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-2">
+                  <i class="bi bi-envelope me-2"></i>
+                  <span id="modalUserEmail">email@example.com</span>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-2">
+                  <i class="bi bi-wallet2 me-2"></i>
+                  <span id="modalUserBalance">0 coins</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <h6 class="border-bottom pb-2 mb-3">Transaction History</h6>
+          <div id="modalTransactions" class="transaction-list">
+            <!-- Transactions will be loaded here -->
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-    // Grab DOM elements
-    const purchaseList = document.getElementById('purchaseList');
+    // DOM Elements
     const searchInput = document.getElementById('searchInput');
     const statusFilter = document.getElementById('statusFilter');
     const sortContainer = document.getElementById('sortContainer');
-    const userInfoContainer = document.getElementById('userInfoContainer');
-    const userInfoTitle = document.getElementById('userInfoTitle');
-    const userEmail = document.getElementById('userEmail');
-    const userBalance = document.getElementById('userBalance');
-    const userTransactions = document.getElementById('userTransactions');
-    const confirmModal = document.getElementById('confirmModal');
+    const purchaseList = document.getElementById('purchaseList');
+    const purchaseCount = document.getElementById('purchaseCount');
+    
+    // Modal elements
+    const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
     const confirmMessage = document.getElementById('confirmMessage');
+    const modalUsername = document.getElementById('modalUsername');
+    const modalAmount = document.getElementById('modalAmount');
     const confirmYesBtn = document.getElementById('confirmYesBtn');
     const confirmNoBtn = document.getElementById('confirmNoBtn');
     const confirmRejectBtn = document.getElementById('confirmRejectBtn');
+    
+    const transactionsModal = new bootstrap.Modal(document.getElementById('transactionsModal'));
+    const transactionsModalTitle = document.getElementById('transactionsModalTitle');
+    const modalUserEmail = document.getElementById('modalUserEmail');
+    const modalUserBalance = document.getElementById('modalUserBalance');
+    const modalTransactions = document.getElementById('modalTransactions');
 
     // For storing the last clicked purchase
     let selectedPurchase = null;
-
-    // Filter / sort logic (client side) - optional
-    searchInput.addEventListener('input', () => filterPurchases());
-    statusFilter.addEventListener('change', () => filterPurchases());
-    sortContainer.addEventListener('click', (e) => {
-      if (e.target.dataset.field) {
-        sortPurchases(e.target.dataset.field);
-      }
+    
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+      updatePurchaseCount();
+      setupEventListeners();
     });
-
+    
+    function updatePurchaseCount() {
+      const visibleItems = document.querySelectorAll('#purchaseList tr.purchase-item:not([style*="display: none"])').length;
+      purchaseCount.textContent = `${visibleItems} items`;
+    }
+    
+    function setupEventListeners() {
+      // Filtering logic
+      searchInput.addEventListener('input', filterPurchases);
+      statusFilter.addEventListener('change', filterPurchases);
+      
+      // Sorting logic
+      sortContainer.addEventListener('click', (e) => {
+        const button = e.target.closest('button');
+        if (button && button.dataset.field) {
+          const field = button.dataset.field;
+          sortPurchases(field);
+          
+          // Update active button
+          document.querySelectorAll('#sortContainer button').forEach(btn => {
+            btn.classList.remove('btn-secondary');
+            btn.classList.add('btn-outline-secondary');
+          });
+          button.classList.remove('btn-outline-secondary');
+          button.classList.add('btn-secondary');
+        }
+      });
+      
+      // Row click events
+      purchaseList.addEventListener('click', (e) => {
+        const row = e.target.closest('.purchase-item');
+        if (!row) return;
+        
+        // Toggle details button click
+        if (e.target.closest('.toggle-details')) {
+          toggleDetails(row);
+          e.stopPropagation();
+          return;
+        }
+        
+        // Toggle transactions button click
+        if (e.target.closest('.toggle-transactions')) {
+          showTransactions(row);
+          e.stopPropagation();
+          return;
+        }
+        
+        // Process purchase button click
+        if (e.target.closest('.process-purchase')) {
+          processPurchase(row);
+          e.stopPropagation();
+          return;
+        }
+        
+        // Row click - select the row
+        document.querySelectorAll('.purchase-item.selected').forEach(item => 
+          item.classList.remove('selected'));
+        row.classList.add('selected');
+        selectedPurchase = row;
+      });
+      
+      // Double-click to process
+      purchaseList.addEventListener('dblclick', (e) => {
+        const row = e.target.closest('.purchase-item');
+        if (!row) return;
+        processPurchase(row);
+      });
+      
+      // Confirm purchase button
+      confirmYesBtn.addEventListener('click', confirmPurchase);
+      
+      // Reject purchase button
+      confirmRejectBtn.addEventListener('click', rejectPurchase);
+    }
+    
     function filterPurchases() {
-      const searchValue = searchInput.value.toLowerCase();
-      const statusValue = statusFilter.value;
+      const searchVal = searchInput.value.toLowerCase();
+      const statusVal = statusFilter.value;
+      const items = document.querySelectorAll('.purchase-item');
 
-      const purchases = document.querySelectorAll('.purchase-item');
-      purchases.forEach((item) => {
+      items.forEach(item => {
         const username = item.dataset.username.toLowerCase();
         const status = item.dataset.status;
-        const matchSearch = username.includes(searchValue);
-        const matchStatus = !statusValue || status === statusValue;
+        const matchSearch = username.includes(searchVal);
+        const matchStatus = !statusVal || status === statusVal;
         
-        if (matchSearch && matchStatus) {
-          item.style.display = '';
+        item.style.display = (matchSearch && matchStatus) ? '' : 'none';
+        
+        // Hide details row if parent is hidden
+        const detailsRow = item.nextElementSibling;
+        if (detailsRow && detailsRow.classList.contains('purchase-details-row')) {
+          detailsRow.style.display = 'none';
+        }
+      });
+      
+      updatePurchaseCount();
+    }
+    
+    function sortPurchases(field) {
+      // Get all visible purchase rows
+      const rows = Array.from(document.querySelectorAll('.purchase-item'));
+      
+      // Remember details state
+      const detailsState = {};
+      rows.forEach(row => {
+        const detailsRow = row.nextElementSibling;
+        if (detailsRow && detailsRow.classList.contains('purchase-details-row')) {
+          detailsState[row.dataset.id] = !detailsRow.classList.contains('d-none');
+        }
+      });
+      
+      // Get sort direction
+      let currentDirection = window.sortState ? (window.sortState[field] === 'asc' ? 'desc' : 'asc') : 'asc';
+      window.sortState = window.sortState || {};
+      window.sortState[field] = currentDirection;
+      
+      // Sort rows
+      rows.sort((a, b) => {
+        let valA, valB;
+        
+        if (field === 'amount') {
+          valA = parseFloat(a.dataset[field]);
+          valB = parseFloat(b.dataset[field]);
+        } else if (field === 'created') {
+          valA = new Date(a.dataset[field]).getTime();
+          valB = new Date(b.dataset[field]).getTime();
         } else {
-          item.style.display = 'none';
+          valA = a.dataset[field].toLowerCase();
+          valB = b.dataset[field].toLowerCase();
+        }
+        
+        if (valA < valB) return currentDirection === 'asc' ? -1 : 1;
+        if (valA > valB) return currentDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+      
+      // Remove all rows
+      const tbody = purchaseList;
+      const detailsRows = Array.from(document.querySelectorAll('.purchase-details-row'));
+      detailsRows.forEach(row => row.remove());
+      rows.forEach(row => row.remove());
+      
+      // Re-append sorted rows with their detail rows
+      rows.forEach(row => {
+        tbody.appendChild(row);
+        
+        // Create a new details row
+        const detailsRow = document.createElement('tr');
+        detailsRow.className = 'purchase-details-row ' + (detailsState[row.dataset.id] ? '' : 'd-none');
+        detailsRow.innerHTML = `
+          <td colspan="5" class="p-0">
+            <div class="purchase-details bg-light p-3">
+              <!-- Purchase details will be loaded here -->
+            </div>
+          </td>
+        `;
+        tbody.appendChild(detailsRow);
+        
+        // Reload details if they were visible
+        if (detailsState[row.dataset.id]) {
+          loadDetails(row);
         }
       });
     }
-
-    function sortPurchases(field) {
-      const purchasesArray = Array.from(document.querySelectorAll('.purchase-item'));
-      // For demonstration, we just do a simple ascending/descending toggle
-      // You might prefer to do this server-side
-      let currentDirection = sortPurchases[field] === 'ASC' ? 'DESC' : 'ASC';
-      sortPurchases[field] = currentDirection;
-
-      purchasesArray.sort((a, b) => {
-        const valA = a.dataset[field].toLowerCase();
-        const valB = b.dataset[field].toLowerCase();
-
-        if (valA < valB) return currentDirection === 'ASC' ? -1 : 1;
-        if (valA > valB) return currentDirection === 'ASC' ? 1 : -1;
-        return 0;
-      });
-
-      const purchaseListElement = document.getElementById('purchaseList');
-      purchaseListElement.innerHTML = '';
-      purchasesArray.forEach(item => purchaseListElement.appendChild(item));
+    
+    function toggleDetails(row) {
+      const detailsRow = row.nextElementSibling;
+      if (detailsRow && detailsRow.classList.contains('purchase-details-row')) {
+        if (detailsRow.classList.contains('d-none')) {
+          // Show details
+          detailsRow.classList.remove('d-none');
+          loadDetails(row);
+        } else {
+          // Hide details
+          detailsRow.classList.add('d-none');
+        }
+      }
     }
-
-    // Single-click -> load user info
-    purchaseList.addEventListener('click', async (e) => {
-      const item = e.target.closest('.purchase-item');
-      if (!item) return;
-
-      selectedPurchase = item;
-      const username = item.dataset.username;
-
-      // Fetch user info from Express route (similar to /api/adminp/user-info/:username)
+    
+    function loadDetails(row) {
+      const detailsRow = row.nextElementSibling;
+      const detailsContainer = detailsRow.querySelector('.purchase-details');
+      
       try {
-        const res = await fetch(`/api/adminp/user-info/ ${username}`, { credentials: 'include' });
+        const dataStr = row.dataset.data;
+        const dataObj = JSON.parse(dataStr);
+        
+        // Create a formatted HTML display of the JSON data
+        let formattedHtml = '<div class="json-details">';
+        formattedHtml += '<table class="details-table table table-sm">';
+        
+        // Group related fields and format them nicely
+        const fieldGroups = [
+          { title: 'User Information', fields: ['username', 'userId', 'name', 'email', 'cashappTag'] },
+          { title: 'Transaction Information', fields: ['transactionId', 'currency', 'amount', 'cashappAmount', 'date', 'time'] },
+          { title: 'Session Information', fields: ['session_id', 'key'] }
+        ];
+        
+        fieldGroups.forEach(group => {
+          formattedHtml += `<tr><th colspan="2" class="group-header">${group.title}</th></tr>`;
+          group.fields.forEach(field => {
+            if (dataObj[field] !== undefined) {
+              // Format values based on field type
+              let value = dataObj[field];
+              if (field === 'amount') {
+                // Format amount as currency
+                const numValue = parseFloat(value);
+                if (!isNaN(numValue)) {
+                  value = numValue + " coins";
+                }
+              } else if (field === 'date') {
+                // Format date in a more readable way
+                const date = new Date(value);
+                if (!isNaN(date)) {
+                  value = date.toLocaleDateString();
+                }
+              }
+              
+              formattedHtml += `
+                <tr>
+                  <td class="field-name">${field.charAt(0).toUpperCase() + field.slice(1)}</td>
+                  <td class="field-value">${value}</td>
+                </tr>`;
+            }
+          });
+        });
+        
+        formattedHtml += '</table></div>';
+        detailsContainer.innerHTML = formattedHtml;
+        
+      } catch (err) {
+        console.error('Error parsing JSON data:', err);
+        detailsContainer.innerHTML = '<div class="alert alert-danger">Error displaying transaction details</div>';
+      }
+    }
+    
+    async function showTransactions(row) {
+      selectedPurchase = row;
+      const username = row.dataset.username;
+      
+      try {
+        const res = await fetch(`/api/adminp/user-info/${username}`, { 
+          credentials: 'include' 
+        });
+        
         if (!res.ok) throw new Error('Failed to fetch user info');
         
         const data = await res.json();
-        // Populate user info
-        userInfoTitle.innerText =  `User Details:  ${data.user.username} `;
-        userEmail.innerText =  `Email:  ${data.user.email} `;
-        userBalance.innerText =  `Balance:  ${data.account.balance} `;
-
-        userTransactions.innerHTML = '';
-        data.transactions.forEach((tx) => {
-          const li = document.createElement('li');
-          li.innerText =  `Type:  ${tx.transaction_type} | Amount:  ${tx.amount} | Status:  ${tx.status} | Created:  ${tx.created_at} `;
-          userTransactions.appendChild(li);
-        });
-
-        userInfoContainer.style.display = 'block';
-      } catch (err) {
-        console.error(err);
-        alert('Error fetching user details');
+        
+        // Update modal content
+        transactionsModalTitle.textContent = `User Details: ${data.user.username}`;
+        modalUserEmail.textContent = `Email: ${data.user.email}`;
+        modalUserBalance.textContent = `Balance: ${data.account.balance} coins`;
+        
+        // Format and display transactions
+        modalTransactions.innerHTML = '';
+        
+        if (!data.transactions || data.transactions.length === 0) {
+          modalTransactions.innerHTML = '<p class="text-center text-muted">No transactions found</p>';
+        } else {
+          // Create a table for transactions
+          const table = document.createElement('table');
+          table.className = 'table table-sm';
+          
+          // Add table header
+          const thead = document.createElement('thead');
+          thead.innerHTML = `
+            <tr>
+              <th>Type</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Date</th>
+            </tr>
+          `;
+          table.appendChild(thead);
+          
+          // Add transaction rows
+          const tbody = document.createElement('tbody');
+          data.transactions.forEach(tx => {
+            // Determine credit/debit based on transaction type
+            const isCredit = tx.recipient_account_id === data.user.user_id;
+            const amountClass = isCredit ? 'amount-positive' : 'amount-negative';
+            const amountPrefix = isCredit ? '+' : '-';
+            
+            // Format date
+            const date = new Date(tx.created_at);
+            const formattedDate = isNaN(date) ? tx.created_at : date.toLocaleString();
+            
+            // Determine transaction type style
+            const typeClass = getTransactionTypeClass(tx.transaction_type);
+            
+            const row = document.createElement('tr');
+            row.innerHTML = `
+              <td><span class="transaction-type ${typeClass}">${tx.transaction_type}</span></td>
+              <td class="${amountClass}">${amountPrefix}${tx.amount}</td>
+              <td>${tx.status || 'N/A'}</td>
+              <td>${formattedDate}</td>
+            `;
+            tbody.appendChild(row);
+          });
+          
+          table.appendChild(tbody);
+          modalTransactions.appendChild(table);
+        }
+        
+        // Show modal
+        transactionsModal.show();
+        
+      } catch (error) {
+        console.error('Error fetching user info:', error);
+        alert('Failed to load user information');
       }
-    });
-
-    // Double-click -> confirm modal
-    purchaseList.addEventListener('dblclick', (e) => {
-      const item = e.target.closest('.purchase-item');
-      if (!item) return;
-      selectedPurchase = item;
-      confirmModal.classList.add('active');
-      confirmMessage.textContent =  `Are you sure you want to confirm this purchase for " ${item.dataset.username}"? `;
-    });
-
-    // Confirm purchase => call server route
-    confirmYesBtn.addEventListener('click', async () => {
+    }
+    
+    function getTransactionTypeClass(type) {
+      if (!type) return '';
+      
+      type = type.toLowerCase();
+      
+      if (type.includes('purchase')) return 'type-purchase';
+      if (type.includes('send')) return 'type-send';
+      if (type.includes('unlock')) return 'type-unlock-content';
+      if (type.includes('refund')) return 'type-refund';
+      
+      return '';
+    }
+    
+    function processPurchase(row) {
+      selectedPurchase = row;
+      const status = row.dataset.status.toLowerCase();
+      
+      // Only allow processing pending purchases
+      if (status !== 'pending') {
+        alert('Only pending purchases can be processed');
+        return;
+      }
+      
+      // Update modal content
+      confirmMessage.textContent = `Are you sure you want to confirm this purchase?`;
+      modalUsername.textContent = row.dataset.username;
+      modalAmount.textContent = `${row.dataset.amount} coins`;
+      
+      // Show modal
+      confirmModal.show();
+    }
+    
+    async function confirmPurchase() {
       if (!selectedPurchase) return;
+      
       const purchaseId = selectedPurchase.dataset.id;
       const amount = selectedPurchase.dataset.amount;
       const username = selectedPurchase.dataset.username;
-
+      
       try {
-        const res = await fetch( `/api/adminp/confirm-purchase/ ${purchaseId} `, {
+        const res = await fetch(`/api/adminp/confirm-purchase/${purchaseId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, increaseAmount: amount }),
           credentials: 'include'
         });
+        
         if (!res.ok) throw new Error('Failed to confirm purchase');
         
         alert('Purchase confirmed successfully.');
-        // Hide modal and optionally reload or hide the updated item
-        confirmModal.classList.remove('active');
-        location.reload(); // or remove the item from UI
+        confirmModal.hide();
+        location.reload();
+        
       } catch (error) {
         console.error(error);
         alert('Failed to confirm purchase.');
+        confirmModal.hide();
       }
-    });
-
-    confirmNoBtn.addEventListener('click', () => {
-      confirmModal.classList.remove('active');
-    });
-
-    // Reject purchase => call server route
-    confirmRejectBtn.addEventListener('click', async () => {
+    }
+    
+    async function rejectPurchase() {
       if (!selectedPurchase) return;
+      
       const purchaseId = selectedPurchase.dataset.id;
       const amount = selectedPurchase.dataset.amount;
       const username = selectedPurchase.dataset.username;
-
+      
       try {
-        const res = await fetch( `/api/adminp/reject-purchase/ ${purchaseId} `, {
+        const res = await fetch(`/api/adminp/reject-purchase/${purchaseId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, increaseAmount: 0 }),
           credentials: 'include'
         });
-        if (!res.ok) throw new Error(`Failed to reject purchase of ${amount} coins`);
         
-        alert('Purchase reject successfully.');
-        // Hide modal and optionally reload or hide the updated item
-        confirmModal.classList.remove('active');
-        location.reload(); // or remove the item from UI
+        if (!res.ok) throw new Error('Failed to reject purchase');
+        
+        alert('Purchase rejected successfully.');
+        confirmModal.hide();
+        location.reload();
+        
       } catch (error) {
         console.error(error);
-        alert('Failed to confirm purchase.');
+        alert('Failed to reject purchase.');
+        confirmModal.hide();
       }
-    });
-    
+    }
   </script>
 </body>
+
 </html>

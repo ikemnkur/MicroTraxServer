@@ -3,193 +3,390 @@
 
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Withdraws (Last 48 Hours)</title>
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-  />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
   <style>
-    /* Basic styling adapted from your React styles */
-    .container {
-      margin: 20px;
-      font-family: Arial, sans-serif;
+    body {
+      padding-top: 20px;
+      padding-bottom: 50px;
     }
 
-    .controls-container {
-      display: flex;
-      gap: 10px;
+    .table-container {
+      max-height: 600px;
+      overflow-y: auto;
+    }
+
+    .user-image {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+
+    .form-label {
+      font-weight: 500;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .modal-dialog {
+      max-width: 700px;
+    }
+
+    .highlight {
+      background-color: #f8f9fa;
+    }
+
+    .nav-pills .nav-link.active {
+      background-color: #6c757d;
+    }
+
+    #searchInput {
+      border-radius: 20px;
+      padding-left: 15px;
+    }
+
+    .back-to-admin {
       margin-bottom: 20px;
     }
 
-    .input {
-      padding: 6px;
-      font-size: 14px;
-    }
-
-    .sort-container {
-      display: flex;
-      gap: 10px;
-    }
-
-    .withdraw-list {
-      list-style: none;
-      padding: 0;
-    }
-
     .withdraw-item {
-      padding: 10px;
-      margin-bottom: 5px;
-      border: 1px solid #ddd;
       cursor: pointer;
+      border-left: 4px solid transparent;
+      transition: all 0.2s ease;
     }
 
-    .user-info-container {
-      border: 1px solid #ccc;
-      padding: 10px;
-      margin-top: 20px;
+    .withdraw-item:hover {
+      background-color: #f8f9fa;
+      border-left-color: #0d6efd;
     }
 
-    .modal-backdrop {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.5);
-      display: none; /* Hidden by default */
+    .withdraw-item.selected {
+      background-color: #e9f0ff;
+      border-left-color: #0d6efd;
     }
 
-    .modal-backdrop.active {
-      display: block; /* Show modal if active */
+    .status-badge {
+      display: inline-block;
+      padding: 0.25em 0.6em;
+      font-size: 75%;
+      font-weight: 700;
+      line-height: 1;
+      text-align: center;
+      white-space: nowrap;
+      vertical-align: baseline;
+      border-radius: 0.25rem;
     }
 
-    .modal-content {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background-color: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      min-width: 300px;
+    .status-pending {
+      background-color: #ffc107;
+      color: #212529;
     }
 
-    .modal-buttons {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-      margin-top: 20px;
+    .status-completed {
+      background-color: #198754;
+      color: white;
+    }
+
+    .status-rejected {
+      background-color: #dc3545;
+      color: white;
+    }
+
+    .transaction-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .transaction-item {
+      border-left: 3px solid #e9ecef;
+      padding-left: 10px;
+      margin-bottom: 10px;
+    }
+
+    .transaction-item.credit {
+      border-left-color: #28a745;
+    }
+
+    .transaction-item.debit {
+      border-left-color: #dc3545;
     }
   </style>
 </head>
 
 <body>
   <div class="container">
-    <h1>Admin Withdraws (Last 48 Hours)</h1>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h1>Admin Withdraws (Last 48 Hours)</h1>
+      <a href="/admin" class="btn btn-outline-secondary back-to-admin">
+        <i class="bi bi-arrow-left"></i> Back to Dashboard
+      </a>
+    </div>
 
-    <!-- Search/Filter/Sort Controls -->
-    <div class="controls-container">
-      <input
-        id="searchInput"
-        type="text"
-        class="input form-control"
-        placeholder="Search by username, reference, etc."
-      />
-
-      <select id="statusFilter" class="input form-select">
-        <option value="">All Statuses</option>
-        <option value="Pending">Pending</option>
-        <option value="Completed">Completed</option>
-      </select>
-
-      <div class="sort-container" id="sortContainer">
-        <button class="btn btn-secondary" data-field="created_at">
-          Date
-        </button>
-        <button class="btn btn-secondary" data-field="username">
-          Username
-        </button>
+    <!-- Search and filter controls -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="row align-items-center">
+          <div class="col-md-5">
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input type="text" id="searchInput" class="form-control" placeholder="Search by username, reference, etc.">
+            </div>
+          </div>
+          <div class="col-md-3">
+            <select id="statusFilter" class="form-select">
+              <option value="">All Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Completed">Completed</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <div class="btn-group" id="sortContainer">
+              <button class="btn btn-outline-secondary" data-field="created_at">
+                <i class="bi bi-calendar3"></i> Date
+              </button>
+              <button class="btn btn-outline-secondary" data-field="username">
+                <i class="bi bi-person"></i> Username
+              </button>
+              <button class="btn btn-outline-secondary" data-field="amount">
+                <i class="bi bi-currency-dollar"></i> Amount
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Withdraws List -->
-    <ul id="withdrawList" class="withdraw-list">
-      <% withdraws.forEach(withdraw => { %>
-        <!-- Note the new data-reference-id attribute -->
-        <li
-          class="withdraw-item"
-          data-id="<%= withdraw.id %>"
-          data-username="<%= withdraw.username %>"
-          data-amount="<%= withdraw.amount %>"
-          data-status="<%= withdraw.status %>"
-          data-created="<%= withdraw.created_at %>"
-          data-reference-id="<%= withdraw.reference_id %>"
-        >
-          <strong><%= withdraw.username %></strong> - <%= withdraw.amount %> coins
-          <br />
-          Status: <%= withdraw.status || 'N/A' %> |
-          Created: <%= withdraw.created_at %> |
-          TX Id: <%= withdraw.reference_id %>
-        </li>
-      <% }) %>
-    </ul>
+    <div class="row">
+      <!-- Withdraws List Column -->
+      <div class="col-md-7">
+        <div class="card mb-4">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Withdraw Requests</h5>
+            <span class="badge bg-primary" id="withdrawCount">0 items</span>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-container">
+              <table class="table table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Username</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th>Reference ID</th>
+                  </tr>
+                </thead>
+                <tbody id="withdrawList">
+                  <% withdraws.forEach(withdraw => { %>
+                  <tr class="withdraw-item" 
+                      data-id="<%= withdraw.id %>" 
+                      data-username="<%= withdraw.username %>" 
+                      data-amount="<%= withdraw.amount %>" 
+                      data-status="<%= withdraw.status %>" 
+                      data-created="<%= withdraw.created_at %>" 
+                      data-reference-id="<%= withdraw.reference_id %>">
+                    <td><strong><%= withdraw.username %></strong></td>
+                    <td><%= withdraw.amount %> coins</td>
+                    <td>
+                      <span class="status-badge status-<%= withdraw.status.toLowerCase() %>">
+                        <%= withdraw.status || 'N/A' %>
+                      </span>
+                    </td>
+                    <td><%= new Date(withdraw.created_at).toLocaleString() %></td>
+                    <td><small class="text-muted"><%= withdraw.reference_id %></small></td>
+                  </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card-footer text-muted">
+            <small>Double-click on a withdraw to process it</small>
+          </div>
+        </div>
+      </div>
 
-    <!-- User Info and Transactions -->
-    <div
-      id="userInfoContainer"
-      class="user-info-container"
-      style="display:none;"
-    >
-      <h2 id="userInfoTitle"></h2>
-      <p id="userEmail"></p>
-      <p id="userBalance"></p>
-      <h3>User Transactions:</h3>
-      <ul id="userTransactions"></ul>
-    </div>
+      <!-- User Details Column -->
+      <div class="col-md-5">
+        <div id="userInfoContainer" class="card mb-4" style="display:none;">
+          <div class="card-header">
+            <h5 class="mb-0" id="userInfoTitle">User Details</h5>
+          </div>
+          <div class="card-body">
+            <div class="user-details mb-4">
+              <div class="d-flex align-items-center mb-3">
+                <i class="bi bi-person-circle me-3" style="font-size: 2.5rem;"></i>
+                <div>
+                  <div id="userEmail" class="text-muted mb-1">email@example.com</div>
+                  <div class="d-flex align-items-center">
+                    <i class="bi bi-wallet2 me-2"></i>
+                    <span id="userBalance" class="fw-bold">0 coins</span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-    <!-- Confirm Modal -->
-    <div id="confirmModal" class="modal-backdrop">
-      <div class="modal-content">
-        <h3 id="confirmMessage"></h3>
-        <div class="modal-buttons">
-          <button id="confirmYesBtn" class="btn btn-primary">Confirm</button>
-          <button id="confirmNoBtn" class="btn btn-secondary">Cancel</button>
-          <button
-            id="confirmRejectBtn"
-            style="background-color: red; border-color: red;"
-            class="btn btn-primary"
-          >
-            Reject
-          </button>
+            <h6 class="border-bottom pb-2 mb-3">
+              <i class="bi bi-clock-history me-2"></i>Recent Transactions
+            </h6>
+            <div class="transaction-list">
+              <ul id="userTransactions" class="list-unstyled">
+                <!-- Transactions will be populated here -->
+              </ul>
+            </div>
+          </div>
+          <div class="card-footer">
+            <div class="d-grid">
+              <button class="btn btn-primary" id="processWithdrawBtn">
+                <i class="bi bi-check-circle me-2"></i>Process Withdraw
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Simple Client-Side Logic -->
+  <!-- Confirm Modal -->
+  <div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="confirmModalLabel">Confirm Action</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p id="confirmMessage" class="mb-3">Are you sure you want to confirm this withdraw?</p>
+          <div class="alert alert-info">
+            <div class="row mb-2">
+              <div class="col-4 fw-bold">Username:</div>
+              <div class="col-8" id="modalUsername"></div>
+            </div>
+            <div class="row mb-2">
+              <div class="col-4 fw-bold">Amount:</div>
+              <div class="col-8" id="modalAmount"></div>
+            </div>
+            <div class="row">
+              <div class="col-4 fw-bold">Reference ID:</div>
+              <div class="col-8 text-break" id="modalReferenceId"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="confirmNoBtn">Cancel</button>
+          <button type="button" class="btn btn-danger" id="confirmRejectBtn">Reject</button>
+          <button type="button" class="btn btn-primary" id="confirmYesBtn">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
+    // DOM Elements
     const searchInput = document.getElementById('searchInput');
     const statusFilter = document.getElementById('statusFilter');
     const sortContainer = document.getElementById('sortContainer');
     const withdrawList = document.getElementById('withdrawList');
+    const withdrawCount = document.getElementById('withdrawCount');
     const userInfoContainer = document.getElementById('userInfoContainer');
     const userInfoTitle = document.getElementById('userInfoTitle');
     const userEmail = document.getElementById('userEmail');
     const userBalance = document.getElementById('userBalance');
     const userTransactions = document.getElementById('userTransactions');
-    const confirmModal = document.getElementById('confirmModal');
+    const processWithdrawBtn = document.getElementById('processWithdrawBtn');
+    
+    // Modal elements
+    const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
     const confirmMessage = document.getElementById('confirmMessage');
     const confirmYesBtn = document.getElementById('confirmYesBtn');
     const confirmNoBtn = document.getElementById('confirmNoBtn');
     const confirmRejectBtn = document.getElementById('confirmRejectBtn');
+    const modalUsername = document.getElementById('modalUsername');
+    const modalAmount = document.getElementById('modalAmount');
+    const modalReferenceId = document.getElementById('modalReferenceId');
 
     // Track currently selected withdraw item
     let selectedWithdraw = null;
-
-    // Filtering logic
-    searchInput.addEventListener('input', filterWithdraws);
-    statusFilter.addEventListener('change', filterWithdraws);
-
+    
+    // Initialize on DOM load
+    document.addEventListener('DOMContentLoaded', function() {
+      updateWithdrawCount();
+      setupEventListeners();
+    });
+    
+    function updateWithdrawCount() {
+      const visibleItems = Array.from(withdrawList.querySelectorAll('tr')).filter(item => 
+        item.style.display !== 'none').length;
+      withdrawCount.textContent = `${visibleItems} items`;
+    }
+    
+    function setupEventListeners() {
+      // Filtering logic
+      searchInput.addEventListener('input', filterWithdraws);
+      statusFilter.addEventListener('change', filterWithdraws);
+      
+      // Sorting logic
+      sortContainer.addEventListener('click', (e) => {
+        const button = e.target.closest('button');
+        if (button && button.dataset.field) {
+          const field = button.dataset.field;
+          sortWithdraws(field);
+          
+          // Update active button
+          document.querySelectorAll('#sortContainer button').forEach(btn => {
+            btn.classList.remove('btn-secondary');
+            btn.classList.add('btn-outline-secondary');
+          });
+          button.classList.remove('btn-outline-secondary');
+          button.classList.add('btn-secondary');
+        }
+      });
+      
+      // Single-click -> fetch user info
+      withdrawList.addEventListener('click', async (e) => {
+        const item = e.target.closest('.withdraw-item');
+        if (!item) return;
+        
+        // Remove selected class from all items
+        document.querySelectorAll('.withdraw-item.selected').forEach(el => 
+          el.classList.remove('selected'));
+        
+        // Add selected class to clicked item
+        item.classList.add('selected');
+        
+        // Fetch user info
+        await fetchUserInfo(item);
+      });
+      
+      // Double-click -> show confirm modal
+      withdrawList.addEventListener('dblclick', (e) => {
+        const item = e.target.closest('.withdraw-item');
+        if (!item) return;
+        
+        openConfirmModal(item);
+      });
+      
+      // Process withdraw button click
+      processWithdrawBtn.addEventListener('click', () => {
+        if (selectedWithdraw) {
+          openConfirmModal(selectedWithdraw);
+        }
+      });
+      
+      // Confirm withdraw logic
+      confirmYesBtn.addEventListener('click', confirmWithdraw);
+      
+      // Reject withdraw logic
+      confirmRejectBtn.addEventListener('click', rejectWithdraw);
+    }
+    
     function filterWithdraws() {
       const searchVal = searchInput.value.toLowerCase();
       const statusVal = statusFilter.value;
@@ -197,93 +394,157 @@
 
       items.forEach(item => {
         const username = item.dataset.username.toLowerCase();
+        const refId = item.dataset.referenceId.toLowerCase();
         const status = item.dataset.status;
-        const matchSearch = username.includes(searchVal);
+        
+        const matchSearch = username.includes(searchVal) || refId.includes(searchVal);
         const matchStatus = !statusVal || status === statusVal;
+        
         item.style.display = matchSearch && matchStatus ? '' : 'none';
       });
+      
+      updateWithdrawCount();
     }
-
-    // Sorting logic
-    let sortState = {};
-    sortContainer.addEventListener('click', (e) => {
-      if (e.target.dataset.field) {
-        sortWithdraws(e.target.dataset.field);
-      }
-    });
-
+    
     function sortWithdraws(field) {
       const itemsArray = Array.from(document.querySelectorAll('.withdraw-item'));
+      let sortState = {};
       sortState[field] = sortState[field] === 'ASC' ? 'DESC' : 'ASC';
       const direction = sortState[field];
 
       itemsArray.sort((a, b) => {
-        const valA = a.dataset[field].toLowerCase();
-        const valB = b.dataset[field].toLowerCase();
+        let valA, valB;
+        
+        // Handle different data types for sorting
+        if (field === 'amount') {
+          valA = parseFloat(a.dataset[field]);
+          valB = parseFloat(b.dataset[field]);
+        } else if (field === 'created') {
+          valA = new Date(a.dataset[field]).getTime();
+          valB = new Date(b.dataset[field]).getTime();
+        } else {
+          valA = a.dataset[field].toLowerCase();
+          valB = b.dataset[field].toLowerCase();
+        }
+        
         if (valA < valB) return direction === 'ASC' ? -1 : 1;
         if (valA > valB) return direction === 'ASC' ? 1 : -1;
         return 0;
       });
 
-      itemsArray.forEach(item => withdrawList.appendChild(item));
+      // Clear and re-append sorted items
+      const tbody = document.getElementById('withdrawList');
+      itemsArray.forEach(item => tbody.appendChild(item));
     }
-
-    // Single-click -> fetch user info
-    withdrawList.addEventListener('click', async (e) => {
-      const item = e.target.closest('.withdraw-item');
-      if (!item) return;
-
+    
+    async function fetchUserInfo(item) {
       selectedWithdraw = item;
       const username = item.dataset.username;
+      const status = item.dataset.status;
 
-      // Fetch user info from your server route
       try {
         const response = await fetch(`/api/adminw/user-info/${username}`, {
           credentials: 'include'
         });
+        
         if (!response.ok) throw new Error('Error fetching user info');
 
         const data = await response.json();
-        // Populate user info container
-        userInfoTitle.textContent = 'User Details: ' + data.user.username;
-        userEmail.textContent = 'Email: ' + data.user.email;
-        userBalance.textContent = 'Balance: ' + data.account.balance;
+        
+        // Update user info display
+        userInfoTitle.textContent = `User: ${data.user.username}`;
+        userEmail.textContent = `Email: ${data.user.email}`;
+        userBalance.textContent = `Balance: ${data.account.balance} coins`;
 
-        userTransactions.innerHTML = '';
-        data.transactions.forEach(tx => {
-          let sign = '-';
-          if (tx.recipient_account_id === data.user.user_id) {
-            sign = '+';
-          }
-          const li = document.createElement('li');
-          li.textContent = `Type: ${sign} ${tx.transaction_type} | Amount: ${tx.amount} | Status: ${tx.status} | Created: ${tx.created_at}`;
-          userTransactions.appendChild(li);
-        });
+        // Update transactions list
+        displayTransactions(data.transactions, data.user.user_id);
 
+        // Show user info container
         userInfoContainer.style.display = 'block';
+        
+        // Enable/disable process button based on status
+        processWithdrawBtn.disabled = status.toLowerCase() !== 'pending';
+        
       } catch (err) {
         console.error(err);
         alert('Failed to load user info');
       }
-    });
-
-    // Double-click -> show confirm modal
-    withdrawList.addEventListener('dblclick', (e) => {
-      const item = e.target.closest('.withdraw-item');
-      if (!item) return;
-
+    }
+    
+    function displayTransactions(transactions, userId) {
+      userTransactions.innerHTML = '';
+      
+      if (!transactions || transactions.length === 0) {
+        userTransactions.innerHTML = '<li class="text-center py-3 text-muted">No transactions found</li>';
+        return;
+      }
+      
+      transactions.slice(0, 10).forEach(tx => {
+        const isCredit = tx.recipient_account_id === userId;
+        const li = document.createElement('li');
+        li.className = `transaction-item ${isCredit ? 'credit' : 'debit'}`;
+        
+        const date = new Date(tx.created_at).toLocaleString();
+        const sign = isCredit ? '+' : '-';
+        const typeIcon = getTransactionTypeIcon(tx.transaction_type);
+        
+        li.innerHTML = `
+          <div class="d-flex justify-content-between">
+            <div>${typeIcon} ${tx.transaction_type}</div>
+            <div class="${isCredit ? 'text-success' : 'text-danger'} fw-bold">${sign}${tx.amount}</div>
+          </div>
+          <div class="d-flex justify-content-between text-muted small">
+            <span>${tx.status}</span>
+            <span>${date}</span>
+          </div>
+        `;
+        
+        userTransactions.appendChild(li);
+      });
+    }
+    
+    function getTransactionTypeIcon(type) {
+      const icons = {
+        'send': '<i class="bi bi-send"></i>',
+        'receive': '<i class="bi bi-download"></i>',
+        'withdraw': '<i class="bi bi-cash"></i>',
+        'deposit': '<i class="bi bi-wallet"></i>',
+        'unlock-content': '<i class="bi bi-unlock"></i>'
+      };
+      
+      return icons[type.toLowerCase()] || '<i class="bi bi-arrow-left-right"></i>';
+    }
+    
+    function openConfirmModal(item) {
       selectedWithdraw = item;
-      confirmMessage.textContent = `Are you sure you want to confirm this withdraw for "${item.dataset.username}"?`;
-      confirmModal.classList.add('active');
-    });
-
-    // Confirm withdraw logic
-    confirmYesBtn.addEventListener('click', async () => {
+      const status = item.dataset.status;
+      
+      // Only allow processing pending withdraws
+      if (status.toLowerCase() !== 'pending') {
+        alert('Only pending withdraws can be processed');
+        return;
+      }
+      
+      const username = item.dataset.username;
+      const amount = item.dataset.amount;
+      const referenceId = item.dataset.referenceId;
+      
+      // Update modal content
+      confirmMessage.textContent = `Are you sure you want to process this withdraw for "${username}"?`;
+      modalUsername.textContent = username;
+      modalAmount.textContent = `${amount} coins`;
+      modalReferenceId.textContent = referenceId;
+      
+      // Show modal
+      confirmModal.show();
+    }
+    
+    async function confirmWithdraw() {
       if (!selectedWithdraw) return;
+      
       const withdrawId = selectedWithdraw.dataset.id;
       const username = selectedWithdraw.dataset.username;
       const amount = selectedWithdraw.dataset.amount;
-      // Example usage if you need the reference
       const TXid = selectedWithdraw.dataset.referenceId;
 
       try {
@@ -293,24 +554,23 @@
           credentials: 'include',
           body: JSON.stringify({ username, increaseAmount: amount, TXid })
         });
+        
         if (!response.ok) throw new Error('Failed to confirm withdraw');
 
         alert('Withdraw confirmed successfully.');
-        confirmModal.classList.remove('active');
+        confirmModal.hide();
         location.reload();
+        
       } catch (err) {
         console.error(err);
         alert('Error confirming withdraw.');
+        confirmModal.hide();
       }
-    });
-
-    confirmNoBtn.addEventListener('click', () => {
-      confirmModal.classList.remove('active');
-    });
-
-    // Reject withdraw logic
-    confirmRejectBtn.addEventListener('click', async () => {
+    }
+    
+    async function rejectWithdraw() {
       if (!selectedWithdraw) return;
+      
       const withdrawId = selectedWithdraw.dataset.id;
       const username = selectedWithdraw.dataset.username;
       const amount = selectedWithdraw.dataset.amount;
@@ -323,19 +583,22 @@
           body: JSON.stringify({ username, increaseAmount: 0, TXid }),
           credentials: 'include'
         });
+        
         if (!res.ok) {
           throw new Error(`Failed to reject withdraw of ${amount} coins`);
         }
 
         alert('Withdraw reject successful.');
-        // Hide modal and optionally reload or hide the updated item
-        confirmModal.classList.remove('active');
+        confirmModal.hide();
         location.reload();
+        
       } catch (error) {
         console.error(error);
         alert('Failed to reject withdraw.');
+        confirmModal.hide();
       }
-    });
+    }
   </script>
 </body>
+
 </html>
