@@ -18,7 +18,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
       [req.user.user_id]
     );
 
-    console.log("favorites: ", users[0].favorites);
+    // console.log("favorites: ", users[0].favorites);
 
     listOfFavorites = users[0].favorites ? JSON.parse(users[0].favorites) : [];
 
@@ -37,7 +37,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
     //   [req.user.user_id]
     // );
 
-    console.log("Favorite Users: ", favoriteUsers);
+    // console.log("Favorite Users: ", favoriteUsers);
 
     if (users.length === 0) {
       return res.status(404).json({ message: 'User not found' });
@@ -406,11 +406,11 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
     users[0].avgRating = avgRating;
     users[0].numberOfLikes = numberOfLikes;
     users[0].numberOfPosts = numberOfPosts;
-    console.log("Favorites: ", favorites[0].favorites)
+    // console.log("Favorites: ", favorites[0].favorites)
     let fav = favorites[0].favorites.replaceAll(" ", '');
     let favoriteList = fav.split(",");
     let favnum = favoriteList.length;
-    console.log("Favorites: ", favnum)
+    // console.log("Favorites: ", favnum)
     users[0].numberOfFavorites = favnum;
 
     // console.log("#Posts: ", favs)
@@ -485,8 +485,8 @@ router.put('/:userId/favorite', authenticateToken, async (req, res) => {
       let fav = favoritesObj[0].favorites.replaceAll(" ", '');
       let favorites = fav.split(",");
       let favnum = favorites.length;
-      console.log("Favorites: ", favorites);
-      console.log("Number of Favorites: ", favnum);
+      // console.log("Favorites: ", favorites);
+      // console.log("Number of Favorites: ", favnum);
       /// let favorites = user.favorites ? JSON.parse(user.favorites) : [];
 
       if (isFavorite) {
