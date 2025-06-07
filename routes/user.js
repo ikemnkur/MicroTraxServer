@@ -18,9 +18,18 @@ router.get('/profile', authenticateToken, async (req, res) => {
       [req.user.user_id]
     );
 
-    // console.log("favorites: ", users[0].favorites);
+    let user = users[0];
+    // console.log("User Fav: ", user.favorites)
 
-    listOfFavorites = users[0].favorites ? JSON.parse(users[0].favorites) : [];
+    let userFav = user.favorites.split(",")
+    // console.log("User Fav Split: ", userFav)
+    // console.log("req.user.id: ", req.user.id)
+
+    // Check if the viewed user is in the current user's favorites
+    const isFavorite = user.favorites ? user.favorites.split(",").includes(req.user.id) : false;
+
+
+    let listOfFavorites = users[0].favorites ? userFav : JSON.parse(users[0].favorites);
 
     // get the username from the IDs # in teh favorites array
     const [favoriteUsers] = await db.query(
@@ -51,7 +60,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
       bio: user.bio
     }));
 
-    const user = users[0];
+    user = users[0];
     // console.log("Get.Body: ", user);
     res.json(user);
   } catch (error) {
@@ -287,12 +296,23 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
   }
 });
 
-// 1. GET /user/:userIdOrUsername/profile - Fetch any user profile by username
+// 1. GET /user/:username/profile - Fetch any user profile by username
 router.get('/:username/profile', authenticateToken, async (req, res) => {
   try {
     const { username } = req.params;
     let query, params;
     console.log(username);
+
+    const [userData] = await db.query(
+      `SELECT u.user_id, u.username, u.profilePic, u.bio
+       FROM users u
+       WHERE u.username = ?`,
+      [username]
+    );
+
+    console.log("User Data: ", userData)
+
+    let userId = userData[0].user_id
 
     // Check if the parameter is a number (userId) or a string (username)
 
@@ -306,18 +326,69 @@ router.get('/:username/profile', authenticateToken, async (req, res) => {
     params = [username];
 
 
-    const [users] = await db.query(query, params);
+    // 1) Recalculate the average rating for content this user created
+    const [ratingRows] = await db.query(
+      'SELECT AVG(rating) AS avgRating FROM content_ratings WHERE user_id = ?',
+      [userId]
+    );
+    const avgRating = ratingRows[0].avgRating || 0;
 
+    // 2) Count how many times like_status = 1 for this user
+    const [likes] = await db.query(
+      'SELECT COUNT(*) AS numberOfLikes FROM content_ratings WHERE user_id = ? AND like_status = 1',
+      [userId]
+    );
+    const numberOfLikes = likes[0].numberOfLikes;
+
+    // 2) Count how many times like_status = 1 for this user
+    const [posts] = await db.query(
+      'SELECT COUNT(*) AS numberOfPosts FROM public_content WHERE host_user_id = ?',
+      [userId]
+    );
+    const numberOfPosts = posts[0].numberOfPosts;
+
+    // 3) Fetch the user’s main record
+    const [users] = await db.query(query, params);
     if (users.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
 
+
+    // Fetch user details
+    const [favorites] = await db.query(
+      'SELECT favorites FROM users WHERE user_id = ?',
+      [req.user.user_id]
+    );
+
+    // Fetch user details
+    const [id] = await db.query(
+      'SELECT id FROM users WHERE user_id = ?',
+      [userId]
+    );
+
+    console.log("ID#: ", id[0].id)
+    let favs = favorites[0].favorites
+
+    // 4) Add the rating and likes info to the user object
+    users[0].avgRating = avgRating;
+    users[0].numberOfLikes = numberOfLikes;
+    users[0].numberOfPosts = numberOfPosts;
+    // console.log("Favorites: ", favorites[0].favorites)
+    let fav = favorites[0].favorites.replaceAll(" ", '');
+    let favoriteList = fav.split(",");
+    let favnum = favoriteList.length;
+    // console.log("Favorites: ", favnum)
+    users[0].numberOfFavorites = favnum;
+
+    // console.log("#Posts: ", favs)
+
+    // Optionally check if user is in the current user's favorites
     const user = users[0];
+    const isFavorite = favoriteList.includes(id[0].id.toString());
+    //   ? JSON.parse(user.favorites).includes(req.user.user_id)
+    //   : false;
 
-    // Check if the viewed user is in the current user's favorites
-    const isFavorite = user.favorites ? JSON.parse(user.favorites).includes(req.user.user_id) : false;
-
-    // Remove sensitive information before sending
+    // Remove any sensitive details before sending
     delete user.password;
     delete user.salt;
 
@@ -338,9 +409,7 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
     if (/^\d+$/.test(userIdOrUsername)) {
       // It's a userId
       query = `
-        SELECT u.user_id, u.username, u.created_at, u.email,
-               a.balance, u.accountTier, u.favorites, u.bio,
-               u.rating, u.user_id, u.profilePic
+        SELECT u.user_id, u.username, u.created_at, u.email, u.accountTier, u.favorites, u.bio, u.rating, u.user_id, u.profilePic
         FROM users u
         LEFT JOIN accounts a ON u.user_id = a.user_id
         WHERE u.user_id = ?
@@ -348,13 +417,12 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
       params = [userIdOrUsername];
     } else {
       // It's a username
+      // It's a username
       query = `
-        SELECT u.user_id, u.username, u.created_at, u.email,
-               a.balance, u.accountTier, u.favorites, u.bio,
-               u.rating, u.user_id
+        SELECT u.user_id, u.username, u.created_at, u.email, u.accountTier, u.favorites, u.bio, u.rating, u.user_id, u.profilePic
         FROM users u
         LEFT JOIN accounts a ON u.user_id = a.user_id
-        WHERE u.user_id = ?
+        WHERE u.username = ?
       `;
       params = [userIdOrUsername];
     }
