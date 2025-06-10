@@ -87,175 +87,68 @@ router.post('/validate-transaction', authenticateToken, async (req, res) => {
     console.log("Reloading amount: ", amount), " coins";
     console.log("Body: ", req.body);
 
-    // 1) Call the Monero validation service
-    //    We'll pass relevant data. The microservice typically expects:
-    //    tx_hash, user_address, amount_paid, date, etc.
-    //    If your microservice uses subaddress indexes or additional fields,
-    //    adapt accordingly.
-
-    // let url;
-    // let validationResponse;
-
-    // try {
-    //     // Assuming currency and transactionId are defined and available
-    //     let url;
-
-    //     if (currency === "LTC") {
-    //         url = `https://api.blockchair.com/litecoin/dashboards/transaction/${transactionId}`;
-    //     } else if (currency === "XMR") {
-    //         url = `https://xmrchain.net/api/transaction/${transactionId}`;
-    //     } else if (currency === "BTC") {
-    //         url = `https://api.blockchair.com/bitcoin/dashboards/transaction/${transactionId}`;
-    //     } else {
-    //         throw new Error("Unsupported currency");
-    //     }
-
-    //     // Perform the fetch using await
-    //     const response = await fetch(url);
-    //     if (!response.ok) {
-    //         throw new Error(`Network response was not OK: ${response.statusText}`);
-    //     }
-
-    //     const data = await response.json();
-
-    //     console.log("Response: ", data.data);
-
-    //     // If you need to store this in validationResponse or do something else with it:
-    //     // const validationResponse = data;
-
-    //     // The validationData would be the JSON response from the Blockchair API shown above.
-    //     const validationData = data;
-
-    //     // Call the function:
-    //     const result = validateTransaction(req.body, validationData);
-    //     console.log(result);
-
-    //     // Proceed with additional logic using validationResponse
-    //     // For example:
-    //     // const validated = validationResponse.validated; // Adjust this based on the actual response structure
-    //     // if (!validated) {
-    //     //     return res.status(400).json({
-    //     //         message: 'Transaction was not validated by the payment service.',
-    //     //         details: validationResponse
-    //     //     });
-    //     // }
-
-    //     // If validated, proceed
-    //     // console.log("Transaction validated:", validationResponse);
-
-    // } catch (error) {
-    //     console.error('Error calling validation service:', error.message);
-    //     return res.status(500).json({
-    //         message: 'Failed to call the validation service.',
-    //         error: error.message
-    //     });
-    // }
-
-
-    // try {
-
-    //     if (currency = "LTC")
-    //         url = `https://api.blockchair.com/litecoin/dashboards/transaction/${transactionId}`;
-    //     if (currency = "XMR")
-    //         url = `https://xmrchain.net/api/transaction/${transactionId}`;
-    //     if (currency = "BTC")
-    //         url = `https://api.blockchair.com/bitcoin/dashboards/transaction/${transactionId}`;
-
-    //     // const validationResponse = await axios.get(url)
-
-    //     fetch(url)
-    //         .then(response => {
-    //             if (!response.ok) {
-    //                 throw new Error(`Network response was not OK: ${response.statusText}`);
-    //             }
-    //             return response.json();
-    //         })
-    //         .then(data => {
-    //             // Display the JSON result
-    //             validationResponse = data
-    //         })
-    //         .catch(error => {
-    //             // document.getElementById('result').textContent = 'Error: ' + error.message;
-    //             console.log("Error: ", error)
-    //         });
-
-    //     console.log("Response: ", validationResponse)
-
-    //     //     , {
-    //     //     user_address: walletAddress,
-    //     //     amount_paid: cryptoAmount,          // in atomic units (piconeros) if your microservice expects that
-    //     //     tx_hash: transactionId,       // transaction ID
-    //     //     date: date
-    //     //     // If your microservice also expects subaddress_index or other fields, add them here
-    //     // });
-
-    //     // const validationResponse = await axios.post(VALIDATION_SERVICE_URL, {
-    //     //     user_address: walletAddress,
-    //     //     amount_paid: cryptoAmount,          // in atomic units (piconeros) if your microservice expects that
-    //     //     tx_hash: transactionId,       // transaction ID
-    //     //     date: date
-    //     //     // If your microservice also expects subaddress_index or other fields, add them here
-    //     // });
-
-    //     // The service we wrote previously returns JSON like:
-    //     // { status: 'ok', validated: boolean, details: {...} }
-
-    //     // const { validated, details } = validationResponse.data;
-
-
-    //     // // If not validated, stop here
-    //     // if (!validated) {
-    //     //     return res.status(400).json({
-    //     //         message: 'Transaction was not validated by the payment service.',
-    //     //         details
-    //     //     });
-    //     // }
-
-    //     // // If validated, proceed below
-    //     // console.log("Transaction validated by the Monero service:", details);
-
-    // } catch (error) {
-    //     console.error('Error calling validation service:', error.message);
-    //     return res.status(500).json({
-    //         message: 'Failed to call the Monero validation service.',
-    //         error: error.message
-    //     });
-    // }
-
+    
     // 2) Proceed with DB logic if the transaction is validated
     try {
         // Check for duplicates
-        const [rows] = await db.query(
-            'SELECT * FROM purchases WHERE username = ? AND amount = ? AND transactionId = ?',
-            [username, amount, transactionId]
+        const [recentPurchases] = await db.query(
+            `
+            SELECT * FROM purchases
+            WHERE username = ?
+              AND created_at >= DATE_SUB(NOW(), INTERVAL 3 HOUR)
+            `, 
+            [username]
         );
 
-        console.log("Duplicate Check Result: ", rows);
+        if (recentPurchases.length > 0) {
+            return res.status(429).json({ 
+                message: 'You have already made a purchase in the last 3 hours. Please wait before making a new purchase.' 
+            });
+        }
+
+        // 2) Check for duplicates in the same day (or same date)
+        const [rows] = await db.query(
+            `
+            SELECT * FROM purchases 
+            WHERE username = ? 
+              AND amount = ? 
+              AND date = ? 
+              AND type = ?
+            `,
+            [username, amount, date, currency]
+        );
+
+        console.log("Duplicate Check Result:", rows);
 
         if (rows.length > 0) {
             // Duplicate found
             return res.status(409).json({ message: 'Duplicate purchase detected' });
         }
 
-        // Start a DB transaction
+        // 3) Start a DB transaction
         await db.query('START TRANSACTION');
 
-        // Insert into "purchases" table
+        let tempUID = uuidv4();
+
+        // 4) Insert into "purchases" table
         await db.query(
-            `INSERT INTO purchases 
-                (username, userid, amount, reference_code, date, sessionID, transactionId, data, type, status) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `
+            INSERT INTO purchases 
+                (username, userid, amount, currencyAmount, reference_id, date, sessionID, transactionId, data, type, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `,
             [
                 username,
-                req.user.user_id,       // from authenticateToken middleware
+                req.user.user_id,  // from authenticateToken middleware
                 amount,
-                uuidv4(),               // unique reference code
+                cryptoAmount,
+                tempUID,          // unique reference code
                 date,
                 session_id,
                 transactionId,
                 JSON.stringify(req.body),
                 currency,
-                "Pending"               // or "Validated" if you prefer
+                "Pending"
             ]
         );
 
@@ -264,13 +157,16 @@ router.post('/validate-transaction', authenticateToken, async (req, res) => {
 
         const message = `${currency} order: ${amount}`;
 
-        // Insert a record in "transactions" table
+       
+        // 5) Insert a record in "transactions" table
         await db.query(
-            `INSERT INTO transactions 
+            `
+            INSERT INTO transactions 
                 (sender_account_id, recipient_account_id, amount, transaction_type, status, sending_user, receiving_user, message, reference_id) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `,
             [
-                0,                // '0' if it's from system or external
+                0,          // '0' if it's from system or external
                 userId,
                 amount,
                 'purchase',
@@ -278,11 +174,11 @@ router.post('/validate-transaction', authenticateToken, async (req, res) => {
                 "System",
                 "You",
                 message,
-                uuidv4()
+                tempUID,
             ]
         );
 
-        let notificationMsg = `Your order of ${amount} coins via ${currency} has been logged and will be reviewed shortly. `
+        let notificationMsg = `Your order of ${amount} coins via ${cryptoAmount} ${currency} has been logged and will be reviewed shortly. `
 
         try {
             const [result] = await db.query(
@@ -299,11 +195,11 @@ router.post('/validate-transaction', authenticateToken, async (req, res) => {
         }
 
 
-        // Update user's spendable coin balance
-        await db.query(
-            'UPDATE accounts SET spendable = spendable + ? WHERE user_id = ?',
-            [amount, req.user.user_id]
-        );
+        // // Update user's spendable coin balance
+        // await db.query(
+        //     'UPDATE accounts SET spendable = spendable + ? WHERE user_id = ?',
+        //     [amount, req.user.user_id]
+        // );
 
         // Commit the transaction
         await db.query('COMMIT');

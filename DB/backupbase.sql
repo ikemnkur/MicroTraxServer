@@ -260,7 +260,7 @@ CREATE TABLE `purchases` (
   `username` varchar(255) DEFAULT NULL,
   `amount` int DEFAULT NULL,
   `userid` varchar(255) DEFAULT NULL,
-  `reference_code` varchar(255) DEFAULT NULL,
+  `reference_id` varchar(255) DEFAULT NULL,
   `stripe` varchar(255) DEFAULT NULL,
   `date` varchar(255) DEFAULT NULL,
   `sessionID` varchar(255) DEFAULT NULL,
@@ -563,7 +563,7 @@ CREATE TABLE `withdraws` (
   `username` varchar(255) DEFAULT NULL,
   `amount` int DEFAULT NULL,
   `userid` varchar(255) DEFAULT NULL,
-  `reference_code` varchar(255) DEFAULT NULL,
+  `reference_id` varchar(255) DEFAULT NULL,
   `method` varchar(255) DEFAULT NULL,
   `formdata` json DEFAULT NULL,
   PRIMARY KEY (`id`)

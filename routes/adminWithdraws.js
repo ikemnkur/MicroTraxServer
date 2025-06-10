@@ -9,9 +9,9 @@ function buildSearchAndFilter(queryParams) {
   let query = 'WHERE created_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)';
   let params = [];
 
-  // Add a basic search by username or reference_code, etc.
+  // Add a basic search by username or reference_id, etc.
   if (search) {
-    query += ` AND (username LIKE ? OR reference_code LIKE ? OR transactionId LIKE ?)`;
+    query += ` AND (username LIKE ? OR reference_id LIKE ? OR transactionId LIKE ?)`;
     params.push(`%${search}%`, `%${search}%`, `%${search}%`);
   }
 

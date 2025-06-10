@@ -41,7 +41,7 @@ router.post('/stripe-reload', authenticateToken, async (req, res) => {
 
     // Insert into purchases table
     await db.query(
-      'INSERT INTO purchases (username, userid, amount, stripe, reference_code, date, sessionID, type, status, transactionId, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO purchases (username, userid, amount, stripe, reference_id, date, sessionID, type, status, transactionId, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [username, req.user.user_id, amount, stripe, uuidv4(), date, session_id, "Stripe", "Complete", TRXdata.id, JSON.stringify(TRXdata)]
     );
 
@@ -141,7 +141,7 @@ router.post('/crypto-reload', authenticateToken, async (req, res) => {
 
     // Insert into purchases table
     await db.query(
-      'INSERT INTO purchases (username, userid, amount, reference_code, date, sessionID, transactionId, data, type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO purchases (username, userid, amount, reference_id, date, sessionID, transactionId, data, type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [username, req.user.user_id, amount, uuidv4(), date, session_id, transactionId, JSON.stringify(data), currency, "Pending"]
     );
 
@@ -431,7 +431,7 @@ router.post('/convert', authenticateToken, async (req, res) => {
       }
 
     await db.query(
-      'INSERT INTO conversions (username, userid, amount, reference_code, method, formdata) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO conversions (username, userid, amount, reference_id, method, formdata) VALUES (?, ?, ?, ?, ?, ?)',
       [username, req.user.user_id, amount, uuidv4(), method, JSON.stringify(data)]
     );
 

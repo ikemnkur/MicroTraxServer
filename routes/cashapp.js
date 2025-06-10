@@ -37,7 +37,7 @@ router.post('/log-transaction', authenticateToken, async (req, res) => {
         session_id
     } = req.body;
 
-    console.log("Cashapp Reloading amount:", amount, "coins");
+    console.log("Cashapp Reloading amount:", amount, "coins" ,  " costing you: ", cryptoAmount," ", currency);
     console.log("Body:", req.body);
 
     try {
@@ -48,14 +48,14 @@ router.post('/log-transaction', authenticateToken, async (req, res) => {
             `
             SELECT * FROM purchases
             WHERE username = ?
-              AND created_at >= DATE_SUB(NOW(), INTERVAL 12 HOUR)
+              AND created_at >= DATE_SUB(NOW(), INTERVAL 3 HOUR)
             `, 
             [username]
         );
 
         if (recentPurchases.length > 0) {
             return res.status(429).json({ 
-                message: 'You have already made a purchase in the last 12 hours. Please wait before making a new purchase.' 
+                message: 'You have already made a purchase in the last 3 hours. Please wait before making a new purchase.' 
             });
         }
 
@@ -81,18 +81,21 @@ router.post('/log-transaction', authenticateToken, async (req, res) => {
         // 3) Start a DB transaction
         await db.query('START TRANSACTION');
 
+        let tempUID = uuidv4();
+
         // 4) Insert into "purchases" table
         await db.query(
             `
             INSERT INTO purchases 
-                (username, userid, amount, reference_code, date, sessionID, transactionId, data, type, status) 
+                (username, userid, amount, currencyAmount, reference_id, date, sessionID, transactionId, data, type, status) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `,
             [
                 username,
                 req.user.user_id,  // from authenticateToken middleware
                 amount,
-                uuidv4(),          // unique reference code
+                cryptoAmount,
+                tempUID,          // unique reference code
                 date,
                 session_id,
                 transactionId,
@@ -120,7 +123,7 @@ router.post('/log-transaction', authenticateToken, async (req, res) => {
                 "System",
                 "You",
                 message,
-                uuidv4()
+                tempUID     // link to the purchase
             ]
         );
 

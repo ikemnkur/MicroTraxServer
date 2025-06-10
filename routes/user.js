@@ -11,61 +11,84 @@ router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const [users] = await db.query(
       `SELECT u.user_id, u.username, u.email, u.user_id, u.firstName, u.lastName, u.phoneNumber, u.birthDate, u.unlocks, u.subscriptions,
-              u.accountTier, u.timezone, a.balance, a.spendable, a.redeemable, u.bio, u.encryptionKey, u.account_id, u.profilePic, u.favorites
+       u.accountTier, u.timezone, a.balance, a.spendable, a.redeemable, u.bio, u.encryptionKey, u.account_id, u.profilePic, u.favorites
        FROM users u
        LEFT JOIN accounts a ON u.user_id = a.user_id
        WHERE u.user_id = ?`,
       [req.user.user_id]
     );
 
-    let user = users[0];
-    // console.log("User Fav: ", user.favorites)
-
-    let userFav = user.favorites.split(",")
-    // console.log("User Fav Split: ", userFav)
-    // console.log("req.user.id: ", req.user.id)
-
-    // Check if the viewed user is in the current user's favorites
-    const isFavorite = user.favorites ? user.favorites.split(",").includes(req.user.id) : false;
-
-
-    let listOfFavorites = users[0].favorites ? userFav : JSON.parse(users[0].favorites);
-
-    // get the username from the IDs # in teh favorites array
-    const [favoriteUsers] = await db.query(
-      `SELECT u.user_id, u.username, u.profilePic, u.bio
-       FROM users u
-       WHERE u.id IN (?)`,
-      [listOfFavorites]
-    );
-
-    // const [favoriteUsers] = await db.query(
-    //   `SELECT u.user_id, u.username, u.profilePic
-    //    FROM users u
-    //    WHERE u.user_id IN (SELECT JSON_UNQUOTE(JSON_EXTRACT(favorites, '$[*]')) FROM users WHERE user_id = ?)`,
-    //   [req.user.user_id]
-    // );
-
-    // console.log("Favorite Users: ", favoriteUsers);
-
     if (users.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Add favorite users to the user object
-    users[0].favorites = favoriteUsers.map(user => ({
-      user_id: user.user_id,
-      username: user.username,
-      profilePic: user.profilePic,
-      bio: user.bio
+    let user = users[0];
+    
+    // Handle case where user has no favorites yet (null or empty)
+    let favoriteUsers = [];
+    
+    if (user.favorites) {
+      try {
+        // Check if favorites is a string (comma-separated) or JSON
+        let listOfFavorites;
+        
+        if (typeof user.favorites === 'string') {
+          // Handle comma-separated string
+          if (user.favorites.trim() === '') {
+            listOfFavorites = [];
+          } else {
+            listOfFavorites = user.favorites.split(",").filter(id => id.trim() !== '');
+          }
+        } else {
+          // Handle JSON array
+          listOfFavorites = Array.isArray(user.favorites) ? user.favorites : JSON.parse(user.favorites);
+        }
+        
+        // Only query if there are favorites to look up
+        if (listOfFavorites.length > 0) {
+          const [favoriteUsersResult] = await db.query(
+            `SELECT u.user_id, u.username, u.profilePic, u.bio
+             FROM users u
+             WHERE u.id IN (?)`,
+            [listOfFavorites]
+          );
+          
+          favoriteUsers = favoriteUsersResult || [];
+        }
+        
+      } catch (parseError) {
+        console.error('Error parsing favorites:', parseError);
+        // If parsing fails, default to empty array
+        favoriteUsers = [];
+      }
+    }
+    
+    // Check if the viewed user is in the current user's favorites
+    const isFavorite = user.favorites ? 
+      (typeof user.favorites === 'string' ? 
+        user.favorites.split(",").includes(req.user.id?.toString()) : 
+        user.favorites.includes(req.user.id)
+      ) : false;
+    
+    // Format the favorites for response
+    user.favorites = favoriteUsers.map(favUser => ({
+      user_id: favUser.user_id,
+      username: favUser.username,
+      profilePic: favUser.profilePic,
+      bio: favUser.bio
     }));
-
-    user = users[0];
-    // console.log("Get.Body: ", user);
+    
+    // Add isFavorite flag if needed
+    user.isFavorite = isFavorite;
+    
     res.json(user);
+    
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error in /profile route:', error);
+    res.status(500).json({ 
+      message: 'Server error', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
   }
 });
 

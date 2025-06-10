@@ -153,7 +153,7 @@ app.get('/', (req, res) => {
 
 // Admin Dashboard route
 
-app.get('/admin', (req, res) => {
+app.get('/admin/stats', (req, res) => {
   const uptime = moment.duration(Date.now() - startTime).humanize();
 
   let adminHtml = `
@@ -270,7 +270,7 @@ app.get('/admin/purchases', async (req, res) => {
     // Example: fetch from your existing DB/API
     // You might pass search, statusFilter, etc. as query params if you want server-side filter
     // const [rows] = await db.query(`
-    //   SELECT id, username, amount, status, created_at, reference_code, transactionId, type  
+    //   SELECT id, username, amount, status, created_at, reference_id, transactionId, type  
     //   FROM purchases
     //   WHERE created_at >= NOW() - INTERVAL 48 HOUR
     //   ORDER BY created_at DESC
@@ -318,12 +318,36 @@ app.get('/admin/dashboard', async (req, res) => {
     // You might pass search, statusFilter, etc. as query params if you want server-side filter
     
     // Render the EJS template, passing the purchase data
-    res.render('dashboard', { purchases: rows });
+    res.render('dashboard');
   } catch (error) {
     console.error('Error fetching purchases:', error);
     return res.status(500).send('Server Error');
   }
 });
+
+// Route to render the admin users page
+app.get('/admin/logs', (req, res) => {
+  // Add middleware to check if user is admin
+  // if (!req.session || !req.session.user || req.session.user.role !== 'admin') {
+    // return res.redirect('/login?redirect=/admin/users');
+  // }
+  const uptime = moment.duration(Date.now() - startTime).humanize();
+  res.render('logs', { 
+    recentRequests: recentRequests, 
+    pageVisits: pageVisits, 
+    uptime: uptime 
+  });
+});
+
+app.get('/admin', (req, res) => {
+  const uptime = moment.duration(Date.now() - startTime).humanize();
+  res.render('admin', { 
+    recentRequests: recentRequests, 
+    pageVisits: pageVisits, 
+    uptime: uptime 
+  });
+});
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

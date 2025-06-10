@@ -3,7 +3,6 @@ const router = express.Router();
 const db = require('../config/db');
 const authenticateToken = require('../middleware/auth');
 const { v4: uuidv4 } = require('uuid');
-
 // Helper function to get or create conversation between two users
 const getOrCreateConversation = async (user1, user2) => {
   // Validate that both users are provided
@@ -62,15 +61,21 @@ router.get('/conversations', authenticateToken, async (req, res) => {
 
     const [conversations] = await db.query(`
       SELECT 
-        id, user1, user2, conversation, status, blocked_by, blocked_at,
-        last_message_at, pending_response_from, auto_delete_at
-      FROM conversations 
-      WHERE (user1 = ? OR user2 = ?) AND status != 'deleted'
-      ORDER BY COALESCE(last_message_at, created_at) DESC
+        c.id, c.user1, c.user2, c.conversation, c.status, c.blocked_by, c.blocked_at,
+        c.last_message_at, c.pending_response_from, c.auto_delete_at,
+        u1.profilePic as user1_profile_pic,
+        u2.profilePic as user2_profile_pic
+      FROM conversations c
+      LEFT JOIN users u1 ON c.user1 = u1.username
+      LEFT JOIN users u2 ON c.user2 = u2.username
+      WHERE (c.user1 = ? OR c.user2 = ?) AND c.status != 'deleted'
+      ORDER BY COALESCE(c.last_message_at, c.created_at) DESC
     `, [currentUser, currentUser]);
 
     const conversationList = conversations.map(conv => {
       const otherUser = conv.user1 === currentUser ? conv.user2 : conv.user1;
+      const otherUserProfilePic = conv.user1 === currentUser ? conv.user2_profile_pic : conv.user1_profile_pic;
+      
       const conversationData = typeof conv.conversation === 'string' 
         ? JSON.parse(conv.conversation) 
         : conv.conversation;
@@ -81,7 +86,10 @@ router.get('/conversations', authenticateToken, async (req, res) => {
 
       return {
         id: conv.id,
-        otherUser,
+        otherUser: {
+          username: otherUser,
+          profilePic: otherUserProfilePic
+        },
         lastMessage: lastMessage ? lastMessage.text : null,
         lastMessageTime: lastMessage ? lastMessage.timestamp : conv.last_message_at,
         unreadCount,
@@ -127,6 +135,16 @@ router.get('/conversation/:otherUser', authenticateToken, async (req, res) => {
       });
     }
 
+    // Get profile pictures for both users
+    const [userProfiles] = await db.query(`
+      SELECT username, profilePic 
+      FROM users 
+      WHERE username IN (?, ?)
+    `, [currentUser, otherUser.trim()]);
+
+    const currentUserProfile = userProfiles.find(u => u.username === currentUser);
+    const otherUserProfile = userProfiles.find(u => u.username === otherUser.trim());
+
     const conversationData = typeof conversation.conversation === 'string' 
       ? JSON.parse(conversation.conversation) 
       : conversation.conversation;
@@ -138,7 +156,17 @@ router.get('/conversation/:otherUser', authenticateToken, async (req, res) => {
       pendingResponse: conversation.pending_response_from === currentUser,
       autoDeleteAt: conversation.auto_delete_at,
       user1: conversation.user1,
-      user2: conversation.user2
+      user2: conversation.user2,
+      userProfiles: {
+        [currentUser]: {
+          username: currentUser,
+          profilePic: currentUserProfile?.profilePic || null
+        },
+        [otherUser.trim()]: {
+          username: otherUser.trim(),
+          profilePic: otherUserProfile?.profilePic || null
+        }
+      }
     });
   } catch (error) {
     console.error('Error fetching conversation:', error);

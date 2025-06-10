@@ -9,8 +9,8 @@ const authenticateToken = require('../middleware/auth');
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const [notifications] = await db.query(
-      'SELECT * FROM notifications WHERE recipient_user_id = ? OR recipient_user_id = ? ORDER BY created_at DESC',
-      [req.user.user_id, 0]
+      'SELECT * FROM notifications WHERE recipient_username = ?  ORDER BY created_at DESC',
+      [req.user.username]
     );
 
     res.json(notifications);
