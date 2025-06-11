@@ -80,71 +80,94 @@ router.get('/user-info/:username', async (req, res) => {
     res.sendStatus(500);
   }
 });
+// Function to convert JavaScript date string to MySQL datetime format
+function convertToMySQLDateTime(dateString) {
+  const date = new Date(dateString);
+  
+  // Check if date is valid
+  if (isNaN(date.getTime())) {
+    throw new Error('Invalid date string');
+  }
+  
+  // Format: YYYY-MM-DD HH:MM:SS
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
 
 // 3) Confirm (Complete) a Withdraw
 router.post('/confirm-withdraw/:withdrawId', async (req, res) => {
   const { withdrawId } = req.params;
-  const { username, increaseAmount = 0, created_at } = req.body;
-
-  // Example: decrease the user’s account balance and change withdraw status
+  const { username, increaseAmount = 0, created } = req.body;
+  console.log("Confirming withdraw for user:", username, "with amount:", increaseAmount, "created on:", created);
+  
+  // example Withdraw body data
+  // {id: '24', username: 'ikemnkur', amount: '5005', status: 'Pending', created: 'Wed Jun 11 2025 05:49:56 GMT-0500 (Central Daylight Time)', reference_id: '24', transactionId: '24'}
+  
   try {
+    // Convert the date to MySQL format
+    const mysqlDateTime = convertToMySQLDateTime(created);
+    console.log("Converted date for MySQL:", mysqlDateTime);
+    
     await db.query('START TRANSACTION');
-
+    
     // Update the withdraw status
     await db.query(
       'UPDATE withdraws SET status = ? WHERE id = ?',
       ['Completed', withdrawId]
     );
+    
+    // Update transaction status using the converted MySQL datetime
     await db.query(
       'UPDATE transactions SET status = ? WHERE created_at = ? AND receiving_user = ?',
-      ['Completed', created_at, username]
+      ['Completed', mysqlDateTime, username]
     );
-
-    // Increase user’s account balance (assuming an 'accounts' table or a field in 'users')
+    
+    // Increase user's account balance (assuming an 'accounts' table or a field in 'users')
     // Modify this to match your schema (if storing balance in 'users', or a separate accounts table)
     await db.query(
       'UPDATE accounts SET spendable = spendable + ? WHERE user_id = (SELECT user_id FROM users WHERE username = ?)',
       [increaseAmount, username]
     );
-
-    // await db.query(
-    //   'SELECT * FROM accounts WHERE user_id = (SELECT user_id FROM users WHERE username = ?)',
-    //   [username]
-    // );
-
+    
     // Fetch user details
     const [user] = await db.query(
       'SELECT * FROM users WHERE username = ?',
       [username]
     );
-
+    
+    // Check if user exists
+    if (!user || user.length === 0) {
+      throw new Error('User not found');
+    }
+    
     // Create Notification
-    //  const { type, recipient_user_id, recipient_username, Nmessage, from_user, date } = req.body;
-    //  console.log("New notification: ", Nmessage);
-
-    let notificationMsg = `Hoo-ray, Your withdrawl of ${increaseAmount} coins has been approved and processed!`
-
+    let notificationMsg = `Hoo-ray, Your withdrawal of ${increaseAmount} coins has been approved and processed!`
+    
     try {
       const [result] = await db.query(
         `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
-    VALUES (?, ?, ?, ?, ?, ?)`,
-        ["withdrawl-approved", user.user_id, notificationMsg, "0", user.username, new Date()]
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        ["withdrawal-approved", user[0].user_id, notificationMsg, "0", user[0].username, new Date()]
       );
-
       console.log("New notification successfully created:", notificationMsg);
-      // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
     } catch (error) {
       console.error('Error creating notification:', error);
-      // res.status(500).json({ message: 'Server error' });
+      // Continue with the transaction even if notification fails
     }
-
+    
     await db.query('COMMIT');
-
-    res.json({ message: 'withdraw confirmed and user balance updated.' });
+    res.json({ message: 'Withdraw confirmed and user balance updated.' });
+    
   } catch (error) {
     await db.query('ROLLBACK');
     console.error('Error confirming withdraw:', error);
-    res.status(500).json({ message: 'Failed to confirm withdraw.' });
+    res.status(500).json({ message: 'Failed to confirm withdraw.', error: error.message });
   }
 });
 
