@@ -9,9 +9,9 @@ function buildSearchAndFilter(queryParams) {
   let query = 'WHERE created_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)';
   let params = [];
 
-  // Add a basic search by username or reference_id, etc.
+  // Add a basic search by username or reference_code, etc.
   if (search) {
-    query += ` AND (username LIKE ? OR reference_id LIKE ? OR transactionId LIKE ?)`;
+    query += ` AND (username LIKE ? OR reference_code LIKE ? OR transactionId LIKE ?)`;
     params.push(`%${search}%`, `%${search}%`, `%${search}%`);
   }
 
@@ -49,7 +49,7 @@ router.get('/user-info/:username', async (req, res) => {
   let connection;
   try {
     connection = await db.getConnection();
-
+    
     let { username } = req.params;
     // Trim and convert to lowercase for consistency
     username = username.trim().toLowerCase();
@@ -103,7 +103,7 @@ router.get('/user-info/:username', async (req, res) => {
 
 //   try {
 //     const connection = await db.getConnection();
-
+    
 //     const { username } = req.params;
 //     console.log("Username: ", username)
 
@@ -150,68 +150,38 @@ router.get('/user-info/:username', async (req, res) => {
 // 3) Confirm (Complete) a Purchase
 router.post('/confirm-purchase/:purchaseId', async (req, res) => {
   const { purchaseId } = req.params;
-  const { username, increaseAmount = 0, created_at, reference_id } = req.body;
+  const { username, increaseAmount = 0, created_at } = req.body;
 
-  // Example: increase the user's account balance and change purchase status
+  // Example: increase the user’s account balance and change purchase status
   try {
     await db.query('START TRANSACTION');
-
-    // Convert created_at to proper MySQL datetime format
-    let mysqlDateTime = null;
-    if (created_at) {
-      const date = new Date(created_at);
-      if (!isNaN(date.getTime())) {
-        // Convert to MySQL datetime format: 'YYYY-MM-DD HH:MM:SS'
-        mysqlDateTime = date.toISOString().slice(0, 19).replace('T', ' ');
-      }
-    }
-    console.log("Original created_at:", created_at);
-    console.log("MySQL formatted created_at:", mysqlDateTime);
 
     // Update the purchase status
     await db.query(
       'UPDATE purchases SET status = ? WHERE id = ?',
       ['Completed', purchaseId]
     );
+    await db.query(
+      'UPDATE transactions SET status = ? WHERE created_at = ? AND receiving_user = ?',
+      ['Completed', created_at, username]
+    );
 
-    if(reference_id){
-      // Update transactions with reference_id if provided
-      await db.query(
-        'UPDATE transactions SET status = ? WHERE reference_id = ? AND receiving_user = ?',
-        ['Completed', reference_id, username]
-      );
-    }
-
-    // Update transactions with proper datetime format
-    if (mysqlDateTime) {
-      // try {/
-        await db.query(
-        'UPDATE transactions SET status = ? WHERE created_at = ? AND receiving_user = ?',
-        ['Completed', mysqlDateTime, username]
-      );
-      // } catch (error) {
-       
-      
-    } else {
-      // Fallback: update by reference_id or other identifier if datetime conversion fails
-      console.warn("Could not parse created_at, using alternative query");
-      await db.query(
-        'UPDATE transactions SET status = ? WHERE receiving_user = ? AND status = ? ORDER BY created_at DESC LIMIT 1',
-        ['Completed', username, 'pending']
-      );
-    }
-
-    // Increase user's account balance
+    // Increase user’s account balance (assuming an 'accounts' table or a field in 'users')
+    // Modify this to match your schema (if storing balance in 'users', or a separate accounts table)
     await db.query(
       'UPDATE accounts SET spendable = spendable + ? WHERE user_id = (SELECT user_id FROM users WHERE username = ?)',
       [increaseAmount, username]
     );
+    // Create Notification
+    //  const { type, recipient_user_id, recipient_username, Nmessage, from_user, date } = req.body;
+    //  console.log("New notification: ", Nmessage);
 
     // Fetch user details
     const [user] = await db.query(
       'SELECT * FROM users WHERE username = ?',
       [username]
     );
+
     console.log("User: ", user);
 
     let notificationMsg = `Hoo-ray, ${username} Your purchase of ${increaseAmount} coins has been confirmed and processed!`
@@ -219,15 +189,19 @@ router.post('/confirm-purchase/:purchaseId', async (req, res) => {
     try {
       const [result] = await db.query(
         `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
-          VALUES (?, ?, ?, ?, ?, ?)`,
+    VALUES (?, ?, ?, ?, ?, ?)`,
         ["purchase-confirmed", user[0].user_id, notificationMsg, "0", username, new Date()]
       );
+
       console.log("New notification successfully created:", notificationMsg);
+      // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
     } catch (error) {
       console.error('Error creating notification:', error);
+      // res.status(500).json({ message: 'Server error' });
     }
 
     await db.query('COMMIT');
+
     res.json({ message: 'Purchase confirmed and user balance updated.' });
   } catch (error) {
     await db.query('ROLLBACK');

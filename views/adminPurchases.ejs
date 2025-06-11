@@ -137,12 +137,6 @@
     .field-name {
       font-weight: 500;
       color: #495057;
-      width: 30%;
-    }
-
-    .field-value {
-      color: #212529;
-      word-break: break-word;
     }
 
     .accordion-button:not(.collapsed) {
@@ -185,82 +179,6 @@
     .amount-negative {
       color: #dc3545;
       font-weight: 600;
-    }
-
-    /* Enhanced JSON display styles */
-    .json-container {
-      background-color: #f8f9fa;
-      border: 1px solid #dee2e6;
-      border-radius: 0.375rem;
-      margin: 10px 0;
-    }
-
-    .json-header {
-      background-color: #e9ecef;
-      padding: 8px 12px;
-      border-bottom: 1px solid #dee2e6;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .json-header:hover {
-      background-color: #dee2e6;
-    }
-
-    .json-content {
-      padding: 12px;
-      max-height: 400px;
-      overflow-y: auto;
-    }
-
-    .json-pretty {
-      background-color: #f8f9fa;
-      border: 1px solid #dee2e6;
-      border-radius: 0.25rem;
-      padding: 12px;
-      font-family: 'Courier New', monospace;
-      font-size: 0.85em;
-      white-space: pre-wrap;
-      word-break: break-all;
-      margin: 0;
-      color: #212529;
-    }
-
-    .currency-amount {
-      color: #0d6efd;
-      font-weight: 600;
-    }
-
-    .json-toggle-icon {
-      transition: transform 0.2s ease;
-    }
-
-    .json-toggle-icon.collapsed {
-      transform: rotate(-90deg);
-    }
-
-    .purchase-details {
-      background-color: #f8f9fa;
-      border-top: 1px solid #dee2e6;
-    }
-
-    .details-section {
-      margin-bottom: 20px;
-    }
-
-    .details-section:last-child {
-      margin-bottom: 0;
-    }
-
-    .section-title {
-      font-weight: 600;
-      color: #495057;
-      margin-bottom: 10px;
-      padding-bottom: 5px;
-      border-bottom: 2px solid #e9ecef;
     }
   </style>
 </head>
@@ -321,8 +239,7 @@
             <thead class="table-light">
               <tr>
                 <th>Username</th>
-                <th>Currency Amount</th>
-                <th>Coin Amount</th>
+                <th>Amount</th>
                 <th>Status</th>
                 <th>Created</th>
                 <th class="text-end">Actions</th>
@@ -330,42 +247,34 @@
             </thead>
             <tbody id="purchaseList">
               <% purchases.forEach((purchase) => { %>
-              <tr class="purchase-item" 
-                  data-id="<%= purchase.id %>" 
-                  data-reference_id="<%= purchase.reference_id %>" 
-                  data-username="<%= purchase.username %>"
-                  data-amount="<%= purchase.amount %>" 
-                  data-currency-amount="<%= purchase.currencyAmount || 'N/A' %>"
-                  data-status="<%= purchase.status %>"
-                  data-created="<%= purchase.created_at %>"
-                  data-created_at="<%= purchase.created_at %>" 
-                  data-data="<%= encodeURIComponent(purchase.data || '{}') %>">
+              <tr class="purchase-item" data-id="<%= purchase.id %>" data-username="<%= purchase.username %>"
+                data-amount="<%= purchase.amount %>" data-status="<%= purchase.status %>"
+                data-created="<%= purchase.created_at %>" data-data="<%= purchase.data %>">
                 <td><strong><%= purchase.username %></strong></td>
-                <td><span class="currency-amount"><%= purchase.currencyAmount || 'N/A' %></span></td>
                 <td><%= purchase.amount %> coins</td>
                 <td>
-                  <span class="status-badge status-<%= (purchase.status || '').toLowerCase() %>">
+                  <span class="status-badge status-<%= purchase.status.toLowerCase() %>">
                     <%= purchase.status || 'N/A' %>
                   </span>
                 </td>
                 <td><%= new Date(purchase.created_at).toLocaleString() %></td>
                 <td class="text-end">
                   <div class="btn-group btn-group-sm">
-                    <button type="button" class="btn btn-outline-info toggle-details" title="View Details">
+                    <button type="button" class="btn btn-outline-info toggle-details">
                       <i class="bi bi-info-circle"></i>
                     </button>
-                    <button type="button" class="btn btn-outline-primary toggle-transactions" title="View Transactions">
+                    <button type="button" class="btn btn-outline-primary toggle-transactions">
                       <i class="bi bi-credit-card"></i>
                     </button>
-                    <button type="button" class="btn btn-outline-success process-purchase" title="Process Purchase">
+                    <button type="button" class="btn btn-outline-success process-purchase">
                       <i class="bi bi-check-circle"></i>
                     </button>
                   </div>
                 </td>
               </tr>
               <tr class="purchase-details-row d-none">
-                <td colspan="6" class="p-0">
-                  <div class="purchase-details p-3">
+                <td colspan="5" class="p-0">
+                  <div class="purchase-details bg-light p-3">
                     <!-- Purchase details will be loaded here -->
                   </div>
                 </td>
@@ -397,11 +306,7 @@
               <div class="col-8" id="modalUsername"></div>
             </div>
             <div class="row mb-2">
-              <div class="col-4 fw-bold">Currency Amount:</div>
-              <div class="col-8" id="modalCurrencyAmount"></div>
-            </div>
-            <div class="row mb-2">
-              <div class="col-4 fw-bold">Coin Amount:</div>
+              <div class="col-4 fw-bold">Amount:</div>
               <div class="col-8" id="modalAmount"></div>
             </div>
           </div>
@@ -465,7 +370,6 @@
     const confirmMessage = document.getElementById('confirmMessage');
     const modalUsername = document.getElementById('modalUsername');
     const modalAmount = document.getElementById('modalAmount');
-    const modalCurrencyAmount = document.getElementById('modalCurrencyAmount');
     const confirmYesBtn = document.getElementById('confirmYesBtn');
     const confirmNoBtn = document.getElementById('confirmNoBtn');
     const confirmRejectBtn = document.getElementById('confirmRejectBtn');
@@ -557,23 +461,6 @@
       
       // Reject purchase button
       confirmRejectBtn.addEventListener('click', rejectPurchase);
-      
-      // JSON collapsible functionality
-      document.addEventListener('click', (e) => {
-        if (e.target.closest('.json-header')) {
-          const header = e.target.closest('.json-header');
-          const content = header.nextElementSibling;
-          const icon = header.querySelector('.json-toggle-icon');
-          
-          if (content.style.display === 'none') {
-            content.style.display = 'block';
-            icon.classList.remove('collapsed');
-          } else {
-            content.style.display = 'none';
-            icon.classList.add('collapsed');
-          }
-        }
-      });
     }
     
     function filterPurchases() {
@@ -624,9 +511,9 @@
         if (field === 'amount') {
           valA = parseFloat(a.dataset[field]);
           valB = parseFloat(b.dataset[field]);
-        } else if (field === 'created_at') {
-          valA = new Date(a.dataset.created).getTime();
-          valB = new Date(b.dataset.created).getTime();
+        } else if (field === 'created') {
+          valA = new Date(a.dataset[field]).getTime();
+          valB = new Date(b.dataset[field]).getTime();
         } else {
           valA = a.dataset[field].toLowerCase();
           valB = b.dataset[field].toLowerCase();
@@ -651,8 +538,8 @@
         const detailsRow = document.createElement('tr');
         detailsRow.className = 'purchase-details-row ' + (detailsState[row.dataset.id] ? '' : 'd-none');
         detailsRow.innerHTML = `
-          <td colspan="6" class="p-0">
-            <div class="purchase-details p-3">
+          <td colspan="5" class="p-0">
+            <div class="purchase-details bg-light p-3">
               <!-- Purchase details will be loaded here -->
             </div>
           </td>
@@ -685,140 +572,55 @@
       const detailsContainer = detailsRow.querySelector('.purchase-details');
       
       try {
-        const dataStr = decodeURIComponent(row.dataset.data);
-        let dataObj = {};
+        const dataStr = row.dataset.data;
+        const dataObj = JSON.parse(dataStr);
         
-        try {
-          dataObj = JSON.parse(dataStr);
-        } catch (e) {
-          console.warn('Failed to parse JSON data:', e);
-          dataObj = { rawData: dataStr };
-        }
+        // Create a formatted HTML display of the JSON data
+        let formattedHtml = '<div class="json-details">';
+        formattedHtml += '<table class="details-table table table-sm">';
         
-        // Create sections for different types of data
-        let formattedHtml = '<div class="details-sections">';
-        
-        // Basic Information Section
-        formattedHtml += '<div class="details-section">';
-        formattedHtml += '<div class="section-title">Basic Information</div>';
-        formattedHtml += '<table class="details-table table table-sm table-borderless">';
-        
-        const basicFields = [
-          { key: 'username', label: 'Username' },
-          { key: 'userId', label: 'User ID' },
-          { key: 'email', label: 'Email' },
-          { key: 'name', label: 'Name' },
-          { key: 'walletAddress', label: 'Wallet Address' }
+        // Group related fields and format them nicely
+        const fieldGroups = [
+          { title: 'User Information', fields: ['username', 'userId', 'name', 'email', 'cashappTag'] },
+          { title: 'Transaction Information', fields: ['transactionId', 'currency', 'amount', 'cashappAmount', 'date', 'time'] },
+          { title: 'Session Information', fields: ['session_id', 'key'] }
         ];
         
-        basicFields.forEach(field => {
-          const value = dataObj[field.key];
-          if (value !== undefined && value !== 'N/A' && value !== null && value !== '') {
-            formattedHtml += `
-              <tr>
-                <td class="field-name">${field.label}:</td>
-                <td class="field-value">${value}</td>
-              </tr>`;
-          }
-        });
-        
-        formattedHtml += '</table></div>';
-        
-        // Transaction Information Section
-        const transactionFields = [
-          { key: 'transactionId', label: 'Transaction ID' },
-          { key: 'currency', label: 'Currency' },
-          { key: 'cryptoAmount', label: 'Currency Amount' },
-          { key: 'amount', label: 'Coin Amount', value: row.dataset.amount + ' coins' },
-          { key: 'cashappTag', label: 'CashApp Tag' },
-          { key: 'cashappAmount', label: 'CashApp Amount' },
-          { key: 'date', label: 'Date' },
-          { key: 'time', label: 'Time' },
-          { key: 'reference_id', label: 'Reference Code' },
-          { key: 'stripe', label: 'Stripe' },
-          { key: 'type', label: 'Type' }
-        ];
-        
-        const hasTransactionData = transactionFields.some(field => 
-          dataObj[field.key] !== undefined && dataObj[field.key] !== null && dataObj[field.key] !== '');
-        
-        if (hasTransactionData) {
-          formattedHtml += '<div class="details-section">';
-          formattedHtml += '<div class="section-title">Transaction Information</div>';
-          formattedHtml += '<table class="details-table table table-sm table-borderless">';
-          
-          transactionFields.forEach(field => {
-            let value = field.value || dataObj[field.key];
-            if (value !== undefined && value !== null && value !== '') {
-              // Format specific fields
-              if (field.key === 'date' && value) {
+        fieldGroups.forEach(group => {
+          formattedHtml += `<tr><th colspan="2" class="group-header">${group.title}</th></tr>`;
+          group.fields.forEach(field => {
+            if (dataObj[field] !== undefined) {
+              // Format values based on field type
+              let value = dataObj[field];
+              if (field === 'amount') {
+                // Format amount as currency
+                const numValue = parseFloat(value);
+                if (!isNaN(numValue)) {
+                  value = numValue + " coins";
+                }
+              } else if (field === 'date') {
+                // Format date in a more readable way
                 const date = new Date(value);
                 if (!isNaN(date)) {
-                  value = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                  value = date.toLocaleDateString();
                 }
               }
               
               formattedHtml += `
                 <tr>
-                  <td class="field-name">${field.label}:</td>
+                  <td class="field-name">${field.charAt(0).toUpperCase() + field.slice(1)}</td>
                   <td class="field-value">${value}</td>
                 </tr>`;
             }
           });
-          
-          formattedHtml += '</table></div>';
-        }
+        });
         
-        // Session Information Section
-        const sessionFields = [
-          { key: 'session_id', label: 'Session ID' },
-          { key: 'sessionID', label: 'Session ID (Alt)' },
-          { key: 'key', label: 'Key' }
-        ];
-        
-        const hasSessionData = sessionFields.some(field => 
-          dataObj[field.key] !== undefined && dataObj[field.key] !== null && dataObj[field.key] !== '');
-        
-        if (hasSessionData) {
-          formattedHtml += '<div class="details-section">';
-          formattedHtml += '<div class="section-title">Session Information</div>';
-          formattedHtml += '<table class="details-table table table-sm table-borderless">';
-          
-          sessionFields.forEach(field => {
-            const value = dataObj[field.key];
-            if (value !== undefined && value !== null && value !== '') {
-              formattedHtml += `
-                <tr>
-                  <td class="field-name">${field.label}:</td>
-                  <td class="field-value">${value}</td>
-                </tr>`;
-            }
-          });
-          
-          formattedHtml += '</table></div>';
-        }
-        
-        // Raw JSON Data Section (Collapsible)
-        formattedHtml += '<div class="details-section">';
-        formattedHtml += '<div class="json-container">';
-        formattedHtml += `
-          <div class="json-header">
-            <span>Raw JSON Data</span>
-            <i class="bi bi-chevron-down json-toggle-icon collapsed"></i>
-          </div>
-          <div class="json-content" style="display: none;">
-            <pre class="json-pretty">${JSON.stringify(dataObj, null, 2)}</pre>
-          </div>
-        `;
-        formattedHtml += '</div></div>';
-        
-        formattedHtml += '</div>'; // Close details-sections
-        
+        formattedHtml += '</table></div>';
         detailsContainer.innerHTML = formattedHtml;
         
       } catch (err) {
-        console.error('Error loading purchase details:', err);
-        detailsContainer.innerHTML = '<div class="alert alert-danger">Error displaying purchase details</div>';
+        console.error('Error parsing JSON data:', err);
+        detailsContainer.innerHTML = '<div class="alert alert-danger">Error displaying transaction details</div>';
       }
     }
     
@@ -926,7 +728,6 @@
       // Update modal content
       confirmMessage.textContent = `Are you sure you want to confirm this purchase?`;
       modalUsername.textContent = row.dataset.username;
-      modalCurrencyAmount.textContent = row.dataset.currencyAmount;
       modalAmount.textContent = `${row.dataset.amount} coins`;
       
       // Show modal
@@ -939,15 +740,13 @@
       const purchaseId = selectedPurchase.dataset.id;
       const amount = selectedPurchase.dataset.amount;
       const username = selectedPurchase.dataset.username;
-      const created_at = selectedPurchase.dataset.created_at;
-      const reference_id = selectedPurchase.dataset.reference_id;
-      console.log("Created At:", created_at);
+      const created = selectedPurchase.dataset.created;
       
       try {
         const res = await fetch(`/api/adminp/confirm-purchase/${purchaseId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, increaseAmount: amount, created_at, reference_id }),
+          body: JSON.stringify({ username, increaseAmount: amount, created }),
           credentials: 'include'
         });
         
@@ -970,13 +769,13 @@
       const purchaseId = selectedPurchase.dataset.id;
       const amount = selectedPurchase.dataset.amount;
       const username = selectedPurchase.dataset.username;
-      const created_at = selectedPurchase.dataset.created_at;
-      
+      const created = selectedPurchase.dataset.created;
+
       try {
         const res = await fetch(`/api/adminp/reject-purchase/${purchaseId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, increaseAmount: 0, created_at }),
+          body: JSON.stringify({ username, increaseAmount: 0, created }),
           credentials: 'include'
         });
         

@@ -135,7 +135,8 @@
           <div class="col-md-5">
             <div class="input-group">
               <span class="input-group-text"><i class="bi bi-search"></i></span>
-              <input type="text" id="searchInput" class="form-control" placeholder="Search by username, reference, etc.">
+              <input type="text" id="searchInput" class="form-control"
+                placeholder="Search by username, reference, etc.">
             </div>
           </div>
           <div class="col-md-3">
@@ -184,25 +185,30 @@
                   </tr>
                 </thead>
                 <tbody id="withdrawList">
-                  <% withdraws.forEach(withdraw => { %>
-                  <tr class="withdraw-item" 
-                      data-id="<%= withdraw.id %>" 
-                      data-username="<%= withdraw.username %>" 
-                      data-amount="<%= withdraw.amount %>" 
-                      data-status="<%= withdraw.status %>" 
-                      data-created="<%= withdraw.created_at %>" 
-                      data-reference-id="<%= withdraw.reference_id %>">
-                    <td><strong><%= withdraw.username %></strong></td>
-                    <td><%= withdraw.amount %> coins</td>
-                    <td>
-                      <span class="status-badge status-<%= withdraw.status.toLowerCase() %>">
-                        <%= withdraw.status || 'N/A' %>
-                      </span>
-                    </td>
-                    <td><%= new Date(withdraw.created_at).toLocaleString() %></td>
-                    <td><small class="text-muted"><%= withdraw.reference_id %></small></td>
-                  </tr>
-                  <% }) %>
+                  <% withdraws.forEach(withdraw=> { %>
+                    <tr class="withdraw-item" data-id="<%= withdraw.id %>" data-username="<%= withdraw.username %>"
+                      data-amount="<%= withdraw.amount %>" data-status="<%= withdraw.status %>"
+                      data-created="<%= withdraw.created_at %>" data-reference-id="<%= withdraw.reference_id %>">
+                      <td><strong>
+                          <%= withdraw.username %>
+                        </strong></td>
+                      <td>
+                        <%= withdraw.amount %> coins
+                      </td>
+                      <td>
+                        <span
+                          class="status-badge status-<%= withdraw.status ? withdraw.status.toLowerCase() : 'unknown' %>">
+                          <%= withdraw.status || 'N/A' %>
+                        </span>
+                      </td>
+                      <td>
+                        <%= new Date(withdraw.created_at).toLocaleString() %>
+                      </td>
+                      <td><small class="text-muted">
+                          <%= withdraw.reference_id %>
+                        </small></td>
+                    </tr>
+                    <% }) %>
                 </tbody>
               </table>
             </div>
@@ -301,7 +307,7 @@
     const userBalance = document.getElementById('userBalance');
     const userTransactions = document.getElementById('userTransactions');
     const processWithdrawBtn = document.getElementById('processWithdrawBtn');
-    
+
     // Modal elements
     const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
     const confirmMessage = document.getElementById('confirmMessage');
@@ -314,31 +320,31 @@
 
     // Track currently selected withdraw item
     let selectedWithdraw = null;
-    
+
     // Initialize on DOM load
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
       updateWithdrawCount();
       setupEventListeners();
     });
-    
+
     function updateWithdrawCount() {
-      const visibleItems = Array.from(withdrawList.querySelectorAll('tr')).filter(item => 
+      const visibleItems = Array.from(withdrawList.querySelectorAll('tr')).filter(item =>
         item.style.display !== 'none').length;
       withdrawCount.textContent = `${visibleItems} items`;
     }
-    
+
     function setupEventListeners() {
       // Filtering logic
       searchInput.addEventListener('input', filterWithdraws);
       statusFilter.addEventListener('change', filterWithdraws);
-      
+
       // Sorting logic
       sortContainer.addEventListener('click', (e) => {
         const button = e.target.closest('button');
         if (button && button.dataset.field) {
           const field = button.dataset.field;
           sortWithdraws(field);
-          
+
           // Update active button
           document.querySelectorAll('#sortContainer button').forEach(btn => {
             btn.classList.remove('btn-secondary');
@@ -348,45 +354,45 @@
           button.classList.add('btn-secondary');
         }
       });
-      
+
       // Single-click -> fetch user info
       withdrawList.addEventListener('click', async (e) => {
         const item = e.target.closest('.withdraw-item');
         if (!item) return;
-        
+
         // Remove selected class from all items
-        document.querySelectorAll('.withdraw-item.selected').forEach(el => 
+        document.querySelectorAll('.withdraw-item.selected').forEach(el =>
           el.classList.remove('selected'));
-        
+
         // Add selected class to clicked item
         item.classList.add('selected');
-        
+
         // Fetch user info
         await fetchUserInfo(item);
       });
-      
+
       // Double-click -> show confirm modal
       withdrawList.addEventListener('dblclick', (e) => {
         const item = e.target.closest('.withdraw-item');
         if (!item) return;
-        
+
         openConfirmModal(item);
       });
-      
+
       // Process withdraw button click
       processWithdrawBtn.addEventListener('click', () => {
         if (selectedWithdraw) {
           openConfirmModal(selectedWithdraw);
         }
       });
-      
+
       // Confirm withdraw logic
       confirmYesBtn.addEventListener('click', confirmWithdraw);
-      
+
       // Reject withdraw logic
       confirmRejectBtn.addEventListener('click', rejectWithdraw);
     }
-    
+
     function filterWithdraws() {
       const searchVal = searchInput.value.toLowerCase();
       const statusVal = statusFilter.value;
@@ -396,16 +402,16 @@
         const username = item.dataset.username.toLowerCase();
         const refId = item.dataset.referenceId.toLowerCase();
         const status = item.dataset.status;
-        
+
         const matchSearch = username.includes(searchVal) || refId.includes(searchVal);
         const matchStatus = !statusVal || status === statusVal;
-        
+
         item.style.display = matchSearch && matchStatus ? '' : 'none';
       });
-      
+
       updateWithdrawCount();
     }
-    
+
     function sortWithdraws(field) {
       const itemsArray = Array.from(document.querySelectorAll('.withdraw-item'));
       let sortState = {};
@@ -414,7 +420,7 @@
 
       itemsArray.sort((a, b) => {
         let valA, valB;
-        
+
         // Handle different data types for sorting
         if (field === 'amount') {
           valA = parseFloat(a.dataset[field]);
@@ -426,7 +432,7 @@
           valA = a.dataset[field].toLowerCase();
           valB = b.dataset[field].toLowerCase();
         }
-        
+
         if (valA < valB) return direction === 'ASC' ? -1 : 1;
         if (valA > valB) return direction === 'ASC' ? 1 : -1;
         return 0;
@@ -436,7 +442,7 @@
       const tbody = document.getElementById('withdrawList');
       itemsArray.forEach(item => tbody.appendChild(item));
     }
-    
+
     async function fetchUserInfo(item) {
       selectedWithdraw = item;
       const username = item.dataset.username;
@@ -446,11 +452,11 @@
         const response = await fetch(`/api/adminw/user-info/${username}`, {
           credentials: 'include'
         });
-        
+
         if (!response.ok) throw new Error('Error fetching user info');
 
         const data = await response.json();
-        
+
         // Update user info display
         userInfoTitle.textContent = `User: ${data.user.username}`;
         userEmail.textContent = `Email: ${data.user.email}`;
@@ -461,33 +467,33 @@
 
         // Show user info container
         userInfoContainer.style.display = 'block';
-        
+
         // Enable/disable process button based on status
         processWithdrawBtn.disabled = status.toLowerCase() !== 'pending';
-        
+
       } catch (err) {
         console.error(err);
         alert('Failed to load user info');
       }
     }
-    
+
     function displayTransactions(transactions, userId) {
       userTransactions.innerHTML = '';
-      
+
       if (!transactions || transactions.length === 0) {
         userTransactions.innerHTML = '<li class="text-center py-3 text-muted">No transactions found</li>';
         return;
       }
-      
+
       transactions.slice(0, 10).forEach(tx => {
         const isCredit = tx.recipient_account_id === userId;
         const li = document.createElement('li');
         li.className = `transaction-item ${isCredit ? 'credit' : 'debit'}`;
-        
+
         const date = new Date(tx.created_at).toLocaleString();
         const sign = isCredit ? '+' : '-';
         const typeIcon = getTransactionTypeIcon(tx.transaction_type);
-        
+
         li.innerHTML = `
           <div class="d-flex justify-content-between">
             <div>${typeIcon} ${tx.transaction_type}</div>
@@ -498,11 +504,11 @@
             <span>${date}</span>
           </div>
         `;
-        
+
         userTransactions.appendChild(li);
       });
     }
-    
+
     function getTransactionTypeIcon(type) {
       const icons = {
         'send': '<i class="bi bi-send"></i>',
@@ -511,66 +517,93 @@
         'deposit': '<i class="bi bi-wallet"></i>',
         'unlock-content': '<i class="bi bi-unlock"></i>'
       };
-      
+
       return icons[type.toLowerCase()] || '<i class="bi bi-arrow-left-right"></i>';
     }
-    
+
     function openConfirmModal(item) {
       selectedWithdraw = item;
       const status = item.dataset.status;
-      
+
       // Only allow processing pending withdraws
       if (status.toLowerCase() !== 'pending') {
         alert('Only pending withdraws can be processed');
         return;
       }
-      
+
       const username = item.dataset.username;
       const amount = item.dataset.amount;
       const referenceId = item.dataset.referenceId;
-      
+
       // Update modal content
       confirmMessage.textContent = `Are you sure you want to process this withdraw for "${username}"?`;
       modalUsername.textContent = username;
       modalAmount.textContent = `${amount} coins`;
       modalReferenceId.textContent = referenceId;
-      
+
       // Show modal
       confirmModal.show();
     }
-    
+
     async function confirmWithdraw() {
       if (!selectedWithdraw) return;
-      
+
       const withdrawId = selectedWithdraw.dataset.id;
       const username = selectedWithdraw.dataset.username;
       const amount = selectedWithdraw.dataset.amount;
       const TXid = selectedWithdraw.dataset.referenceId;
+      const created = selectedWithdraw.dataset.created;
+      console.log("Selected withdraw details:", 
+        selectedWithdraw.dataset
+      );
+      console.log(`Confirming withdraw for ${username} (${withdrawId}) - Amount: ${amount}, TXid: ${TXid}`);
+      if (!TXid) {
+        alert('No transaction ID provided for this withdraw.');
+        confirmModal.hide();
+        return;
+      }
+      if (isNaN(amount) || amount <= 0) {
+        alert('Invalid amount specified for the withdraw.');
+        confirmModal.hide();
+        return;
+      }
+      if (!username) {
+        alert('No username provided for the withdraw.');
+        confirmModal.hide();
+        return;
+      }
+      if (!withdrawId) {
+        alert('No withdraw ID provided.');
+        confirmModal.hide();
+        return;
+      }
+      // console.log(`Processing withdraw for ${username} - Amount: ${amount}, TXid: ${TXid}`);
 
       try {
         const response = await fetch(`/api/adminw/confirm-withdraw/${withdrawId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ username, increaseAmount: amount, TXid })
+          body: JSON.stringify({ username, increaseAmount: amount, TXid, created })
         });
-        
+
         if (!response.ok) throw new Error('Failed to confirm withdraw');
 
         alert('Withdraw confirmed successfully.');
         confirmModal.hide();
-        location.reload();
         
+        // location.reload();
+
       } catch (err) {
         console.error(err);
         alert('Error confirming withdraw.');
         confirmModal.hide();
       }
     }
-    
+
     async function rejectWithdraw() {
       if (!selectedWithdraw) return;
-      
+
       const withdrawId = selectedWithdraw.dataset.id;
       const username = selectedWithdraw.dataset.username;
       const amount = selectedWithdraw.dataset.amount;
@@ -583,7 +616,7 @@
           body: JSON.stringify({ username, increaseAmount: 0, TXid }),
           credentials: 'include'
         });
-        
+
         if (!res.ok) {
           throw new Error(`Failed to reject withdraw of ${amount} coins`);
         }
@@ -591,7 +624,7 @@
         alert('Withdraw reject successful.');
         confirmModal.hide();
         location.reload();
-        
+
       } catch (error) {
         console.error(error);
         alert('Failed to reject withdraw.');
