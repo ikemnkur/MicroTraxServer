@@ -349,6 +349,16 @@ app.get('/admin', (req, res) => {
 });
 
 
+// Route to render the admin users page
+app.get('/admin/users', (req, res) => {
+  // Add middleware to check if user is admin
+  // if (!req.session || !req.session.user || req.session.user.role !== 'admin') {
+    // return res.redirect('/login?redirect=/admin/users');
+  // }
+  res.render('admin-users');
+});
+
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
