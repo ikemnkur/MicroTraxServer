@@ -243,7 +243,7 @@ router.post('/validate-transaction', authenticateToken, async (req, res) => {
         // Insert into "purchases" table
         await db.query(
             `INSERT INTO purchases 
-                (username, userid, amount, reference_code, date, sessionID, transactionId, data, type, status) 
+                (username, userid, amount, reference_id, date, sessionID, transactionId, data, type, status) 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 username,
@@ -299,11 +299,11 @@ router.post('/validate-transaction', authenticateToken, async (req, res) => {
         }
 
 
-        // Update user's spendable coin balance
-        await db.query(
-            'UPDATE accounts SET spendable = spendable + ? WHERE user_id = ?',
-            [amount, req.user.user_id]
-        );
+        // // Update user's spendable coin balance
+        // await db.query(
+        //     'UPDATE accounts SET spendable = spendable + ? WHERE user_id = ?',
+        //     [amount, req.user.user_id]
+        // );
 
         // Commit the transaction
         await db.query('COMMIT');
