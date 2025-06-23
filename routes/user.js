@@ -7,6 +7,244 @@ const authenticateToken = require('../middleware/auth');
 
 const router = express.Router();
 
+
+// GET /api/users/search?q=searchterm - Returns array of matching users
+router.get('/search', authenticateToken, async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    // Validate search query
+    if (!q || q.trim().length < 3) {
+      return res.status(400).json({ 
+        message: 'Search query must be at least 3 characters long',
+        users: []
+      });
+    }
+    
+    const searchTerm = `%${q.trim()}%`;
+    
+    // Search users by username, firstName, or lastName
+    // Exclude the current user from results
+    // Note: Using 'id' instead of 'user_id' for the primary comparison
+    const [users] = await db.query(
+      `SELECT u.id, u.user_id, u.username, u.firstName, u.lastName, u.bio, u.profilePic,
+              CASE 
+                WHEN u.last_activity >= DATE_SUB(NOW(), INTERVAL 5 MINUTE) THEN 1 
+                ELSE 0 
+              END as isOnline
+       FROM users u
+       WHERE (u.username LIKE ? OR u.firstName LIKE ? OR u.lastName LIKE ?)
+       AND u.id != ?
+       AND u.accountTier != 0
+       ORDER BY 
+         CASE 
+           WHEN u.username LIKE ? THEN 1
+           WHEN u.firstName LIKE ? THEN 2
+           WHEN u.lastName LIKE ? THEN 3
+           ELSE 4
+         END,
+         u.username
+       LIMIT 20`,
+      [
+        searchTerm, searchTerm, searchTerm, // For WHERE clause
+        req.user.id, // Exclude current user (using 'id' from JWT)
+        `${q.trim()}%`, `${q.trim()}%`, `${q.trim()}%` // For ORDER BY (exact matches first)
+      ]
+    );
+    
+    // Format the response
+    const formattedUsers = users.map(user => ({
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      bio: user.bio,
+      profilePic: user.profilePic,
+      isOnline: Boolean(user.isOnline)
+    }));
+    
+    res.json({
+      users: formattedUsers,
+      total: formattedUsers.length,
+      query: q.trim()
+    });
+    
+  } catch (error) {
+    console.error('Error searching users:', error);
+    res.status(500).json({ 
+      message: 'Server error while searching users',
+      users: []
+    });
+  }
+});
+
+// FIXED VERSION - Use /validate/:username instead of /:username
+router.get('/validate/:username', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.params;
+    
+    // Validate username parameter
+    if (!username || username.trim().length === 0) {
+      return res.status(400).json({ 
+        exists: false,
+        message: 'Username parameter is required' 
+      });
+    }
+    
+    // Check if user exists and is not banned (accountTier 0 = banned)
+    const [users] = await db.query(
+      `SELECT u.id, u.user_id, u.username, u.firstName, u.lastName, u.bio, u.profilePic, u.accountTier,
+              CASE 
+                WHEN u.last_activity >= DATE_SUB(NOW(), INTERVAL 5 MINUTE) THEN 1 
+                ELSE 0 
+              END as isOnline
+       FROM users u
+       WHERE u.username = ? AND u.accountTier != 0`,
+      [username.trim()]
+    );
+    
+    if (users.length === 0) {
+      return res.status(404).json({ 
+        exists: false,
+        message: 'User not found or account is banned'
+      });
+    }
+    
+    const user = users[0];
+    
+    // Check if it's the same user trying to message themselves
+    if (user.id === req.user.id) {
+      return res.status(400).json({
+        exists: false,
+        message: 'You cannot start a conversation with yourself'
+      });
+    }
+    
+    // Return user existence confirmation with basic info
+    res.json({
+      exists: true,
+      user: {
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        bio: user.bio,
+        profilePic: user.profilePic,
+        isOnline: Boolean(user.isOnline)
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error validating user:', error);
+    res.status(500).json({ 
+      exists: false,
+      message: 'Server error while validating user' 
+    });
+  }
+});
+
+// GET /api/users/:username - Returns user existence validation
+router.get('/exists/:username', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.params;
+    
+    // Validate username parameter
+    if (!username || username.trim().length === 0) {
+      return res.status(400).json({ 
+        exists: false,
+        message: 'Username parameter is required' 
+      });
+    }
+    
+    // Check if user exists and is not banned (accountTier 0 = banned)
+    const [users] = await db.query(
+      `SELECT u.id, u.user_id, u.username, u.firstName, u.lastName, u.bio, u.profilePic, u.accountTier,
+              CASE 
+                WHEN u.last_activity >= DATE_SUB(NOW(), INTERVAL 30 MINUTE) THEN 1 
+                ELSE 0 
+              END as isOnline
+       FROM users u
+       WHERE u.username = ? AND u.accountTier != 0`,
+      [username.trim()]
+    );
+    
+    if (users.length === 0) {
+      return res.status(404).json({ 
+        exists: false,
+        message: 'User not found or account is banned'
+      });
+    }
+    
+    const user = users[0];
+    
+    // Check if it's the same user trying to message themselves
+    if (user.id === req.user.id) {
+      return res.status(400).json({
+        exists: false,
+        message: 'You cannot start a conversation with yourself'
+      });
+    }
+    
+    // Return user existence confirmation with basic info
+    res.json({
+      exists: true,
+      user: {
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        bio: user.bio,
+        profilePic: user.profilePic,
+        isOnline: Boolean(user.isOnline)
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error validating user:', error);
+    res.status(500).json({ 
+      exists: false,
+      message: 'Server error while validating user' 
+    });
+  }
+});
+
+// Optional: GET /api/users/profile/:username - Get public profile info
+router.get('/profile/:username', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.params;
+    
+    const [users] = await db.query(
+      `SELECT u.username, u.firstName, u.lastName, u.bio, u.profilePic, u.accountTier,
+              CASE 
+                WHEN u.last_activity >= DATE_SUB(NOW(), INTERVAL 30 MINUTE) THEN 1 
+                ELSE 0 
+              END as isOnline
+       FROM users u
+       WHERE u.username = ? AND u.accountTier != 0`,
+      [username]
+    );
+    
+    if (users.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const user = users[0];
+    
+    // Return public profile information only
+    res.json({
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      bio: user.bio,
+      profilePic: user.profilePic,
+      isOnline: Boolean(user.isOnline),
+      accountTier: user.accountTier
+    });
+    
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const [users] = await db.query(
