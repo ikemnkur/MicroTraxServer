@@ -441,7 +441,7 @@ router.post('/convert', authenticateToken, async (req, res) => {
 
     await db.query(
       'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [0, req.user.user_id, amount, 'convert', 'pending', "You", "System", message, uuidv4()]
+      [0, req.user.user_id, amount, 'convert', 'Completed', "You", "System", message, uuidv4()]
     );
 
     if (method == "spend") {
