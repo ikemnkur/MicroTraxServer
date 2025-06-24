@@ -5,6 +5,7 @@ const path = require('path');
 const cors = require('cors');
 const express = require('express');
 const db = require('./config/db');
+const bcrypt = require('bcryptjs');
 // const session = require('express-session');
 const bodyParser = require('body-parser');
 const geoip = require('geoip-lite');
@@ -15,6 +16,9 @@ const admin = require('./routes/admin');
 const adminPurchases = require('./routes/adminPurchases');
 const adminWithdraws = require('./routes/adminWithdraws');
 const userRoutes = require('./routes/user');
+const adminUsers = require('./routes/adminUsers');
+const adminReports = require('./routes/adminReports');
+// const logs = require('./routes/');
 const transactionRoutes = require('./routes/transactions');
 const userSubscriptionRoute = require('./routes/user_subscriptions');
 const publicSubscriptionRoute = require('./routes/public_subscriptions');
@@ -122,6 +126,11 @@ app.use('/api/cashapp', cashapp);
 app.use('/api/admin', admin);
 app.use('/api/adminp', adminPurchases);
 app.use('/api/adminw', adminWithdraws);
+app.use('/api/adminu', adminUsers);
+app.use('/api/adminr', adminReports)
+// app.use('/api/logs', logs);
+// Mount the admin API routes
+// app.use('/api/adminp', adminApiRoutes);
 
 // app.use('/api/uploadImage', uploadImage);
 
@@ -264,6 +273,46 @@ app.get('/admin/stats', (req, res) => {
   res.send(adminHtml);
 });
 
+
+app.get('/admin', (req, res) => {
+  const uptime = moment.duration(Date.now() - startTime).humanize();
+  res.render('admin', { 
+    recentRequests: recentRequests, 
+    pageVisits: pageVisits, 
+    uptime: uptime 
+  });
+});
+
+
+// Route to render the admin users page
+app.get('/admin/logs', (req, res) => {
+  // Add middleware to check if user is admin
+  // if (!req.session || !req.session.user || req.session.user.role !== 'admin') {
+    // return res.redirect('/login?redirect=/admin/users');
+  // }
+  const uptime = moment.duration(Date.now() - startTime).humanize();
+  res.render('logs', { 
+    recentRequests: recentRequests, 
+    pageVisits: pageVisits, 
+    uptime: uptime 
+  });
+});
+
+// Admin reports page
+app.get('/admin/reports', (req, res) => {
+  res.render('reports');
+});
+
+
+// Route to render the admin users page
+app.get('/admin/users', (req, res) => {
+  // Add middleware to check if user is admin
+  // if (!req.session || !req.session.user || req.session.user.role !== 'admin') {
+    // return res.redirect('/login?redirect=/admin/users');
+  // }
+  res.render('admin-users');
+});
+
 // In your server or route file, e.g. server.js or routes/adminPurchases.js
 app.get('/admin/purchases', async (req, res) => {
   try {
@@ -318,7 +367,7 @@ app.get('/admin/dashboard', async (req, res) => {
     // You might pass search, statusFilter, etc. as query params if you want server-side filter
     
     // Render the EJS template, passing the purchase data
-    res.render('dashboard');
+    res.render('dashboard', { purchases: rows });
   } catch (error) {
     console.error('Error fetching purchases:', error);
     return res.status(500).send('Server Error');
@@ -581,3 +630,78 @@ const { subscribe } = require('diagnostics_channel');
 const { Console } = require('console');
 const { request } = require('https');
 app.use('/admin', adminRoutes);
+
+// ############################# Cron Job ########################
+
+const cron = require('node-cron');
+// const db = require('./config/db'); // adjust the path if needed
+
+// Schedule the job to run every day at 12:00 AM EST
+cron.schedule(
+  '0 0 * * *',
+  async () => {
+    console.log('Running daily deduction job at 12:00 AM EST');
+    try {
+      // For example, subtract a fixed daily amount (e.g., 10 units) from each user account,
+      // but only if the account has sufficient balance.
+      const dailyDeduction = 10;
+      const query = 'UPDATE accounts SET balance = balance - ? WHERE balance >= ?';
+      const [result] = await db.query(query, [dailyDeduction, dailyDeduction]);
+      console.log(`Daily deduction applied to ${result.affectedRows} accounts.`);
+    } catch (error) {
+      console.error('Error applying daily deduction:', error);
+    }
+  },
+  {
+    timezone: 'America/New_York'
+  }
+);
+
+
+// email-service.js
+const nodemailer = require('nodemailer');
+
+// Configure nodemailer with your SMTP settings
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp.example.com',
+  port: process.env.SMTP_PORT || 587,
+  secure: process.env.SMTP_SECURE === 'true',
+  auth: {
+    user: process.env.SMTP_USER || 'your-email@example.com',
+    pass: process.env.SMTP_PASS || 'your-password'
+  }
+});
+
+// Send password reset email
+async function sendPasswordResetEmail(email, username, newPassword) {
+  try {
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || '"Admin System" <admin@example.com>',
+      to: email,
+      subject: 'Your Password Has Been Reset',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <h2 style="color: #333;">Password Reset</h2>
+          <p>Hello ${username},</p>
+          <p>Your password has been reset by an administrator.</p>
+          <p>Your new password is: <strong>${newPassword}</strong></p>
+          <p>Please login with this password and change it immediately for security reasons.</p>
+          <p style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #777;">
+            This is an automated message. Please do not reply to this email.
+          </p>
+        </div>
+      `
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Password reset email sent:', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('Error sending password reset email:', error);
+    throw error;
+  }
+}
+
+module.exports = {
+  sendPasswordResetEmail
+};
