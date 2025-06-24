@@ -37,6 +37,8 @@ router.get('/user-info/:username', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
+    let userId = userRows[0].user_id;
+
     // Fetch user account details if you have an accounts table
     let accountData = null;
     try {
@@ -50,12 +52,22 @@ router.get('/user-info/:username', async (req, res) => {
     }
     
     // Fetch transactions involving the user as sender or receiver
+    // const [transactionRows] = await connection.query(
+    //   `SELECT * FROM transactions
+    //    WHERE receiving_user = ? OR sending_user = ?
+    //    ORDER BY created_at DESC`,
+    //   [username, username]
+    // );
+
+    console.log('User ID:', userId);
+
     const [transactionRows] = await connection.query(
-      `SELECT * FROM transactions
-       WHERE receiving_user = ? OR sending_user = ?
-       ORDER BY created_at DESC`,
-      [username, username]
+      'SELECT * FROM transactions WHERE sender_account_id = ? OR recipient_account_id = ? OR recipient_account_id = ? OR sender_account_id = ?',
+      [userId, userId, userId, userId]
     );
+
+
+    
 
       // Fetch transactions involving the user as sender or receiver
       const [contentRows] = await connection.query(
