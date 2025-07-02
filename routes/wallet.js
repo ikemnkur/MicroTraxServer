@@ -75,34 +75,34 @@ router.post('/stripe-reload', authenticateToken, async (req, res) => {
       [amount, req.user.user_id]
     );
 
-    
-  // Create Notification
+
+    // Create Notification
     //  const { type, recipient_user_id, recipient_username, Nmessage, from_user, date } = req.body;
     //  console.log("New notification: ", Nmessage);
-    
-     // Fetch user details
-     const [user] = await db.query(
+
+    // Fetch user details
+    const [user] = await db.query(
       'SELECT * FROM users WHERE username = ?',
       [username]
     );
 
-   
+
 
     let notificationMsg = `Hoo-ray, Your Stripe purchase of ${amount} coins has been sumbitted, it will be reviewed and processed soon. !`
 
-     try {
-         const [result] = await db.query(
-             `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
+    try {
+      const [result] = await db.query(
+        `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
     VALUES (?, ?, ?, ?, ?, ?)`,
-             ["purchase-submitted", req.user.user_id, notificationMsg, "0", user.username, new Date()]
-         );
+        ["purchase-submitted", req.user.user_id, notificationMsg, "0", user.username, new Date()]
+      );
 
-         console.log("New notification successfully created:", notificationMsg);
-         // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
-     } catch (error) {
-         console.error('Error creating notification:', error);
-         // res.status(500).json({ message: 'Server error' });
-     }
+      console.log("New notification successfully created:", notificationMsg);
+      // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      // res.status(500).json({ message: 'Server error' });
+    }
 
     // Commit the transaction
     await db.query('COMMIT');
@@ -160,33 +160,33 @@ router.post('/crypto-reload', authenticateToken, async (req, res) => {
       [amount, req.user.user_id]
     );
 
-     // Create Notification
+    // Create Notification
     //  const { type, recipient_user_id, recipient_username, Nmessage, from_user, date } = req.body;
     //  console.log("New notification: ", Nmessage);
-    
-     // Fetch user details
-     const [user] = await db.query(
+
+    // Fetch user details
+    const [user] = await db.query(
       'SELECT * FROM users WHERE username = ?',
       [username]
     );
 
-   
+
 
     let notificationMsg = `Hoo-ray, Your ${currency} purchase  of ${amount} coins has been sumbitted, it will be reviewed and processed soon. !`
 
-     try {
-         const [result] = await db.query(
-             `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
+    try {
+      const [result] = await db.query(
+        `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
     VALUES (?, ?, ?, ?, ?, ?)`,
-             ["purchase-submitted", req.user.user_id, notificationMsg, "0", username, new Date()]
-         );
+        ["purchase-submitted", req.user.user_id, notificationMsg, "0", username, new Date()]
+      );
 
-         console.log("New notification successfully created:", notificationMsg);
-         // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
-     } catch (error) {
-         console.error('Error creating notification:', error);
-         // res.status(500).json({ message: 'Server error' });
-     }
+      console.log("New notification successfully created:", notificationMsg);
+      // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      // res.status(500).json({ message: 'Server error' });
+    }
 
 
 
@@ -364,30 +364,30 @@ router.post('/withdraw', authenticateToken, async (req, res) => {
     // Create Notification
     //  const { type, recipient_user_id, recipient_username, Nmessage, from_user, date } = req.body;
     //  console.log("New notification: ", Nmessage);
-    
-     // Fetch user details
-     const [user] = await db.query(
+
+    // Fetch user details
+    const [user] = await db.query(
       'SELECT * FROM users WHERE username = ?',
       [username]
     );
 
-   
+
 
     let notificationMsg = `Hoo-ray, Your withdraw of ${amount} coins has been sumbitted, it will be reviewed and processed soon. !`
 
-     try {
-         const [result] = await db.query(
-             `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
+    try {
+      const [result] = await db.query(
+        `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
     VALUES (?, ?, ?, ?, ?, ?)`,
-             ["withdraw-submitted", req.user.user_id, notificationMsg, "0", username, new Date()]
-         );
+        ["withdraw-submitted", req.user.user_id, notificationMsg, "0", username, new Date()]
+      );
 
-         console.log("New notification successfully created:", notificationMsg);
-         // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
-     } catch (error) {
-         console.error('Error creating notification:', error);
-         // res.status(500).json({ message: 'Server error' });
-     }
+      console.log("New notification successfully created:", notificationMsg);
+      // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      // res.status(500).json({ message: 'Server error' });
+    }
 
     // res.status(201).json({ message: 'Content added successfully', ok: true });
     // res.json({ message: 'Transaction successful' });
@@ -401,11 +401,42 @@ router.post('/withdraw', authenticateToken, async (req, res) => {
 });
 
 router.post('/convert', authenticateToken, async (req, res) => {
-  const { username, amount, date, method } = req.body;
+  const { username, amount, date, method, dashboardData } = req.body;
   console.log("Convert Data: ", req.body)
+  // dashboardData = {"balance":361796,"spendable":501041,"redeemable":53546,"accountTier":3,"dailyLimit":25,"dailyCoinLimit":1000,"transactionsLast24Hours":1,"transactionsToday":1,"totalAmountToday":50000,"sentTransactions":0,"receivedTransactions":1,"totalAmountSentLast24Hours":0,"totalAmountReceivedLast24Hours":50000,"totalAmountSentToday":0,"totalAmountReceivedToday":50000}
   const data = req.body;
   console.log('req.user:', req.user);
+
+  // Define daily limits based on account tier
+  const dailyLimits = {
+    1: 5,    // Basic
+    2: 10,    // Standard
+    3: 25,   // Premium
+    4: 50,   // Gold
+    5: 100,  // Platinum
+    6: 200,  // Diamond
+    7: 500  // Ultimate
+  };
+
+  // Define daily limits based on account tier
+  const dailyCoinLimits = {
+    1: 100,    // Basic
+    2: 500,    // Standard
+    3: 1000,   // Premium
+    4: 5000,   // Gold
+    5: 10000,  // Platinum
+    6: 50000,  // Diamond
+    7: 100000  // Ultimate
+  };
+
+  let dailyLimit = dailyLimits[dashboardData.accountTier] ?? 100; // Default to 100 if not found
+  let dailyCoinLimit = dailyCoinLimits[dashboardData.accountTier] ?? 100; // Default to 100 if not found
+  let totalAmountReceivedLast24Hours = dashboardData.totalAmountReceivedLast24Hours ? parseFloat(dashboardData.totalAmountReceivedLast24Hours) : 0;
+  let receivedTransactions = dashboardData.receivedTransactions || 0;
+
   try {
+
+
 
     // / Fetch user data along with account ID
     const [userData] = await db.query(
@@ -417,13 +448,36 @@ router.post('/convert', authenticateToken, async (req, res) => {
     );
     console.log('User Data:', userData);
 
+
+    // Check daily coin limit 
+    if (totalAmountReceivedLast24Hours + amount > dailyCoinLimit) {
+      console.log("Daily coin limit would be exceeded");
+      console.error('Error conversion data');
+      return res.status(500).json({ message: 'Server error: Daily coin limit exceeded' });
+    }
+
+    // Check daily transaction limit
+    if (receivedTransactions + 1 > dailyLimit) {
+      console.log("Daily transaction number limit would be exceeded");
+      console.error('Error conversion data');
+      return res.status(500).json({ message: 'Server error: Daily limit exceeded' });
+    }
+
+    if (dashboardData.dailyCoinLimit < amount) {
+      console.log("Amount is over the daily coin limit for conversion");
+      console.error('Error conversion data');
+      return res.status(500).json({ message: 'Server error: Insufficient daily coin limit for conversion' });
+    }
+
     if (method == "spend")
       if (userData[0].redeemable < amount) {
-        console.log("Insuffiecent redeemable balance for conversion");
+        console.log("Insufficient redeemable balance for conversion");
         console.error('Error conversion data');
-        return res.status(500).json({ message: 'Server error: Insuffiecent redeemable balance for withdraw' });
+        return res.status(500).json({ message: 'Server error: Insufficient redeemable balance for withdraw' });
       }
+
     if (method == "redeem")
+      // console.log("User Data:", userData);
       if (userData[0].spendable < amount) {
         console.log("Insuffiecent spendable balance for conversion");
         console.error('Error coversion data');
@@ -489,30 +543,30 @@ router.post('/convert', authenticateToken, async (req, res) => {
     // Create Notification
     //  const { type, recipient_user_id, recipient_username, Nmessage, from_user, date } = req.body;
     //  console.log("New notification: ", Nmessage);
-    
-     // Fetch user details
-     const [user] = await db.query(
+
+    // Fetch user details
+    const [user] = await db.query(
       'SELECT * FROM users WHERE username = ?',
       [username]
     );
 
-   
+
 
     let notificationMsg = `Hoo-ray, Your conversion of ${amount} coins has been processed!`
 
-     try {
-         const [result] = await db.query(
-             `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
+    try {
+      const [result] = await db.query(
+        `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
     VALUES (?, ?, ?, ?, ?, ?)`,
-             ["purchase-confirmed", req.user.user_id, notificationMsg, "0", user.username, new Date()]
-         );
+        ["purchase-confirmed", req.user.user_id, notificationMsg, "0", user.username, new Date()]
+      );
 
-         console.log("New notification successfully created:", notificationMsg);
-         // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
-     } catch (error) {
-         console.error('Error creating notification:', error);
-         // res.status(500).json({ message: 'Server error' });
-     }
+      console.log("New notification successfully created:", notificationMsg);
+      // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      // res.status(500).json({ message: 'Server error' });
+    }
 
     // res.status(201).json({ message: 'Content added successfully', ok: true });
     // res.json({ message: 'Transaction successful' });

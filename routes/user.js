@@ -789,73 +789,181 @@ router.post('/add-rating', authenticateToken, async (req, res) => {
   }
 });
 
-// 2. PUT /user/:userId/favorite - Update favorite status
-router.put('/:userId/favorite', authenticateToken, async (req, res) => {
-  const { isFavorite, user } = req.body;
-  const favoriteUserId = req.params.userId;
+// // 2. PUT /user/:userId/favorite - Update favorite status
+// router.put('/:userId/favorite', authenticateToken, async (req, res) => {
+//   const { userId, isFavorite, user } = req.body;
+//   const favoriteUserId = req.params.userId;
+//   console.log("(FAV REQ) User ID: ", user.user_id);
+//   console.log("userId: ", userId);
+//   try {
+//     const connection = await db.getConnection();
+//     await connection.beginTransaction();
 
+//     try {
+//       // Get current user's favorites
+//       // Fetch user details
+//       // Fetch user details
+//       const [id] = await db.query(
+//         'SELECT id FROM users WHERE user_id = ?',
+//         [user.user_id]
+//       );
+//       // console.log("ID#: ", id)
+//       // console.log("ID#: ", id[0].id)
+//       const [favoritesObj] = await db.query(
+//         'SELECT favorites FROM users WHERE user_id = ?',
+//         [req.user.user_id]
+//       );
+//       let fav = favoritesObj[0].favorites.replaceAll(" ", '');
+//       let favorites = fav.split(",");
+//       let favnum = favorites.length;
+//       // console.log("Favorites: ", favorites);
+//       // console.log("Number of Favorites: ", favnum);
+//       /// let favorites = user.favorites ? JSON.parse(user.favorites) : [];
+
+//       if (isFavorite) {
+//         // Add to favorites if not already present
+//         if (!favorites.includes(id[0].id)) {
+//           favorites.push(id[0].id);
+//           const fav_str = JSON.stringify(favorites);
+//           console.log("favorites_string: ", fav_str);
+//           const num_of_fav = favorites.length;
+//           console.log("number_of_favorites_received: ", num_of_fav);
+
+//           // Update list of favorites for the current user
+//           await connection.query('UPDATE users SET favorites = ? WHERE user_id = ?',
+//             [fav_str, req.user.user_id]);
+
+//           // Update favorites count by 1 for the user receiving "favorited or liked" status
+//           // FIXED: Use the same connection object, not db
+//           await connection.query('UPDATE users SET num_fav = num_fav + ? WHERE user_id = ?',
+//             [1, favoriteUserId]);
+//         }
+//       } else {
+//         // Remove from favorites
+//         // Update favorites count by -1 for the user losing "favorited or liked" status
+//         // FIXED: Use the same connection object, not db
+//         await connection.query('UPDATE users SET num_fav = num_fav - ? WHERE user_id = ?',
+//           [1, favoriteUserId]);
+
+//         favorites = favorites.filter(id => id !== favoriteUserId);
+
+//         // FIXED: Missing update to favorites after removal
+//         const fav_str = JSON.stringify(favorites);
+//         await connection.query('UPDATE users SET favorites = ? WHERE user_id = ?',
+//           [fav_str, req.user.user_id]);
+//       }
+
+//       await connection.commit();
+//       res.json({
+//         message: isFavorite ? 'User added to favorites' : 'User removed from favorites',
+//         favorites: favorites
+//       });
+//     } catch (error) {
+//       await connection.rollback();
+//       throw error;
+//     } finally {
+//       connection.release();
+//     }
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ message: 'Server error', error: error.message });
+//   }
+// });
+
+// PUT /user/:userId/favorite - Update favorite status
+router.put('/:userId/favorite', authenticateToken, async (req, res) => {
+  const { isFavorite } = req.body;
+  const favoriteUserId = req.params.userId; // user_id being favorited/unfavorited
+  const currentUserId = req.user.user_id; // Current authenticated user's user_id
+  
+  console.log("(FAV REQ) Current User ID: ", currentUserId);
+  console.log("Target User ID to favorite/unfavorite: ", favoriteUserId);
+  
   try {
     const connection = await db.getConnection();
     await connection.beginTransaction();
 
     try {
-      // Get current user's favorites
-      // Fetch user details
-      // Fetch user details
-      const [id] = await db.query(
-        'SELECT id FROM users WHERE user_id = ?',
+      // Verify that the target user exists
+      const [targetUserResult] = await connection.query(
+        'SELECT user_id FROM users WHERE user_id = ?',
         [favoriteUserId]
       );
-      console.log("ID#: ", id[0].id)
-      const [favoritesObj] = await db.query(
-        'SELECT favorites FROM users WHERE user_id = ?',
-        [req.user.user_id]
-      );
-      let fav = favoritesObj[0].favorites.replaceAll(" ", '');
-      let favorites = fav.split(",");
-      let favnum = favorites.length;
-      // console.log("Favorites: ", favorites);
-      // console.log("Number of Favorites: ", favnum);
-      /// let favorites = user.favorites ? JSON.parse(user.favorites) : [];
-
-      if (isFavorite) {
-        // Add to favorites if not already present
-        if (!favorites.includes(id[0].id)) {
-          favorites.push(id[0].id);
-          const fav_str = JSON.stringify(favorites);
-          console.log("favorites_string: ", fav_str);
-          const num_of_fav = favorites.length;
-          console.log("number_of_favorites_received: ", num_of_fav);
-
-          // Update list of favorites for the current user
-          await connection.query('UPDATE users SET favorites = ? WHERE user_id = ?',
-            [fav_str, req.user.user_id]);
-
-          // Update favorites count by 1 for the user receiving "favorited or liked" status
-          // FIXED: Use the same connection object, not db
-          await connection.query('UPDATE users SET num_fav = num_fav + ? WHERE user_id = ?',
-            [1, favoriteUserId]);
-        }
-      } else {
-        // Remove from favorites
-        // Update favorites count by -1 for the user losing "favorited or liked" status
-        // FIXED: Use the same connection object, not db
-        await connection.query('UPDATE users SET num_fav = num_fav - ? WHERE user_id = ?',
-          [1, favoriteUserId]);
-
-        favorites = favorites.filter(id => id !== favoriteUserId);
-
-        // FIXED: Missing update to favorites after removal
-        const fav_str = JSON.stringify(favorites);
-        await connection.query('UPDATE users SET favorites = ? WHERE user_id = ?',
-          [fav_str, req.user.user_id]);
+      
+      if (!targetUserResult || targetUserResult.length === 0) {
+        await connection.rollback();
+        return res.status(404).json({ message: 'Target user not found' });
       }
 
+      // Prevent users from favoriting themselves
+      if (currentUserId === favoriteUserId) {
+        await connection.rollback();
+        return res.status(400).json({ message: 'Cannot favorite yourself' });
+      }
+
+      if (isFavorite) {
+        // Add to favorites - use INSERT IGNORE to prevent duplicate key errors
+        const [insertResult] = await connection.query(
+          'INSERT IGNORE INTO user_favorites (user_id, favorite_user_id) VALUES (?, ?)',
+          [currentUserId, favoriteUserId]
+        );
+
+        // Check if a new row was actually inserted
+        if (insertResult.affectedRows > 0) {
+          // Increment the num_fav count for the user being favorited
+          await connection.query(
+            'UPDATE users SET num_fav = num_fav + 1 WHERE user_id = ?',
+            [favoriteUserId]
+          );
+          console.log(`Added user ${favoriteUserId} to favorites for user ${currentUserId}`);
+        } else {
+          console.log(`User ${favoriteUserId} already in favorites for user ${currentUserId}`);
+        }
+
+      } else {
+        // Remove from favorites
+        const [deleteResult] = await connection.query(
+          'DELETE FROM user_favorites WHERE user_id = ? AND favorite_user_id = ?',
+          [currentUserId, favoriteUserId]
+        );
+
+        // Check if a row was actually deleted
+        if (deleteResult.affectedRows > 0) {
+          // Decrement the num_fav count for the user being unfavorited
+          await connection.query(
+            'UPDATE users SET num_fav = GREATEST(num_fav - 1, 0) WHERE user_id = ?',
+            [favoriteUserId]
+          );
+          console.log(`Removed user ${favoriteUserId} from favorites for user ${currentUserId}`);
+        } else {
+          console.log(`User ${favoriteUserId} was not in favorites for user ${currentUserId}`);
+        }
+      }
+
+      // Get updated favorites list for response
+      const [favoritesResult] = await connection.query(
+        'SELECT favorite_user_id FROM user_favorites WHERE user_id = ? ORDER BY created_at DESC',
+        [currentUserId]
+      );
+      
+      const favoritesList = favoritesResult.map(row => row.favorite_user_id);
+
+      // Get updated num_fav count for the target user
+      const [numFavResult] = await connection.query(
+        'SELECT num_fav FROM users WHERE user_id = ?',
+        [favoriteUserId]
+      );
+
       await connection.commit();
+      
       res.json({
+        success: true,
         message: isFavorite ? 'User added to favorites' : 'User removed from favorites',
-        favorites: favorites
+        currentUserFavorites: favoritesList,
+        targetUserFavoriteCount: numFavResult[0]?.num_fav || 0,
+        isFavorite: favoritesList.includes(favoriteUserId)
       });
+      
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -863,10 +971,15 @@ router.put('/:userId/favorite', authenticateToken, async (req, res) => {
       connection.release();
     }
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('Favorites endpoint error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error', 
+      error: error.message 
+    });
   }
 });
+
 
 // 3. POST /user/:userId/report - Submit a report
 router.post('/:userId/report', authenticateToken, async (req, res) => {
