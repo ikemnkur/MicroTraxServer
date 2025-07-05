@@ -132,6 +132,7 @@ router.post('/validate-transaction', authenticateToken, async (req, res) => {
 
         // 4) Insert into "purchases" table
         await db.query(
+
             `
             INSERT INTO purchases 
                 (username, userid, amount, currencyAmount, reference_id, date, sessionID, transactionId, data, type, status) 

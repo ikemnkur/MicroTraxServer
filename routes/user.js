@@ -670,7 +670,11 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
     if (/^\d+$/.test(userIdOrUsername)) {
       // It's a userId
       query = `
-        SELECT u.user_id, u.username, u.created_at, u.email, u.accountTier, u.favorites, u.bio, u.rating, u.user_id, u.profilePic
+
+        SELECT u.user_id, u.username, u.created_at, u.email,
+               a.balance, u.accountTier, u.favorites, u.bio,
+               u.rating, u.user_id, u.profilePic
+
         FROM users u
         LEFT JOIN accounts a ON u.user_id = a.user_id
         WHERE u.user_id = ?
@@ -735,11 +739,14 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
     users[0].avgRating = avgRating;
     users[0].numberOfLikes = numberOfLikes;
     users[0].numberOfPosts = numberOfPosts;
+
+
     // console.log("Favorites: ", favorites[0].favorites)
     let fav = favorites[0].favorites.replaceAll(" ", '');
     let favoriteList = fav.split(",");
     let favnum = favoriteList.length;
     // console.log("Favorites: ", favnum)
+
     users[0].numberOfFavorites = favnum;
 
     // console.log("#Posts: ", favs)
@@ -872,6 +879,9 @@ router.post('/add-rating', authenticateToken, async (req, res) => {
 
 // PUT /user/:userId/favorite - Update favorite status
 router.put('/:userId/favorite', authenticateToken, async (req, res) => {
+
+
+
   const { isFavorite } = req.body;
   const favoriteUserId = req.params.userId; // user_id being favorited/unfavorited
   const currentUserId = req.user.user_id; // Current authenticated user's user_id
@@ -879,11 +889,13 @@ router.put('/:userId/favorite', authenticateToken, async (req, res) => {
   console.log("(FAV REQ) Current User ID: ", currentUserId);
   console.log("Target User ID to favorite/unfavorite: ", favoriteUserId);
   
+
   try {
     const connection = await db.getConnection();
     await connection.beginTransaction();
 
     try {
+
       // Verify that the target user exists
       const [targetUserResult] = await connection.query(
         'SELECT user_id FROM users WHERE user_id = ?',
@@ -985,6 +997,25 @@ router.put('/:userId/favorite', authenticateToken, async (req, res) => {
 router.post('/:userId/report', authenticateToken, async (req, res) => {
   const { reportMessage, reportedUser, reportingUser } = req.body;
   const reportedUserId = req.params.userId;
+
+  try {
+    await db.query(
+      'INSERT INTO user_reports (reporter_id, reported_user_id, report_message, reportedUsername, reportingUsername) VALUES (?, ?, ?, ?, ?)',
+      [req.user.user_id, reportedUserId, reportMessage, reportedUser, reportingUser]
+    );
+
+    res.status(201).json({ message: 'Report submitted successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// 3. POST /user/:userId/report - Submit a report
+
+router.post('/:username/report', authenticateToken, async (req, res) => {
+  const { reportMessage } = req.body;
+  const reportedUsername = req.params.username;
 
   try {
     await db.query(

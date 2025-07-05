@@ -17,6 +17,7 @@ router.get('/unlock-content/:itemId', async (req, res) => {
             'SELECT profilePic FROM users WHERE username = ?',
             [content[0].host_username]
         );
+
         // console.log("Unlocking from User : ", userpfp )
         console.log("User PFP: ", userpfp[0].profilePic )
         if (content.length === 0) {
@@ -24,6 +25,7 @@ router.get('/unlock-content/:itemId', async (req, res) => {
         }
         
         content[0].profilePic  = userpfp[0].profilePic
+
         res.json(content[0]);
     } catch (error) {
         console.error('Error fetching content:', error);

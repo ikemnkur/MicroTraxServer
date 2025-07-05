@@ -164,113 +164,41 @@ app.get('/', (req, res) => {
 
 app.get('/admin/stats', (req, res) => {
   const uptime = moment.duration(Date.now() - startTime).humanize();
+  res.render('admin', { 
+    recentRequests: recentRequests, 
+    pageVisits: pageVisits, 
+    uptime: uptime 
+  });
+});
 
-  let adminHtml = `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Admin Dashboard</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-        <style>
-            body { padding-top: 20px; }
-            .table-container { max-height: 400px; overflow-y: auto; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1 class="mb-4">Admin Dashboard</h1>
-            
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h5 class="card-title">Server Uptime</h5>
-                    <p class="card-text">${uptime}</p>
-                </div>
-            </div>
 
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h5 class="card-title">Page Visits</h5>
-                    <input type="text" id="visitFilter" class="form-control mb-3" placeholder="Filter visits...">
-                    <div class="table-container">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Count</th>
-                                    <th>URL</th>
-                                    <th>Time</th>
-                                    <th>IP</th>
-                                    <th>Location</th>
-                                </tr>
-                            </thead>
-                            <tbody id="visitsTableBody">
-                                ${pageVisits.map(visit => `
-                                    <tr>
-                                        <td>${visit.count}</td>
-                                        <td>${visit.url}</td>
-                                        <td>${visit.time}</td>
-                                        <td>${visit.ip}</td>
-                                        <td>${visit.location}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+// Route to render the admin users page
+app.get('/admin/logs', (req, res) => {
+  // Add middleware to check if user is admin
+  // if (!req.session || !req.session.user || req.session.user.role !== 'admin') {
+    // return res.redirect('/login?redirect=/admin/users');
+  // }
+  const uptime = moment.duration(Date.now() - startTime).humanize();
+  res.render('logs', { 
+    recentRequests: recentRequests, 
+    pageVisits: pageVisits, 
+    uptime: uptime 
+  });
+});
 
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h5 class="card-title">Recent Requests</h5>
-                    <div class="table-container">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Method</th>
-                                    <th>URL</th>
-                                    <th>Time</th>
-                                    <th>IP</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${recentRequests.map(request => `
-                                    <tr>
-                                        <td>${request.method}</td>
-                                        <td>${request.url}</td>
-                                        <td>${request.time}</td>
-                                        <td>${request.ip}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+// Admin reports page
+app.get('/admin/reports', (req, res) => {
+  res.render('reports');
+});
 
-            <button id="refreshButton" class="btn btn-primary">Refresh Data</button>
-        </div>
 
-        <script>
-            document.getElementById('visitFilter').addEventListener('input', function() {
-                const filter = this.value.toLowerCase();
-                const rows = document.querySelectorAll('#visitsTableBody tr');
-                rows.forEach(row => {
-                    const text = row.textContent.toLowerCase();
-                    row.style.display = text.includes(filter) ? '' : 'none';
-                });
-            });
-
-            document.getElementById('refreshButton').addEventListener('click', function() {
-                location.reload();
-            });
-        </script>
-    </body>
-    </html>
-  `;
-
-  res.send(adminHtml);
+// Route to render the admin users page
+app.get('/admin/users', (req, res) => {
+  // Add middleware to check if user is admin
+  // if (!req.session || !req.session.user || req.session.user.role !== 'admin') {
+    // return res.redirect('/login?redirect=/admin/users');
+  // }
+  res.render('admin-users');
 });
 
 
