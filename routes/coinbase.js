@@ -107,7 +107,7 @@ router.post('/log-transaction', authenticateToken, async (req, res) => {
         // Insert into "purchases" table
         await db.query(
             `INSERT INTO purchases 
-                (username, userid, amount, reference_code, date, sessionID, transactionId, data, type, status) 
+                (username, userid, amount, reference_id, date, sessionID, transactionId, data, type, status) 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 username,
