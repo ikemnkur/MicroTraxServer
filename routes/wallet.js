@@ -497,6 +497,16 @@ router.post('/convert', authenticateToken, async (req, res) => {
       'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [0, req.user.user_id, amount, 'convert', 'Completed', "You", "System", message, uuidv4()]
     );
+    let feeamount = 0;
+    if (method == "redeem")
+      feeamount = Math.ceil(amount * 0.1)
+    else
+      feeamount = Math.ceil(amount * 0.05)
+
+    await db.query(
+      'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [0, req.user.user_id, feeamount, 'fee', 'Completed', "You", "System", message, uuidv4()]
+    );
 
     if (method == "spend") {
       // // Update user's coin balance
@@ -515,7 +525,11 @@ router.post('/convert', authenticateToken, async (req, res) => {
         'UPDATE accounts SET redeemable = redeemable - ? WHERE user_id = ?',
         [amount, req.user.user_id]
       );
-
+      // charge fee to user's coin redeemable balance
+      await db.query(
+        'UPDATE accounts SET redeemable = redeemable - ? WHERE user_id = ?',
+        [feeamount, req.user.user_id]
+      );
     }
 
     if (method == "redeem") {
@@ -531,11 +545,19 @@ router.post('/convert', authenticateToken, async (req, res) => {
         [amount, req.user.user_id]
       );
 
-      // Update user's coin redeemable balance
+      // Update user's coin spendable balance
       await db.query(
         'UPDATE accounts SET spendable = spendable - ? WHERE user_id = ?',
         [amount, req.user.user_id]
       );
+
+ // Charge a fee to user's coin spendable balance
+      await db.query(
+        'UPDATE accounts SET spendable = spendable - ? WHERE user_id = ?',
+        [feeamount, req.user.user_id]
+      );
+
+
 
     }
 

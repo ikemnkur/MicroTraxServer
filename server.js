@@ -564,27 +564,92 @@ app.use('/admin', adminRoutes);
 const cron = require('node-cron');
 // const db = require('./config/db'); // adjust the path if needed
 
-// Schedule the job to run every day at 12:00 AM EST
+// // Schedule the job to run every day at 12:00 AM EST
+// cron.schedule(
+//   '0 0 * * *',
+//   async () => {
+//     console.log('Running daily deduction job at 12:00 AM EST');
+//     try {
+//       // For example, subtract a fixed daily amount (e.g., 10 units) from each user account,
+//       // but only if the account has sufficient balance.
+//       const query = 'SELECT tier FROM accounts WHERE balance >= ?';
+//       const [result] = await db.query(query, [dailyDeduction]);
+//       const dailyDeduction = 10*result[0].tier; // Adjust this based on your logic
+//       const query2 = 'UPDATE accounts SET balance = balance - ? WHERE balance >= ?';
+//       const [result2] = await db.query(query2, [dailyDeduction, dailyDeduction]);
+//       console.log(`Daily deduction applied to ${result2.affectedRows} accounts.`);
+//     } catch (error) {
+//       console.error('Error applying daily deduction:', error);
+//     }
+//   },
+//   {
+//     timezone: 'America/New_York'
+//   }
+// );
+
+// Enhanced version with logging and error handling
 cron.schedule(
   '0 0 * * *',
   async () => {
-    console.log('Running daily deduction job at 12:00 AM EST');
+    const startTime = new Date();
+    console.log(`Starting daily deduction job at ${startTime.toISOString()}`);
+    
     try {
-      // For example, subtract a fixed daily amount (e.g., 10 units) from each user account,
-      // but only if the account has sufficient balance.
-      const dailyDeduction = 10;
-      const query = 'UPDATE accounts SET balance = balance - ? WHERE balance >= ?';
-      const [result] = await db.query(query, [dailyDeduction, dailyDeduction]);
-      console.log(`Daily deduction applied to ${result.affectedRows} accounts.`);
+      // Begin transaction for data consistency
+      await db.query('START TRANSACTION');
+      
+      // Get accounts that can afford the deduction
+      const selectQuery = `
+        SELECT id, tier, balance, (10 * tier) as daily_deduction
+        FROM accounts 
+        WHERE balance >= (10 * tier) AND tier > 0
+      `;
+      const [eligibleAccounts] = await db.query(selectQuery);
+      
+      if (eligibleAccounts.length === 0) {
+        console.log('No accounts eligible for daily deduction');
+        await db.query('COMMIT');
+        return;
+      }
+      
+      // Apply deductions
+      const updateQuery = `
+        UPDATE accounts 
+        SET balance = balance - (10 * tier),
+            last_deduction = NOW()
+        WHERE balance >= (10 * tier) AND tier > 0
+      `;
+      
+      const [result] = await db.query(updateQuery);
+      
+      // Log the deduction details
+      const totalDeducted = eligibleAccounts.reduce((sum, account) => sum + account.daily_deduction, 0);
+      
+      console.log(`Daily deduction completed:`);
+      console.log(`- Accounts processed: ${result.affectedRows}`);
+      console.log(`- Total amount deducted: ${totalDeducted}`);
+      console.log(`- Average deduction per account: ${(totalDeducted / result.affectedRows).toFixed(2)}`);
+      
+      // Commit transaction
+      await db.query('COMMIT');
+      
+      const endTime = new Date();
+      const duration = endTime - startTime;
+      console.log(`Daily deduction job completed in ${duration}ms`);
+      
     } catch (error) {
+      // Rollback on error
+      await db.query('ROLLBACK');
       console.error('Error applying daily deduction:', error);
+      
+      // Optional: Send alert notification
+      // await sendAlertNotification('Daily deduction job failed', error.message);
     }
   },
   {
     timezone: 'America/New_York'
   }
 );
-
 
 // email-service.js
 const nodemailer = require('nodemailer');

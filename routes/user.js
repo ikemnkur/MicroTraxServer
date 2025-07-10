@@ -330,6 +330,24 @@ router.get('/profile', authenticateToken, async (req, res) => {
   }
 });
 
+router.put('/account-tier', authenticateToken, async (req, res) => {
+  const { accountTier } = req.body;
+  try {
+    await db.query(
+      'UPDATE users SET accountTier = ? WHERE user_id = ?',
+      [accountTier, req.user.user_id]
+    );
+    await db.query(
+      'UPDATE accounts SET tier = ? WHERE user_id = ?',
+      [accountTier, req.user.user_id]
+    );
+    res.json({ message: 'Account tier updated successfully' });
+  } catch (error) {
+    console.error('Error updating account tier:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 router.put('/profile', authenticateToken, async (req, res) => {
   const { username, email, firstName, lastName, phoneNumber, birthDate, accountTier, encryptionKey, profilePic, timezone } = req.body;
   console.log("Put.Body: ", req.body);

@@ -40,7 +40,7 @@ router.get('/user-info/:username', async (req, res) => {
 
 //     let userId = userRows[0].user_id;
 
- Fetch user account details if you have an accounts table
+//  Fetch user account details if you have an accounts table
     let accountData = null;
    try {
       const [userAccRows] = await connection.query(

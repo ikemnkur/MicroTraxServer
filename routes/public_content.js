@@ -18,9 +18,9 @@ const pool = mysql.createPool({
 
 // Get all of a creator's public content
 router.get('/get', authenticateToken, async (req, res) => {
-    console.log("gET: PUBLIC CONTENT:", req.user.user_id)
+    // console.log("gET: PUBLIC CONTENT:", req.user.user_id)
     try {/*  */
-        console.log("gET: PUBLIC CONTENT:", req.user.user_id)
+        // console.log("gET: PUBLIC CONTENT:", req.user.user_id)
         const [rows] = await db.query(
             'SELECT * FROM public_content WHERE host_user_id = ?',
             [req.user.user_id]
