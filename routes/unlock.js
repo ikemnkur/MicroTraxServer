@@ -7,11 +7,14 @@ const { v4: uuidv4 } = require('uuid');
 
 router.get('/unlock-content/:itemId', async (req, res) => {
     try {
+        console.log("Unlocking content red params: ", req.params)
+        console.log("Unlocking content with itemId: ", req.params.itemId)
         // console.log("req: ", req)
         const [content] = await db.query(
             'SELECT * FROM public_content WHERE reference_id = ?',
             [req.params.itemId]
         );
+
         console.log("Content: ", content[0])   
         const [userpfp] = await db.query(
             'SELECT profilePic FROM users WHERE username = ?',

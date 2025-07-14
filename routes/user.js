@@ -12,17 +12,17 @@ const router = express.Router();
 router.get('/search', authenticateToken, async (req, res) => {
   try {
     const { q } = req.query;
-    
+
     // Validate search query
     if (!q || q.trim().length < 3) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Search query must be at least 3 characters long',
         users: []
       });
     }
-    
+
     const searchTerm = `%${q.trim()}%`;
-    
+
     // Search users by username, firstName, or lastName
     // Exclude the current user from results
     // Note: Using 'id' instead of 'user_id' for the primary comparison
@@ -51,7 +51,7 @@ router.get('/search', authenticateToken, async (req, res) => {
         `${q.trim()}%`, `${q.trim()}%`, `${q.trim()}%` // For ORDER BY (exact matches first)
       ]
     );
-    
+
     // Format the response
     const formattedUsers = users.map(user => ({
       username: user.username,
@@ -61,16 +61,16 @@ router.get('/search', authenticateToken, async (req, res) => {
       profilePic: user.profilePic,
       isOnline: Boolean(user.isOnline)
     }));
-    
+
     res.json({
       users: formattedUsers,
       total: formattedUsers.length,
       query: q.trim()
     });
-    
+
   } catch (error) {
     console.error('Error searching users:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Server error while searching users',
       users: []
     });
@@ -81,15 +81,15 @@ router.get('/search', authenticateToken, async (req, res) => {
 router.get('/validate/:username', authenticateToken, async (req, res) => {
   try {
     const { username } = req.params;
-    
+
     // Validate username parameter
     if (!username || username.trim().length === 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         exists: false,
-        message: 'Username parameter is required' 
+        message: 'Username parameter is required'
       });
     }
-    
+
     // Check if user exists and is not banned (accountTier 0 = banned)
     const [users] = await db.query(
       `SELECT u.id, u.user_id, u.username, u.firstName, u.lastName, u.bio, u.profilePic, u.accountTier,
@@ -101,16 +101,16 @@ router.get('/validate/:username', authenticateToken, async (req, res) => {
        WHERE u.username = ? AND u.accountTier != 0`,
       [username.trim()]
     );
-    
+
     if (users.length === 0) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         exists: false,
         message: 'User not found or account is banned'
       });
     }
-    
+
     const user = users[0];
-    
+
     // Check if it's the same user trying to message themselves
     if (user.id === req.user.id) {
       return res.status(400).json({
@@ -118,7 +118,7 @@ router.get('/validate/:username', authenticateToken, async (req, res) => {
         message: 'You cannot start a conversation with yourself'
       });
     }
-    
+
     // Return user existence confirmation with basic info
     res.json({
       exists: true,
@@ -131,12 +131,12 @@ router.get('/validate/:username', authenticateToken, async (req, res) => {
         isOnline: Boolean(user.isOnline)
       }
     });
-    
+
   } catch (error) {
     console.error('Error validating user:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       exists: false,
-      message: 'Server error while validating user' 
+      message: 'Server error while validating user'
     });
   }
 });
@@ -145,15 +145,15 @@ router.get('/validate/:username', authenticateToken, async (req, res) => {
 router.get('/exists/:username', authenticateToken, async (req, res) => {
   try {
     const { username } = req.params;
-    
+
     // Validate username parameter
     if (!username || username.trim().length === 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         exists: false,
-        message: 'Username parameter is required' 
+        message: 'Username parameter is required'
       });
     }
-    
+
     // Check if user exists and is not banned (accountTier 0 = banned)
     const [users] = await db.query(
       `SELECT u.id, u.user_id, u.username, u.firstName, u.lastName, u.bio, u.profilePic, u.accountTier,
@@ -165,16 +165,16 @@ router.get('/exists/:username', authenticateToken, async (req, res) => {
        WHERE u.username = ? AND u.accountTier != 0`,
       [username.trim()]
     );
-    
+
     if (users.length === 0) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         exists: false,
         message: 'User not found or account is banned'
       });
     }
-    
+
     const user = users[0];
-    
+
     // Check if it's the same user trying to message themselves
     if (user.id === req.user.id) {
       return res.status(400).json({
@@ -182,7 +182,7 @@ router.get('/exists/:username', authenticateToken, async (req, res) => {
         message: 'You cannot start a conversation with yourself'
       });
     }
-    
+
     // Return user existence confirmation with basic info
     res.json({
       exists: true,
@@ -195,12 +195,12 @@ router.get('/exists/:username', authenticateToken, async (req, res) => {
         isOnline: Boolean(user.isOnline)
       }
     });
-    
+
   } catch (error) {
     console.error('Error validating user:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       exists: false,
-      message: 'Server error while validating user' 
+      message: 'Server error while validating user'
     });
   }
 });
@@ -209,7 +209,7 @@ router.get('/exists/:username', authenticateToken, async (req, res) => {
 router.get('/profile/:username', authenticateToken, async (req, res) => {
   try {
     const { username } = req.params;
-    
+
     const [users] = await db.query(
       `SELECT u.username, u.firstName, u.lastName, u.bio, u.profilePic, u.accountTier,
               CASE 
@@ -220,13 +220,13 @@ router.get('/profile/:username', authenticateToken, async (req, res) => {
        WHERE u.username = ? AND u.accountTier != 0`,
       [username]
     );
-    
+
     if (users.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
-    
+
     const user = users[0];
-    
+
     // Return public profile information only
     res.json({
       username: user.username,
@@ -237,7 +237,7 @@ router.get('/profile/:username', authenticateToken, async (req, res) => {
       isOnline: Boolean(user.isOnline),
       accountTier: user.accountTier
     });
-    
+
   } catch (error) {
     console.error('Error fetching user profile:', error);
     res.status(500).json({ message: 'Server error' });
@@ -261,15 +261,15 @@ router.get('/profile', authenticateToken, async (req, res) => {
     }
 
     let user = users[0];
-    
+
     // Handle case where user has no favorites yet (null or empty)
     let favoriteUsers = [];
-    
+
     if (user.favorites) {
       try {
         // Check if favorites is a string (comma-separated) or JSON
         let listOfFavorites;
-        
+
         if (typeof user.favorites === 'string') {
           // Handle comma-separated string
           if (user.favorites.trim() === '') {
@@ -281,33 +281,33 @@ router.get('/profile', authenticateToken, async (req, res) => {
           // Handle JSON array
           listOfFavorites = Array.isArray(user.favorites) ? user.favorites : JSON.parse(user.favorites);
         }
-        
+
         // Only query if there are favorites to look up
         if (listOfFavorites.length > 0) {
           const [favoriteUsersResult] = await db.query(
-            `SELECT u.user_id, u.username, u.profilePic, u.bio
+            `SELECT u.user_id, u.username, u.profilePic, u.bio, u.id
              FROM users u
              WHERE u.id IN (?)`,
             [listOfFavorites]
           );
-          
+
           favoriteUsers = favoriteUsersResult || [];
         }
-        
+
       } catch (parseError) {
         console.error('Error parsing favorites:', parseError);
         // If parsing fails, default to empty array
         favoriteUsers = [];
       }
     }
-    
+
     // Check if the viewed user is in the current user's favorites
-    const isFavorite = user.favorites ? 
-      (typeof user.favorites === 'string' ? 
-        user.favorites.split(",").includes(req.user.id?.toString()) : 
+    const isFavorite = user.favorites ?
+      (typeof user.favorites === 'string' ?
+        user.favorites.split(",").includes(req.user.id?.toString()) :
         user.favorites.includes(req.user.id)
       ) : false;
-    
+
     // Format the favorites for response
     user.favorites = favoriteUsers.map(favUser => ({
       user_id: favUser.user_id,
@@ -315,17 +315,17 @@ router.get('/profile', authenticateToken, async (req, res) => {
       profilePic: favUser.profilePic,
       bio: favUser.bio
     }));
-    
+
     // Add isFavorite flag if needed
     user.isFavorite = isFavorite;
-    
+
     res.json(user);
-    
+
   } catch (error) {
     console.error('Error in /profile route:', error);
-    res.status(500).json({ 
-      message: 'Server error', 
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    res.status(500).json({
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -341,6 +341,11 @@ router.put('/account-tier', authenticateToken, async (req, res) => {
       'UPDATE accounts SET tier = ? WHERE user_id = ?',
       [accountTier, req.user.user_id]
     );
+    await db.query(
+      'UPDATE accounts SET spendable = ? WHERE user_id = ?',
+      [(accountTier - 1) * 5, req.user.user_id]
+    );
+
     res.json({ message: 'Account tier updated successfully' });
   } catch (error) {
     console.error('Error updating account tier:', error);
@@ -450,7 +455,7 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
        WHERE u.user_id = ?`,
       [req.user.user_id]
     );
-    console.log('User Data:', userData);
+    // console.log('User Data:', userData);
 
     if (!userData || userData.length === 0) {
       return res.status(404).json({ message: 'User data not found' });
@@ -524,7 +529,7 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
         id, id  // For the WHERE clause
       ]
     );
-    console.log('Transactions:', transactions);
+    // console.log('Transactions:', transactions);
 
     // Define daily limits based on account tier
     const dailyLimits = {
@@ -567,7 +572,7 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
       totalAmountReceivedToday: transactions[0].totalAmountReceivedToday ? parseFloat(transactions[0].totalAmountReceivedToday) : 0
     };
 
-    console.log('Dashboard Data:', dashboardData);
+    // console.log('Dashboard Data:', dashboardData);
     res.json(dashboardData);
   } catch (error) {
     console.error('Error in dashboard route:', error);
@@ -580,10 +585,10 @@ router.get('/:username/profile', authenticateToken, async (req, res) => {
   try {
     const { username } = req.params;
     let query, params;
-    console.log(username);
+    console.log("get user profile: ", username);
 
     const [userData] = await db.query(
-      `SELECT u.user_id, u.username, u.profilePic, u.bio
+      `SELECT u.user_id, u.username, u.profilePic, u.bio, u.id
        FROM users u
        WHERE u.username = ?`,
       [username]
@@ -751,7 +756,7 @@ router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) 
     );
 
     console.log("ID#: ", id[0].id)
-    favs = favorites[0].favorites
+    let favs = favorites[0].favorites
 
     // 4) Add the rating and likes info to the user object
     users[0].avgRating = avgRating;
@@ -814,186 +819,127 @@ router.post('/add-rating', authenticateToken, async (req, res) => {
   }
 });
 
-// // 2. PUT /user/:userId/favorite - Update favorite status
-// router.put('/:userId/favorite', authenticateToken, async (req, res) => {
-//   const { userId, isFavorite, user } = req.body;
-//   const favoriteUserId = req.params.userId;
-//   console.log("(FAV REQ) User ID: ", user.user_id);
-//   console.log("userId: ", userId);
-//   try {
-//     const connection = await db.getConnection();
-//     await connection.beginTransaction();
-
-//     try {
-//       // Get current user's favorites
-//       // Fetch user details
-//       // Fetch user details
-//       const [id] = await db.query(
-//         'SELECT id FROM users WHERE user_id = ?',
-//         [user.user_id]
-//       );
-//       // console.log("ID#: ", id)
-//       // console.log("ID#: ", id[0].id)
-//       const [favoritesObj] = await db.query(
-//         'SELECT favorites FROM users WHERE user_id = ?',
-//         [req.user.user_id]
-//       );
-//       let fav = favoritesObj[0].favorites.replaceAll(" ", '');
-//       let favorites = fav.split(",");
-//       let favnum = favorites.length;
-//       // console.log("Favorites: ", favorites);
-//       // console.log("Number of Favorites: ", favnum);
-//       /// let favorites = user.favorites ? JSON.parse(user.favorites) : [];
-
-//       if (isFavorite) {
-//         // Add to favorites if not already present
-//         if (!favorites.includes(id[0].id)) {
-//           favorites.push(id[0].id);
-//           const fav_str = JSON.stringify(favorites);
-//           console.log("favorites_string: ", fav_str);
-//           const num_of_fav = favorites.length;
-//           console.log("number_of_favorites_received: ", num_of_fav);
-
-//           // Update list of favorites for the current user
-//           await connection.query('UPDATE users SET favorites = ? WHERE user_id = ?',
-//             [fav_str, req.user.user_id]);
-
-//           // Update favorites count by 1 for the user receiving "favorited or liked" status
-//           // FIXED: Use the same connection object, not db
-//           await connection.query('UPDATE users SET num_fav = num_fav + ? WHERE user_id = ?',
-//             [1, favoriteUserId]);
-//         }
-//       } else {
-//         // Remove from favorites
-//         // Update favorites count by -1 for the user losing "favorited or liked" status
-//         // FIXED: Use the same connection object, not db
-//         await connection.query('UPDATE users SET num_fav = num_fav - ? WHERE user_id = ?',
-//           [1, favoriteUserId]);
-
-//         favorites = favorites.filter(id => id !== favoriteUserId);
-
-//         // FIXED: Missing update to favorites after removal
-//         const fav_str = JSON.stringify(favorites);
-//         await connection.query('UPDATE users SET favorites = ? WHERE user_id = ?',
-//           [fav_str, req.user.user_id]);
-//       }
-
-//       await connection.commit();
-//       res.json({
-//         message: isFavorite ? 'User added to favorites' : 'User removed from favorites',
-//         favorites: favorites
-//       });
-//     } catch (error) {
-//       await connection.rollback();
-//       throw error;
-//     } finally {
-//       connection.release();
-//     }
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ message: 'Server error', error: error.message });
-//   }
-// });
-
-// PUT /user/:userId/favorite - Update favorite status
+// 2. PUT /user/:userId/favorite - Update favorite status
 router.put('/:userId/favorite', authenticateToken, async (req, res) => {
+  // const { userId, isFavorite, user } = req.body;
+  // const favoriteUserId = req.params.userId;
+  // console.log("(FAV REQ) User ID: ", user.user_id);
+  // console.log("userId: ", userId);
 
-
+  console.log("FAV REQ");
 
   const { isFavorite } = req.body;
-  const favoriteUserId = req.params.userId; // user_id being favorited/unfavorited
+  // const favoriteUserId = req.params.userId; // user_id being favorited/unfavorited
+  console.log("Params: ", req.params);
+  console.log("Req.user : ", req.user);
   const currentUserId = req.user.user_id; // Current authenticated user's user_id
-  
+
+  const favoriteUsername = req.params.username || req.params.userId; // username being favorited/unfavorited
+  let favorites = [];
+
+
   console.log("(FAV REQ) Current User ID: ", currentUserId);
-  console.log("Target User ID to favorite/unfavorite: ", favoriteUserId);
-  
+  // (FAV REQ) Current User ID:  123ds435-897c-4d96-822c-118a4cc899c8
+  console.log("Target Username to favorite/unfavorite: ", favoriteUsername);
+  // Example output: Target Username to favorite/unfavorite:  user1
+
+  let query, params;
+
+
+  const [userData] = await db.query(
+    `SELECT u.user_id, u.username, u.profilePic, u.bio, u.id
+       FROM users u
+       WHERE u.username = ?`,
+    [favoriteUsername]
+  );
+
+  const favoriteUserId = userData[0]?.user_id; // user_id being favorited/unfavorited
+  console.log("favoriteUserId : ", favoriteUserId);
+  console.log("Favorite Username: ", favoriteUsername);
+  console.log("Favorite User Data: ", userData)
+  let fav_str = "";
+  // example:
+  //   User Data:  [
+  //   {
+  //     user_id: '4aa87961-8b51-4a89-94ff-a747f69d5071',
+  //     username: 'user1',
+  //     profilePic: 'https://res.cloudinary.com/dabegwb2z/image/upload/v1735462041/profile_pics/hi2ssghycopjjosbncnx.jpg',
+  //     bio: 'dumb fast money'
+  //   }
+  // ]
 
   try {
     const connection = await db.getConnection();
     await connection.beginTransaction();
 
     try {
-
-      // Verify that the target user exists
-      const [targetUserResult] = await connection.query(
-        'SELECT user_id FROM users WHERE user_id = ?',
-        [favoriteUserId]
+      // Get current user's favorites
+      // Fetch user details
+      // Fetch user details
+      const [id] = await db.query(
+        'SELECT id FROM users WHERE user_id = ?',
+        [userData[0].user_id]
       );
-      
-      if (!targetUserResult || targetUserResult.length === 0) {
-        await connection.rollback();
-        return res.status(404).json({ message: 'Target user not found' });
-      }
-
-      // Prevent users from favoriting themselves
-      if (currentUserId === favoriteUserId) {
-        await connection.rollback();
-        return res.status(400).json({ message: 'Cannot favorite yourself' });
-      }
+      // console.log("ID#: ", id)
+      // console.log("ID#: ", id[0].id)
+      const [favoritesObj] = await db.query(
+        'SELECT favorites FROM users WHERE user_id = ?',
+        [req.user.user_id]
+      );
+      let fav = favoritesObj[0].favorites.replaceAll(" ", '');
+      favorites = fav.split(",");
+      let favnum = favorites.length;
+      // console.log("Favorites: ", favorites);
+      // console.log("Number of Favorites: ", favnum);
+      /// let favorites = user.favorites ? JSON.parse(user.favorites) : [];
 
       if (isFavorite) {
-        // Add to favorites - use INSERT IGNORE to prevent duplicate key errors
-        const [insertResult] = await connection.query(
-          'INSERT IGNORE INTO user_favorites (user_id, favorite_user_id) VALUES (?, ?)',
-          [currentUserId, favoriteUserId]
-        );
+        // Add to favorites if not already present
+        if (!favorites.includes(id[0].id)) {
+          if (favorites[0] === "") {
+            favorites[0] = id[0].id;
+          } else {
+            favorites.push(id[0].id);
+          }
+          fav_str = JSON.stringify(favorites);
+          fav_str = fav_str.replaceAll(" ", '');
+          fav_str = fav_str.replaceAll("[", '');
+          fav_str = fav_str.replaceAll("]", '');
+          fav_str = fav_str.replaceAll('"', '');
+          console.log("favorites_string: ", fav_str);
+          // console.log("favorites_string: ", favorites);
+          const num_of_fav = favorites.length;
+          console.log("number_of_favorites_received: ", num_of_fav);
 
-        // Check if a new row was actually inserted
-        if (insertResult.affectedRows > 0) {
-          // Increment the num_fav count for the user being favorited
-          await connection.query(
-            'UPDATE users SET num_fav = num_fav + 1 WHERE user_id = ?',
-            [favoriteUserId]
-          );
-          console.log(`Added user ${favoriteUserId} to favorites for user ${currentUserId}`);
-        } else {
-          console.log(`User ${favoriteUserId} already in favorites for user ${currentUserId}`);
+          // Update list of favorites for the current user
+          await connection.query('UPDATE users SET favorites = ? WHERE user_id = ?',
+            [fav_str, req.user.user_id]);
+
+          // Update favorites count by 1 for the user receiving "favorited or liked" status
+          // FIXED: Use the same connection object, not db
+          await connection.query('UPDATE users SET num_fav = num_fav + ? WHERE user_id = ?',
+            [1, favoriteUserId]);
         }
-
       } else {
         // Remove from favorites
-        const [deleteResult] = await connection.query(
-          'DELETE FROM user_favorites WHERE user_id = ? AND favorite_user_id = ?',
-          [currentUserId, favoriteUserId]
-        );
+        // Update favorites count by -1 for the user losing "favorited or liked" status
+        // FIXED: Use the same connection object, not db
+        await connection.query('UPDATE users SET num_fav = num_fav - ? WHERE user_id = ?',
+          [1, favoriteUserId]);
 
-        // Check if a row was actually deleted
-        if (deleteResult.affectedRows > 0) {
-          // Decrement the num_fav count for the user being unfavorited
-          await connection.query(
-            'UPDATE users SET num_fav = GREATEST(num_fav - 1, 0) WHERE user_id = ?',
-            [favoriteUserId]
-          );
-          console.log(`Removed user ${favoriteUserId} from favorites for user ${currentUserId}`);
-        } else {
-          console.log(`User ${favoriteUserId} was not in favorites for user ${currentUserId}`);
-        }
+        favorites = favorites.filter(id => id !== userData[0].id);
+
+        // FIXED: Missing update to favorites after removal
+        const fav_str = JSON.stringify(favorites);
+        await connection.query('UPDATE users SET favorites = ? WHERE user_id = ?',
+          [fav_str, req.user.user_id]);
       }
 
-      // Get updated favorites list for response
-      const [favoritesResult] = await connection.query(
-        'SELECT favorite_user_id FROM user_favorites WHERE user_id = ? ORDER BY created_at DESC',
-        [currentUserId]
-      );
-      
-      const favoritesList = favoritesResult.map(row => row.favorite_user_id);
-
-      // Get updated num_fav count for the target user
-      const [numFavResult] = await connection.query(
-        'SELECT num_fav FROM users WHERE user_id = ?',
-        [favoriteUserId]
-      );
-
       await connection.commit();
-      
       res.json({
-        success: true,
         message: isFavorite ? 'User added to favorites' : 'User removed from favorites',
-        currentUserFavorites: favoritesList,
-        targetUserFavoriteCount: numFavResult[0]?.num_fav || 0,
-        isFavorite: favoritesList.includes(favoriteUserId)
+        favorites: favorites
       });
-      
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -1001,14 +947,156 @@ router.put('/:userId/favorite', authenticateToken, async (req, res) => {
       connection.release();
     }
   } catch (error) {
-    console.error('Favorites endpoint error:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error', 
-      error: error.message 
-    });
+    console.error(error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
+
+// // PUT /user/:userId/favorite - Update favorite status
+// router.put('/:userId/favorite2', authenticateToken, async (req, res) => {
+
+//   console.log("FAV REQ");
+
+//   const { isFavorite } = req.body;
+//   // const favoriteUserId = req.params.userId; // user_id being favorited/unfavorited
+//   console.log("Params: ", req.params);
+//   console.log("Req.user : ", req.user);
+//   const currentUserId = req.user.user_id; // Current authenticated user's user_id
+
+//   const favoriteUsername = req.params.username || req.params.userId; // username being favorited/unfavorited
+
+
+
+//   console.log("(FAV REQ) Current User ID: ", currentUserId);
+//   // (FAV REQ) Current User ID:  123ds435-897c-4d96-822c-118a4cc899c8
+//   console.log("Target Username to favorite/unfavorite: ", favoriteUsername);
+//   // Example output: Target Username to favorite/unfavorite:  user1
+
+//   let query, params;
+
+
+//   const [userData] = await db.query(
+//     `SELECT u.user_id, u.username, u.profilePic, u.bio, u.id
+//        FROM users u
+//        WHERE u.username = ?`,
+//     [favoriteUsername]
+//   );
+
+//   const favoriteUserId = userData[0]?.user_id; // user_id being favorited/unfavorited
+//   console.log("favoriteUserId : ", favoriteUserId);
+//   console.log("Favorite Username: ", favoriteUsername);
+//   console.log("Favorite User Data: ", userData)
+//   // example:
+//   //   User Data:  [
+//   //   {
+//   //     user_id: '4aa87961-8b51-4a89-94ff-a747f69d5071',
+//   //     username: 'user1',
+//   //     profilePic: 'https://res.cloudinary.com/dabegwb2z/image/upload/v1735462041/profile_pics/hi2ssghycopjjosbncnx.jpg',
+//   //     bio: 'dumb fast money'
+//   //   }
+//   // ]
+
+//   try {
+//     const connection = await db.getConnection();
+//     await connection.beginTransaction();
+
+//     try {
+
+//       // Verify that the target user exists
+//       const [targetUserResult] = await connection.query(
+//         'SELECT user_id FROM users WHERE user_id = ?',
+//         [favoriteUserId]
+//       );
+
+//       if (!targetUserResult || targetUserResult.length === 0) {
+//         await connection.rollback();
+//         return res.status(404).json({ message: 'Target user not found' });
+//       }
+
+//       // Prevent users from favoriting themselves
+//       if (currentUserId === favoriteUserId) {
+//         await connection.rollback();
+//         return res.status(400).json({ message: 'Cannot favorite yourself' });
+//       }
+
+//       if (isFavorite) {
+//         // Add to favorites - use INSERT IGNORE to prevent duplicate key errors
+//         const [insertResult] = await connection.query(
+//           'INSERT IGNORE INTO favorites (user_id, favorite_user_id) VALUES (?, ?)',
+//           [currentUserId, favoriteUserId]
+//         );
+
+//         // Check if a new row was actually inserted
+//         if (insertResult.affectedRows > 0) {
+//           // Increment the num_fav count for the user being favorited
+//           await connection.query(
+//             'UPDATE users SET num_fav = num_fav + 1 WHERE user_id = ?',
+//             [favoriteUserId]
+//           );
+//           console.log(`Added user ${favoriteUserId} to favorites for user ${currentUserId}`);
+//         } else {
+//           console.log(`User ${favoriteUserId} already in favorites for user ${currentUserId}`);
+//         }
+
+//       } else {
+//         // Remove from favorites
+//         const [deleteResult] = await connection.query(
+//           'DELETE FROM favorites WHERE user_id = ? AND favorite_user_id = ?',
+//           [currentUserId, favoriteUserId]
+//         );
+
+//         // Check if a row was actually deleted
+//         if (deleteResult.affectedRows > 0) {
+//           // Decrement the num_fav count for the user being unfavorited
+//           await connection.query(
+//             'UPDATE users SET num_fav = GREATEST(num_fav - 1, 0) WHERE user_id = ?',
+//             [favoriteUserId]
+//           );
+//           console.log(`Removed user ${favoriteUserId} from favorites for user ${currentUserId}`);
+//         } else {
+//           console.log(`User ${favoriteUserId} was not in favorites for user ${currentUserId}`);
+//         }
+//       }
+
+//       // Get updated favorites list for response
+//       const [favoritesResult] = await connection.query(
+//         'SELECT favorite_user_id FROM favorites WHERE user_id = ? ORDER BY created_at DESC',
+//         [currentUserId]
+//       );
+
+//       const favoritesList = favoritesResult.map(row => row.favorite_user_id);
+
+//       // Get updated num_fav count for the target user
+//       const [numFavResult] = await connection.query(
+//         'SELECT num_fav FROM users WHERE user_id = ?',
+//         [favoriteUserId]
+//       );
+
+//       await connection.commit();
+
+//       res.json({
+//         success: true,
+//         message: isFavorite ? 'User added to favorites' : 'User removed from favorites',
+//         currentUserFavorites: favoritesList,
+//         targetUserFavoriteCount: numFavResult[0]?.num_fav || 0,
+//         isFavorite: favoritesList.includes(favoriteUserId)
+//       });
+
+//     } catch (error) {
+//       await connection.rollback();
+//       throw error;
+//     } finally {
+//       connection.release();
+//     }
+//   } catch (error) {
+//     console.error('Favorites endpoint error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Server error',
+//       error: error.message
+//     });
+//   }
+// });
 
 
 // 3. POST /user/:userId/report - Submit a report

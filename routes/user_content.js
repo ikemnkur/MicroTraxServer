@@ -26,7 +26,7 @@ router.get('/get', authenticateToken, async (req, res) => {
       [req.user.user_id]
     );
     res.json(rows);
-    console.log("resulting rows: " + rows)
+    // console.log("resulting rows: " + rows)
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -42,7 +42,7 @@ router.get('/getOther/:otherUser',  async (req, res) => {
       [req.params.otherUser]
     );
     res.json(rows);
-    console.log("'Get other user' resulting rows: " + rows)
+    // console.log("'Get other user' resulting rows: " + rows)
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
