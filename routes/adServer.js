@@ -164,7 +164,7 @@ app.post('/auth/register', async (req, res) => {
 });
 
 // Login user
-app.post('/api/auth/login', async (req, res) => {
+app.post('/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -209,11 +209,11 @@ app.post('/api/auth/login', async (req, res) => {
 // =================
 
 // Get user profile
-app.get('/api/user/profile', authenticateToken, async (req, res) => {
+app.get('/user/profile', authenticateToken, async (req, res) => {
   try {
     const users = await executeQuery(
-      'SELECT id, name, email, credits, created_at FROM advertisers WHERE id = ?',
-      [req.user.userId]
+      'SELECT id, name, email, credits, created_at FROM advertisers WHERE user_id = ?',
+      [req.user.user_id]
     );
 
     if (users.length === 0) {
@@ -228,11 +228,11 @@ app.get('/api/user/profile', authenticateToken, async (req, res) => {
 });
 
 // Get user credits
-app.get('/api/user/credits', authenticateToken, async (req, res) => {
+app.get('/user/credits', authenticateToken, async (req, res) => {
   try {
     const users = await executeQuery(
-      'SELECT credits FROM advertisers WHERE id = ?',
-      [req.user.userId]
+      'SELECT credits FROM advertisers WHERE user_id = ?',
+      [req.user.user_id]
     );
 
     if (users.length === 0) {
@@ -247,13 +247,13 @@ app.get('/api/user/credits', authenticateToken, async (req, res) => {
 });
 
 // Update user credits
-app.put('/api/user/credits', authenticateToken, async (req, res) => {
+app.put('/user/credits', authenticateToken, async (req, res) => {
   try {
     const { amount, operation } = req.body; // operation: 'add' or 'subtract'
 
     const users = await executeQuery(
-      'SELECT credits FROM advertisers WHERE id = ?',
-      [req.user.userId]
+      'SELECT credits FROM advertisers WHERE user_id = ?',
+      [req.user.user_id]
     );
 
     if (users.length === 0) {
@@ -272,8 +272,8 @@ app.put('/api/user/credits', authenticateToken, async (req, res) => {
     }
 
     await executeQuery(
-      'UPDATE advertisers SET credits = ? WHERE id = ?',
-      [newCredits, req.user.userId]
+      'UPDATE advertisers SET credits = ? WHERE user_id = ?',
+      [newCredits, req.user.user_id]
     );
 
     res.json({ credits: newCredits });
@@ -322,7 +322,7 @@ app.post('/ad', authenticateToken, upload.single('media'), async (req, res) => {
 
     // Check user has enough credits
     const users = await executeQuery(
-      'SELECT credits FROM advertisers WHERE id = ?',
+      'SELECT credits FROM advertisers WHERE user_id = ?',
       [req.user.user_id]
     );
 
@@ -337,7 +337,7 @@ app.post('/ad', authenticateToken, upload.single('media'), async (req, res) => {
     const adResult = await executeQuery(
       `INSERT INTO ads (user_id, title, description, link, format, media_url, budget, reward, frequency, active) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [req.user.userId, title, description, link, format, mediaUrl, budget, reward, frequency, true]
+      [req.user.user_id, title, description, link, format, mediaUrl, budget, reward, frequency, true]
     );
 
     const adId = adResult.insertId;
@@ -387,7 +387,7 @@ app.get('/ad', authenticateToken, async (req, res) => {
        WHERE a.user_id = ?
        GROUP BY a.id
        ORDER BY a.created_at DESC`,
-      [req.user.userId]
+      [req.user.user_id]
     );
 
     res.json({ ads });
@@ -405,7 +405,7 @@ app.get('/ad/:id', authenticateToken, async (req, res) => {
     // Get ad details
     const ads = await executeQuery(
       'SELECT * FROM ads WHERE id = ? AND user_id = ?',
-      [adId, req.user.userId]
+      [adId, req.user.user_id]
     );
 
     if (ads.length === 0) {
@@ -458,7 +458,7 @@ app.put('/ad/:id', authenticateToken, upload.single('media'), async (req, res) =
     // Check if ad belongs to user
     const ads = await executeQuery(
       'SELECT * FROM ads WHERE id = ? AND user_id = ?',
-      [adId, req.user.userId]
+      [adId, req.user.user_id]
     );
 
     if (ads.length === 0) {
@@ -513,7 +513,7 @@ app.delete('/ad/:id', authenticateToken, async (req, res) => {
     // Check if ad belongs to user
     const ads = await executeQuery(
       'SELECT * FROM ads WHERE id = ? AND user_id = ?',
-      [adId, req.user.userId]
+      [adId, req.user.user_id]
     );
 
     if (ads.length === 0) {
@@ -552,7 +552,7 @@ app.patch('/ad/:id/toggle', authenticateToken, async (req, res) => {
     // Check if ad belongs to user
     const ads = await executeQuery(
       'SELECT active FROM ads WHERE id = ? AND user_id = ?',
-      [adId, req.user.userId]
+      [adId, req.user.user_id]
     );
 
     if (ads.length === 0) {
@@ -646,7 +646,7 @@ app.post('/ad/:id/interactions', authenticateToken, async (req, res) => {
     // Record interaction
     await executeQuery(
       'INSERT INTO ad_interactions (ad_id, user_id, interaction_type, credits_earned) VALUES (?, ?, ?, ?)',
-      [adId, req.user.userId, interactionType, creditsEarned]
+      [adId, req.user.user_id, interactionType, creditsEarned]
     );
 
     // Update ad spent credits for views
@@ -661,7 +661,7 @@ app.post('/ad/:id/interactions', authenticateToken, async (req, res) => {
 
       // Deduct credits from advertiser
       await executeQuery(
-        'UPDATE advertisers SET credits = credits - ? WHERE id = ?',
+        'UPDATE advertisers SET credits = credits - ? WHERE user_id = ?',
         [costPerView, ad.user_id]
       );
     }
@@ -669,8 +669,8 @@ app.post('/ad/:id/interactions', authenticateToken, async (req, res) => {
     // Add credits to viewer for rewards
     if (interactionType === 'reward_claimed' && creditsEarned > 0) {
       await executeQuery(
-        'UPDATE advertisers SET credits = credits + ? WHERE id = ?',
-        [creditsEarned, req.user.userId]
+        'UPDATE advertisers SET credits = credits + ? WHERE user_id = ?',
+        [creditsEarned, req.user.user_id]
       );
     }
 
@@ -765,7 +765,7 @@ app.get('/ad/:id/analytics', authenticateToken, async (req, res) => {
     // Check if ad belongs to user
     const ads = await executeQuery(
       'SELECT * FROM ads WHERE id = ? AND user_id = ?',
-      [adId, req.user.userId]
+      [adId, req.user.user_id]
     );
 
     if (ads.length === 0) {
@@ -812,7 +812,7 @@ app.get('/ad/:id/analytics', authenticateToken, async (req, res) => {
 // Get user dashboard analytics
 app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user.user_id;
 
     // Get summary stats
     const summary = await executeQuery(
