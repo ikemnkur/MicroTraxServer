@@ -10,19 +10,44 @@ const bcrypt = require('bcrypt');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+// const PORT = process.env.AD_PORT || 3001;
+
+const authenticateToken = require('../middleware/auth');
 
 // Middleware
-app.use(cors());
+// CORS configuration
+const corsOptions = {
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:5001',
+      'https://microtrax.netlify.app',
+      "https://servers4sqldb.uc.r.appspot.com",
+      "https://orca-app-j32vd.ondigitalocean.app",
+      "https://monkfish-app-mllt8.ondigitalocean.app/",
+      "*"
+      // Add any other origins you want to allow
+    ];
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
+
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
 // Database connection
 const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'ad_system',
+ host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_4_ADS_NAME || "ad_system",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -63,22 +88,22 @@ const upload = multer({
 });
 
 // JWT Authentication middleware
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+// const authenticateToken = (req, res, next) => {
+//   const authHeader = req.headers['authorization'];
+//   const token = authHeader && authHeader.split(' ')[1];
 
-  if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
-  }
+//   if (!token) {
+//     return res.status(401).json({ error: 'Access token required' });
+//   }
 
-  jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid token' });
-    }
-    req.user = user;
-    next();
-  });
-};
+//   jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
+//     if (err) {
+//       return res.status(403).json({ error: 'Invalid token' });
+//     }
+//     req.user = user;
+//     next();
+//   });
+// };
 
 // Database helper functions
 const executeQuery = async (query, params = []) => {
@@ -96,7 +121,7 @@ const executeQuery = async (query, params = []) => {
 // =================
 
 // Register user
-app.post('/api/auth/register', async (req, res) => {
+app.post('/auth/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
@@ -263,7 +288,8 @@ app.put('/api/user/credits', authenticateToken, async (req, res) => {
 // =================
 
 // Create new ad
-app.post('/api/ads', authenticateToken, upload.single('media'), async (req, res) => {
+app.post('/ad', authenticateToken, upload.single('media'), async (req, res) => {
+// app.post('/ad',  upload.single('media'), async (req, res) => {
   try {
     const {
       title,
@@ -275,6 +301,9 @@ app.post('/api/ads', authenticateToken, upload.single('media'), async (req, res)
       frequency,
       quiz
     } = req.body;
+
+    console.log('Create ad');
+    // console.log('Active User ID:', req.user);
 
     // Validate required fields
     if (!title || !description || !link || !format || !budget) {
@@ -294,7 +323,7 @@ app.post('/api/ads', authenticateToken, upload.single('media'), async (req, res)
     // Check user has enough credits
     const users = await executeQuery(
       'SELECT credits FROM advertisers WHERE id = ?',
-      [req.user.userId]
+      [req.user.user_id]
     );
 
     if (users.length === 0 || users[0].credits < budget) {
@@ -344,7 +373,7 @@ app.post('/api/ads', authenticateToken, upload.single('media'), async (req, res)
 });
 
 // Get user's ads
-app.get('/api/ads', authenticateToken, async (req, res) => {
+app.get('/ad', authenticateToken, async (req, res) => {
   try {
     const ads = await executeQuery(
       `SELECT a.*, 
@@ -369,7 +398,7 @@ app.get('/api/ads', authenticateToken, async (req, res) => {
 });
 
 // Get single ad with quiz questions
-app.get('/api/ads/:id', authenticateToken, async (req, res) => {
+app.get('/ad/:id', authenticateToken, async (req, res) => {
   try {
     const adId = req.params.id;
 
@@ -412,7 +441,7 @@ app.get('/api/ads/:id', authenticateToken, async (req, res) => {
 });
 
 // Update ad
-app.put('/api/ads/:id', authenticateToken, upload.single('media'), async (req, res) => {
+app.put('/ad/:id', authenticateToken, upload.single('media'), async (req, res) => {
   try {
     const adId = req.params.id;
     const {
@@ -477,7 +506,7 @@ app.put('/api/ads/:id', authenticateToken, upload.single('media'), async (req, r
 });
 
 // Delete ad
-app.delete('/api/ads/:id', authenticateToken, async (req, res) => {
+app.delete('/ad/:id', authenticateToken, async (req, res) => {
   try {
     const adId = req.params.id;
 
@@ -516,7 +545,7 @@ app.delete('/api/ads/:id', authenticateToken, async (req, res) => {
 });
 
 // Toggle ad active status
-app.patch('/api/ads/:id/toggle', authenticateToken, async (req, res) => {
+app.patch('/ad/:id/toggle', authenticateToken, async (req, res) => {
   try {
     const adId = req.params.id;
 
@@ -552,7 +581,7 @@ app.patch('/api/ads/:id/toggle', authenticateToken, async (req, res) => {
 // =================
 
 // Get ads to display (for viewers)
-app.get('/api/ads/display', authenticateToken, async (req, res) => {
+app.get('/display', authenticateToken, async (req, res) => {
   try {
     const { format, excludeUserId } = req.query;
 
@@ -591,7 +620,7 @@ app.get('/api/ads/display', authenticateToken, async (req, res) => {
 });
 
 // Record ad interaction
-app.post('/api/ads/:id/interactions', authenticateToken, async (req, res) => {
+app.post('/ad/:id/interactions', authenticateToken, async (req, res) => {
   try {
     const adId = req.params.id;
     const { interactionType, creditsEarned = 0 } = req.body;
@@ -657,7 +686,7 @@ app.post('/api/ads/:id/interactions', authenticateToken, async (req, res) => {
 // =================
 
 // Submit quiz answer
-app.post('/api/quiz/answer', authenticateToken, async (req, res) => {
+app.post('/quiz/answer', authenticateToken, async (req, res) => {
   try {
     const { adId, questionId, answer, selectedOption } = req.body;
 
@@ -694,7 +723,7 @@ app.post('/api/quiz/answer', authenticateToken, async (req, res) => {
 });
 
 // Get random quiz question for ad
-app.get('/api/ads/:id/quiz/random', authenticateToken, async (req, res) => {
+app.get('/ad/:id/quiz/random', authenticateToken, async (req, res) => {
   try {
     const adId = req.params.id;
 
@@ -729,7 +758,7 @@ app.get('/api/ads/:id/quiz/random', authenticateToken, async (req, res) => {
 // =================
 
 // Get ad analytics
-app.get('/api/ads/:id/analytics', authenticateToken, async (req, res) => {
+app.get('/ad/:id/analytics', authenticateToken, async (req, res) => {
   try {
     const adId = req.params.id;
 
@@ -870,9 +899,9 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// // Start server
+// app.listen(PORT, () => {
+//   console.log(`Server running on port ${PORT}`);
+// });
 
 module.exports = app;

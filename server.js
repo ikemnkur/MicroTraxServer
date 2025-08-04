@@ -37,7 +37,7 @@ const coinbase = require('./routes/coinbase');
 const cashapp = require('./routes/cashapp');
 const uploadImage = require('./routes/uploadImage');
 const { v2: cloudinary } = require('cloudinary');
-
+const adServer = require('./routes/adServer'); // Import the ad server routes
 
 
 const app = express();
@@ -54,7 +54,7 @@ const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = [
       'http://localhost:3000',
-      'http://localhost:5000',
+      'http://localhost:5001',
       'https://microtrax.netlify.app',
       "https://servers4sqldb.uc.r.appspot.com",
       "https://orca-app-j32vd.ondigitalocean.app",
@@ -128,6 +128,7 @@ app.use('/api/adminp', adminPurchases);
 app.use('/api/adminw', adminWithdraws);
 app.use('/api/adminu', adminUsers);
 app.use('/api/adminr', adminReports)
+app.use('/api/ads/', adServer);
 // app.use('/api/logs', logs);
 // Mount the admin API routes
 // app.use('/api/adminp', adminApiRoutes);
@@ -335,8 +336,8 @@ app.get('/admin/users', (req, res) => {
   res.render('admin-users');
 });
 
-
-const PORT = process.env.PORT || 5000;
+const PORT = 5001;
+// const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 //  ################  Stripe  #######################
@@ -698,3 +699,10 @@ async function sendPasswordResetEmail(email, username, newPassword) {
 module.exports = {
   sendPasswordResetEmail
 };
+
+
+
+// 
+//  ##########################  END OF SERVER.JS  #########################
+// #########################AD Server Code#####################
+
