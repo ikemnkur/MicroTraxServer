@@ -209,6 +209,29 @@ app.post('/auth/login', async (req, res) => {
 // =================
 
 // Get user profile
+app.get('/advertiser/profile', authenticateToken, async (req, res) => {
+  try {
+    const advertisers = await executeQuery(
+      'SELECT id, name, email, credits, created_at FROM advertisers WHERE user_id = ?',
+      [req.user.user_id]
+    );
+
+    if (advertisers.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log("advertisers profile:", advertisers);
+
+    res.json({ user: advertisers[0] });
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+
+// Get user profile
 app.get('/user/profile', authenticateToken, async (req, res) => {
   try {
     const users = await executeQuery(
@@ -374,6 +397,7 @@ app.post('/ad', authenticateToken, upload.single('media'), async (req, res) => {
 
 // Get user's ads
 app.get('/ad', authenticateToken, async (req, res) => {
+  console.log("Get user's ads for user ID:", req.user.user_id);
   try {
     const ads = await executeQuery(
       `SELECT a.*, 
@@ -389,7 +413,7 @@ app.get('/ad', authenticateToken, async (req, res) => {
        ORDER BY a.created_at DESC`,
       [req.user.user_id]
     );
-
+    console.log("User's ads:", ads);
     res.json({ ads });
   } catch (error) {
     console.error('Get ads error:', error);
