@@ -324,8 +324,18 @@ app.post('/ad', authenticateToken, upload.single('media'), async (req, res) => {
       frequency,
       quiz
     } = req.body;
+    
+    console.log('######### Create ad ########');
+    console.log('Title:', title);
+    console.log('Description:', description);
+    console.log('Link:', link);
+    console.log('Format:', format);
+    console.log('Budget:', budget);   
+    console.log('Reward:', reward);
+    console.log('Frequency:', frequency);
+    console.log('Quiz:', quiz);
 
-    console.log('Create ad');
+    
     // console.log('Active User ID:', req.user);
 
     // Validate required fields
