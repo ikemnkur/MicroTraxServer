@@ -392,6 +392,8 @@ app.post('/ad', authenticateToken, upload.single('media'), async (req, res) => {
           ]
         );
       }
+
+
     }
 
     res.status(201).json({
@@ -652,6 +654,27 @@ app.get('/display', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+
+// Get ads to display (for viewers)
+app.get('/preview-ad/:id', authenticateToken, async (req, res) => {
+  try {
+    const adId = req.params.id;
+
+    let query = `SELECT * FROM ads a WHERE a.id = ?`;
+
+    console.log("ad Id:", adId);
+
+    const ads = await executeQuery(query, [adId]);
+
+    res.json({ ads });
+  } catch (error) {
+    console.error('Get preview ads error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+    
+
 
 // Record ad interaction
 app.post('/ad/:id/interactions', authenticateToken, async (req, res) => {
