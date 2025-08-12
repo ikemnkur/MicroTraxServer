@@ -315,6 +315,7 @@ app.post('/ad', authenticateToken, upload.single('media'), async (req, res) => {
 // app.post('/ad',  upload.single('media'), async (req, res) => {
   try {
     const {
+      ad_uuid,
       title,
       description,
       link,
@@ -326,6 +327,7 @@ app.post('/ad', authenticateToken, upload.single('media'), async (req, res) => {
     } = req.body;
     
     console.log('######### Create ad ########');
+    console.log('Ad Id:', ad_uuid);
     console.log('Title:', title);
     console.log('Description:', description);
     console.log('Link:', link);
@@ -368,9 +370,9 @@ app.post('/ad', authenticateToken, upload.single('media'), async (req, res) => {
 
     // Create ad
     const adResult = await executeQuery(
-      `INSERT INTO ads (user_id, title, description, link, format, media_url, budget, reward, frequency, active) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [req.user.user_id, title, description, link, format, mediaUrl, budget, reward, frequency, true]
+      `INSERT INTO ads (user_id, title, description, link, format, media_url, budget, reward, frequency, active, ad_id) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [req.user.user_id, title, description, link, format, mediaUrl, budget, reward, frequency, true, ad_uuid]
     );
 
     const adId = adResult.insertId;
