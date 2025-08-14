@@ -123,7 +123,7 @@ const executeQuery = async (query, params = []) => {
 // Register user
 app.post('/auth/register', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, user_id } = req.body;
 
     // Check if user already exists
     const existingUser = await executeQuery(
@@ -141,8 +141,8 @@ app.post('/auth/register', async (req, res) => {
 
     // Create user
     const result = await executeQuery(
-      'INSERT INTO advertisers (name, email, password, credits) VALUES (?, ?, ?, ?)',
-      [name, email, hashedPassword, 5000] // Starting credits
+      'INSERT INTO advertisers (name, email, password, credits, user_id) VALUES (?, ?, ?, ?, ?)',
+      [name, email, hashedPassword, 5000, user_id] // Starting credits
     );
 
     // Generate JWT token
@@ -221,7 +221,7 @@ app.get('/advertiser/profile', authenticateToken, async (req, res) => {
     }
 
     console.log("advertisers profile:", advertisers);
-
+    // res.json({ ads });
     res.json({ user: advertisers[0] });
   } catch (error) {
     console.error('Get profile error:', error);
