@@ -49,6 +49,30 @@ const app = express();
 //   optionsSuccessStatus: 200
 // };
 
+const { Storage } = require("@google-cloud/storage");
+const storage = new Storage({
+  projectId: "servers4sqldb",
+  keyFilename: "service-account.json",
+});
+
+const uploadToFirebaseStorage = async (filepath, fileName) => {
+    try {
+        const gcs = storage.bucket("bucket_name"); // Removed "gs://" from the bucket name
+        const storagepath = `storage_folder/${fileName}`;
+        const result = await gcs.upload(filepath, {
+            destination: storagepath,
+            predefinedAcl: 'publicRead', // Set the file to be publicly readable
+            metadata: {
+                contentType: "application/plain", // Adjust the content type as needed
+            }
+        });
+        return result[0].metadata.mediaLink;
+    } catch (error) {
+        console.log(error);
+        throw new Error(error.message);
+    }
+}
+
 // CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
@@ -419,7 +443,7 @@ app.get('/session-status', async (req, res) => {
 app.use('/profile-images', express.static(path.join(__dirname, 'profile-images')));
 
 // Multer storage configuration
-const storage = multer.diskStorage({
+const ServerLocalStorage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, 'profile-images'); // Destination folder (local, optional)
   },
@@ -447,7 +471,7 @@ const fileFilter = (req, file, cb) => {
 
 // Initialize multer
 const upload = multer({
-  storage: storage,
+  storage: ServerLocalStorage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: fileFilter
 });

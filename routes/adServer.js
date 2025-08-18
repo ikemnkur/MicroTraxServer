@@ -232,11 +232,17 @@ app.get('/advertiser/profile', authenticateToken, async (req, res) => {
 
 
 // Get user profile
-app.get('/user/profile', authenticateToken, async (req, res) => {
+app.post('/user/profile',  async (req, res) => {
+
+  const { userdata, user_id } = req.body;
+
+  // console.log("userdata for ad:", userdata);
+  console.log("user_id for ad:", user_id);
+
   try {
     const users = await executeQuery(
       'SELECT id, name, email, credits, created_at FROM advertisers WHERE user_id = ?',
-      [req.user.user_id]
+      [user_id]
     );
 
     if (users.length === 0) {
@@ -244,6 +250,7 @@ app.get('/user/profile', authenticateToken, async (req, res) => {
     }
 
     res.json({ user: users[0] });
+    console.log("User AD profile:", users[0]);
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -619,9 +626,10 @@ app.patch('/ad/:id/toggle', authenticateToken, async (req, res) => {
 // =================
 
 // Get ads to display (for viewers)
-app.get('/display', authenticateToken, async (req, res) => {
+app.post('/display', async (req, res) => {
   try {
-    const { format, excludeUserId } = req.query;
+    const { format, excludeUserId } = req.body;
+    console.log("Get display ads with format:", format, "and excludeUserId:", excludeUserId);
 
     let query = `
       SELECT a.*, u.name as advertiser_name,
@@ -646,7 +654,7 @@ app.get('/display', authenticateToken, async (req, res) => {
       params.push(excludeUserId);
     }
 
-    query += ' GROUP BY a.id ORDER BY a.frequency DESC, RAND() LIMIT 10';
+    query += ' GROUP BY a.id ORDER BY a.frequency DESC, RAND() LIMIT 2';
 
     const ads = await executeQuery(query, params);
 
@@ -659,7 +667,7 @@ app.get('/display', authenticateToken, async (req, res) => {
 
 
 // Get ads to display (for viewers)
-app.get('/preview-ad/:id', authenticateToken, async (req, res) => {
+app.get('/preview-ad/:id', async (req, res) => {
   try {
     const adId = req.params.id;
 
