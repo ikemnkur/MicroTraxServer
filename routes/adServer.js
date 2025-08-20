@@ -326,6 +326,7 @@ app.post('/ad', authenticateToken, upload.single('media'), async (req, res) => {
       title,
       description,
       link,
+      mediaLink,
       format,
       budget,
       reward,
@@ -371,9 +372,17 @@ app.post('/ad', authenticateToken, upload.single('media'), async (req, res) => {
     if (users.length === 0 || users[0].credits < budget) {
       return res.status(400).json({ error: 'Insufficient credits' });
     }
+    
+    let uploadedGCSFile;
+    if (mediaLink == ""){
+      uploadedGCSFile = "https://evolveandco.com/wp-content/uploads/2019/06/AdvertisingBlog.jpg";
+    } else {
+      uploadedGCSFile = mediaLink;
+    }
+     
 
     // Get media URL if file uploaded
-    const mediaUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    const mediaUrl = req.file ? `/uploads/${req.file.filename}` : uploadedGCSFile;
 
     // Create ad
     const adResult = await executeQuery(
@@ -625,6 +634,42 @@ app.patch('/ad/:id/toggle', authenticateToken, async (req, res) => {
 // AD INTERACTION ROUTES
 // =================
 
+// // Get ads to display (for viewers)
+// app.post('/display', async (req, res) => {
+//   try {
+//     const { format, excludeUserId } = req.body;
+//     console.log("Get display ads with format:", format, "and excludeUserId:", excludeUserId);
+
+//     let query = `
+//     SELECT *
+//     FROM ads a WHERE a.active = 1 AND a.spent < a.budget
+//     `;
+
+    
+
+//     const params = [];
+
+//     if (format) {
+//       query += ' AND a.format = ?';
+//       params.push(format);
+//     }
+
+//     if (excludeUserId) {
+//       query += ' AND a.user_id != ?';
+//       params.push(excludeUserId);
+//     }
+
+//     query += ' GROUP BY a.id ORDER BY a.frequency DESC, RAND() LIMIT 5';
+
+//     const ads = await executeQuery(query, params);
+
+//     res.json({ ads });
+//   } catch (error) {
+//     console.error('Get display ads error:', error);
+//     res.status(500).json({ error: 'Internal server error' });
+//   }
+// });
+
 // Get ads to display (for viewers)
 app.post('/display', async (req, res) => {
   try {
@@ -632,29 +677,31 @@ app.post('/display', async (req, res) => {
     console.log("Get display ads with format:", format, "and excludeUserId:", excludeUserId);
 
     let query = `
-      SELECT a.*, u.name as advertiser_name,
-      COUNT(DISTINCT ai_view.id) as views,
-      COUNT(DISTINCT ai_completion.id) as completions
-      FROM ads a
-      JOIN advertisers u ON a.user_id = u.id
-      LEFT JOIN ad_interactions ai_view ON a.id = ai_view.ad_id AND ai_view.interaction_type = 'view'
-      LEFT JOIN ad_interactions ai_completion ON a.id = ai_completion.ad_id AND ai_completion.interaction_type = 'completion'
-      WHERE a.active = 1 AND a.spent < a.budget
+      SELECT *
+      FROM ads
+      WHERE active = 1
+      AND spent < budget
     `;
 
     const params = [];
 
     if (format) {
-      query += ' AND a.format = ?';
+      query += ' AND format = ?';
       params.push(format);
     }
 
     if (excludeUserId) {
-      query += ' AND a.user_id != ?';
+      query += ' AND user_id != ?';
       params.push(excludeUserId);
     }
 
-    query += ' GROUP BY a.id ORDER BY a.frequency DESC, RAND() LIMIT 2';
+    // Optimize random selection for potentially large tables
+    // Consider adding an index on 'active', 'spent', 'budget', and 'format'
+    query += ' ORDER BY frequency DESC, RAND() LIMIT 5'; // For smaller tables or where strict randomness isn't critical
+
+    // For very large tables, consider alternatives like pre-selecting a smaller, randomly ordered subset
+    // and then retrieving the final 5. This would involve more complex logic.
+
 
     const ads = await executeQuery(query, params);
 
@@ -664,6 +711,7 @@ app.post('/display', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 
 
 // Get ads to display (for viewers)
