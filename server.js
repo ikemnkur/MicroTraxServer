@@ -55,6 +55,23 @@ const storage = new Storage({
   keyFilename: "service-account.json",
 });
 
+// Function to upload file to Firebase Storage
+// service-account.json content below - make sure to keep it secure and not expose it publicly
+// {
+//   "type": "service_account",
+//   "project_id": "servers4sqldb",
+//   "private_key_id": "2ff49d7f0f81fb5061cf477be6b8cb3ccb7d2003",
+//   "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCuJ6d4v6N9H/lx\nF7u6k/4b4mACOZzB6Dycy4V7IQtCqJ6Y93BeQw/qPMEwFq6YBAL0SPb22nAouy2j\nxEjmzmm49STT8U3u0bpTLSZyJu/L58IsYqw8pfhpAX+k8lRahU1rFoz5+WTMRFtG\n6jqsA/xVcepRQpO2yRUwjp4KKHsbPVJ4kbqtcsQZOLVMKciK4iuhsEMnYrNyzX2e\nrKXr/tABMyDW2ludjEvOI7ARMOqmBMNKEJcFiDJccE191Kv6MAw4X7YzGwmOzLgn\nybob/Bs5RaA1CCcrTKczqqGS++09rc+8eCPbX7nk81KcRoJKfyjeRlh+M5i3ejw6\nq50wFCkjAgMBAAECggEAC0xyTotW/tVWDb1wRf9iTd/RbRjcxS3Hz5UFUMLeOVG5\nkbYCmchNs4YuiGv9oXTSgOkXm1X6TyzZngAsNKExSw5zIwxK4JLFvQNhtP02syq9\ni7tOblQxj2pz+WO+ukK0uPJfwhCpNqFmr0KfUi1OBSMcrxnxKGYs/uykbzHyJAb/\n4L76nA0eDyvFpZmdwJLZ4YoTEAH3zi36T3Is/ZVP7G7liBr0evyqo02TGiqC3/2T\n4xo3HmavVsfexOCa+j/bv+tJRWUMMhJpCs88j3ze7yibSxwvws0EJmacCDV+Mg4Z\n/4Q1frXm/9MZuNEKe1Wuygxwr9by3OgyTucalRj+2QKBgQDZxfRe3TI0vyjsNCW2\nOkQPRyzMM1RwM8ycJOGnExJ31sgZ8dTnmsqymiEBlFOJG3UfXc78lOB5GKSk3EMf\n1N4jkLmV+/ZRHDJ2S0Gz+2YbGPhWUSMFrjSUJVSgBR5jSw2sz8sbR5wbU74Rj/Kf\nPHaNAoM3Z1qZACWTicdVFLdfmwKBgQDMuaCtyWJ7NFc0aiK3ibW8UPaHULdNM61U\ntgDL3VSTjCN69T+eyG9GVj8q5VTGDPJ9x4rf70bz7ku1/iNNiW2GXdSEBYMDTPxF\na66qg+zoRX+vzS/y23crARWWDSLn3xRq4KlmcskgPpMjP+GSVOZuvNnaqFho4WIi\nBE6Xl1QpGQKBgBOU9j1VfH87tS1QHxf8s0QAbWnLL8uLDNn5gwTn9SArgwC6Ox+8\nTn+y1kbzFHPesTBp2gPiSzD4Y02jtLF3DaZ7DAUNi/+NHoh+ieDqOSs0mpgAYbrQ\nCFBN7wcYjrv08rzYTnYcgU//vraLkBB7elmBoVTpCT96wOY8XF0tKLQDAoGBAIIk\nGpV/KICDlE/4jFs6SnIM0brRP8Tu7eekzzrJVyN4eXGHh8rrRXlkCEG/iTVhM6Fr\ngMe79tHIEQ7/H/gBPcOl0Bug2Vj2zoNe4aj5tlctHu9ls25hvw5yYQODFEZsFDGg\n4W8D1wENZkGJMV7xY47PtHmAfLsnU1emf0N0aoa5AoGAJyC/00sn/zbkRNG58czR\ncuyCWkDyInMi3JhF+jKFD/3IVFoLFcqoerDlr5MsFn9IxUQ9CLWa/UIDiiZYHJIn\nBfpudiykOeUXBJXS4WNWHIOwedTtPLVXf3YwwmGvZSkttZUXjEw5JeqNanpBpCw6\n7i1UyZNyRvaS6ry2EW5HcfM=\n-----END PRIVATE KEY-----\n",
+//   "client_email": "cloutcloinclub@servers4sqldb.iam.gserviceaccount.com",
+//   "client_id": "110059448242111104944",
+//   "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+//   "token_uri": "https://oauth2.googleapis.com/token",
+//   "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+//   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/cloutcloinclub%40servers4sqldb.iam.gserviceaccount.com",
+//   "universe_domain": "googleapis.com"
+// }
+
+
 const uploadToFirebaseStorage = async (filepath, fileName) => {
     try {
         const gcs = storage.bucket("bucket_name"); // Removed "gs://" from the bucket name
