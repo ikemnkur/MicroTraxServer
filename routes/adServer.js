@@ -443,7 +443,7 @@ app.get('/ad', authenticateToken, async (req, res) => {
        ORDER BY a.created_at DESC`,
       [req.user.user_id]
     );
-    console.log("User's ads:", ads);
+    console.log("User's ads:", ads.length);
     res.json({ ads });
   } catch (error) {
     console.error('Get ads error:', error);

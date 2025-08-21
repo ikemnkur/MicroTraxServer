@@ -38,6 +38,7 @@ const cashapp = require('./routes/cashapp');
 const uploadImage = require('./routes/uploadImage');
 const { v2: cloudinary } = require('cloudinary');
 const adServer = require('./routes/adServer'); // Import the ad server routes
+const fileUpload = require('./routes/fileUpload');
 
 
 const app = express();
@@ -49,11 +50,11 @@ const app = express();
 //   optionsSuccessStatus: 200
 // };
 
-const { Storage } = require("@google-cloud/storage");
-const storage = new Storage({
-  projectId: "servers4sqldb",
-  keyFilename: "service-account.json",
-});
+// const { Storage } = require("@google-cloud/storage");
+// const storage = new Storage({
+//   projectId: "servers4sqldb",
+//   keyFilename: "service-account.json",
+// });
 
 // Function to upload file to Firebase Storage
 // service-account.json content below - make sure to keep it secure and not expose it publicly
@@ -72,23 +73,23 @@ const storage = new Storage({
 // }
 
 
-const uploadToFirebaseStorage = async (filepath, fileName) => {
-    try {
-        const gcs = storage.bucket("bucket_name"); // Removed "gs://" from the bucket name
-        const storagepath = `storage_folder/${fileName}`;
-        const result = await gcs.upload(filepath, {
-            destination: storagepath,
-            predefinedAcl: 'publicRead', // Set the file to be publicly readable
-            metadata: {
-                contentType: "application/plain", // Adjust the content type as needed
-            }
-        });
-        return result[0].metadata.mediaLink;
-    } catch (error) {
-        console.log(error);
-        throw new Error(error.message);
-    }
-}
+// const uploadToFirebaseStorage = async (filepath, fileName) => {
+//     try {
+//         const gcs = storage.bucket("bucket_name"); // Removed "gs://" from the bucket name
+//         const storagepath = `storage_folder/${fileName}`;
+//         const result = await gcs.upload(filepath, {
+//             destination: storagepath,
+//             predefinedAcl: 'publicRead', // Set the file to be publicly readable
+//             metadata: {
+//                 contentType: "application/plain", // Adjust the content type as needed
+//             }
+//         });
+//         return result[0].metadata.mediaLink;
+//     } catch (error) {
+//         console.log(error);
+//         throw new Error(error.message);
+//     }
+// }
 
 // CORS configuration
 const corsOptions = {
@@ -170,6 +171,9 @@ app.use('/api/adminw', adminWithdraws);
 app.use('/api/adminu', adminUsers);
 app.use('/api/adminr', adminReports)
 app.use('/api/ads/', adServer);
+app.use('/api/upload', fileUpload);
+
+
 // app.use('/api/logs', logs);
 // Mount the admin API routes
 // app.use('/api/adminp', adminApiRoutes);
