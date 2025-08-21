@@ -86,7 +86,16 @@ const uploadToFirebaseStorage = async (file, fileName) => {
   //   }
   // };
 
-  router.post('/upload',  multer().single('media'), async (req, res) => {
+// Initialize multer
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: fileFilter
+});
+
+
+  // router.post('/upload',  multer().single('media'), async (req, res) => {
+  router.post('/upload', upload.single('profilePicture'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded' });
