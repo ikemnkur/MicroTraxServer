@@ -6,6 +6,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
+const db = require('../config/db');
 const bcrypt = require('bcrypt');
 require('dotenv').config();
 
@@ -13,6 +14,7 @@ const app = express();
 // const PORT = process.env.AD_PORT || 3001;
 
 const authenticateToken = require('../middleware/auth');
+const { auth } = require('googleapis/build/src/apis/abusiveexperiencereport');
 
 // Middleware
 // CORS configuration
@@ -44,7 +46,7 @@ app.use('/uploads', express.static('uploads'));
 
 // Database connection
 const dbConfig = {
- host: process.env.DB_HOST,
+  host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_4_ADS_NAME || "ad_system",
@@ -209,14 +211,23 @@ app.post('/auth/login', async (req, res) => {
 // =================
 
 // Get user profile
-app.get('/advertiser/profile', authenticateToken, async (req, res) => {
+app.get('/advertiser/profile/:email', async (req, res) => {
+  let email = req.params.email;
   try {
+    console.log("Get advertiser profile for user ID:", req.user.user_id);
     const advertisers = await executeQuery(
       'SELECT id, name, email, credits, created_at FROM advertisers WHERE user_id = ?',
       [req.user.user_id]
     );
+    console.log("Authenticated user email:", req.user);
+    const advertisers2 = await executeQuery(
+      'SELECT id, name, email, credits, created_at FROM advertisers WHERE email = ?',
+      [email]
+    );
+    if (advertisers.length === 0 && advertisers2.length === 0) {
 
-    if (advertisers.length === 0) {
+
+      console.log("No advertiser found");
       return res.status(404).json({ error: 'User not found' });
     }
 
@@ -229,10 +240,47 @@ app.get('/advertiser/profile', authenticateToken, async (req, res) => {
   }
 });
 
+// Get user profile
+app.put('/advertiser/profile/activate', authenticateToken, async (req, res) => {
+const connection = await db.getConnection();
+  const { userdata, user_id } = req.body;
 
+  // console.log("userdata for ad:", userdata);
+  console.log("user_id for ad:", user_id);
+
+  try {
+    // Update user's balance and spendable balance
+    const users = await connection.query(
+      'UPDATE users SET advertising = ? WHERE user_id = ?',
+      ["active", req.user.user_id]
+    );
+    const users2 = await executeQuery(
+      'UPDATE advertisers SET advertiser_status = ? WHERE user_id = ?',
+      ['active', user_id]
+    );
+    if (user_id === null) {
+      const users_id = await executeQuery(
+        'UPDATE advertisers SET user_id = ? WHERE email = ?',
+        [user_id, userdata.email]
+      );
+      // return res.status(400).json({ error: 'user_id is required' });
+    }
+
+
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ user: users[0] });
+    console.log("User AD profile:", users[0]);
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 // Get user profile
-app.post('/user/profile',  async (req, res) => {
+app.post('/user/profile', async (req, res) => {
 
   const { userdata, user_id } = req.body;
 
@@ -319,7 +367,7 @@ app.put('/user/credits', authenticateToken, async (req, res) => {
 
 // Create new ad
 app.post('/ad', authenticateToken, upload.single('media'), async (req, res) => {
-// app.post('/ad',  upload.single('media'), async (req, res) => {
+  // app.post('/ad',  upload.single('media'), async (req, res) => {
   try {
     const {
       ad_uuid,
@@ -333,19 +381,20 @@ app.post('/ad', authenticateToken, upload.single('media'), async (req, res) => {
       frequency,
       quiz
     } = req.body;
-    
+
     console.log('######### Create ad ########');
     console.log('Ad Id:', ad_uuid);
     console.log('Title:', title);
     console.log('Description:', description);
     console.log('Link:', link);
+    console.log('Media Link:', mediaLink);
     console.log('Format:', format);
-    console.log('Budget:', budget);   
+    console.log('Budget:', budget);
     console.log('Reward:', reward);
     console.log('Frequency:', frequency);
     console.log('Quiz:', quiz);
 
-    
+
     // console.log('Active User ID:', req.user);
 
     // Validate required fields
@@ -372,14 +421,14 @@ app.post('/ad', authenticateToken, upload.single('media'), async (req, res) => {
     if (users.length === 0 || users[0].credits < budget) {
       return res.status(400).json({ error: 'Insufficient credits' });
     }
-    
+
     let uploadedGCSFile;
-    if (mediaLink == ""){
+    if (mediaLink == "") {
       uploadedGCSFile = "https://evolveandco.com/wp-content/uploads/2019/06/AdvertisingBlog.jpg";
     } else {
       uploadedGCSFile = mediaLink;
     }
-     
+
 
     // Get media URL if file uploaded
     const mediaUrl = req.file ? `/uploads/${req.file.filename}` : uploadedGCSFile;
@@ -620,9 +669,9 @@ app.patch('/ad/:id/toggle', authenticateToken, async (req, res) => {
       [newActiveStatus, adId]
     );
 
-    res.json({ 
-      message: 'Ad status updated', 
-      active: newActiveStatus 
+    res.json({
+      message: 'Ad status updated',
+      active: newActiveStatus
     });
   } catch (error) {
     console.error('Toggle ad error:', error);
@@ -645,7 +694,7 @@ app.patch('/ad/:id/toggle', authenticateToken, async (req, res) => {
 //     FROM ads a WHERE a.active = 1 AND a.spent < a.budget
 //     `;
 
-    
+
 
 //     const params = [];
 
@@ -724,19 +773,34 @@ app.get('/preview-ad/:id', async (req, res) => {
   try {
     const adId = req.params.id;
 
-    let query = `SELECT * FROM ads a WHERE a.id = ?`;
-
     console.log("ad Id:", adId);
+
+    let query = `SELECT * FROM ads a WHERE a.id = ?`;
 
     const ads = await executeQuery(query, [adId]);
 
-    res.json({ ads });
+    if (ads.length === 0) {
+      let query = `SELECT * FROM ads a WHERE a.ad_id = ?`;
+
+      const adsLongID = await executeQuery(query, [adId]);
+      if (adsLongID.length === 0) {
+        return res.status(404).json({ error: 'No ads available' });
+      }
+      console.log("adsLongID:", adsLongID);
+      console.log("using long id");
+      res.json({ ads: adsLongID });
+    } else {
+      console.log("using number id");
+      res.json({ ads });
+    }
+
+
   } catch (error) {
     console.error('Get preview ads error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-    
+
 
 // Record ad interaction
 app.post('/guest-ad/:id/interactions', async (req, res) => {
@@ -744,7 +808,7 @@ app.post('/guest-ad/:id/interactions', async (req, res) => {
   console.log("Interaction data:", req.body);
   try {
     const adId = req.params.id;
-    const { interactionType} = req.body;
+    const { interactionType } = req.body;
 
     // Validate interaction type
     const validTypes = ['view', 'completion', 'skip', 'reward_claimed'];
@@ -774,7 +838,7 @@ app.post('/guest-ad/:id/interactions', async (req, res) => {
     if (interactionType === 'view') {
       const costPerView = getCostPerView(ad.frequency);
       const newSpent = ad.spent + costPerView;
-      
+
       await executeQuery(
         'UPDATE ads SET spent = ? WHERE id = ?',
         [newSpent, adId]
@@ -787,7 +851,7 @@ app.post('/guest-ad/:id/interactions', async (req, res) => {
       );
     }
 
-   
+
 
     res.json({ message: 'Interaction recorded successfully' });
   } catch (error) {
@@ -832,7 +896,7 @@ app.post('/ad/:id/interactions', authenticateToken, async (req, res) => {
     if (interactionType === 'view') {
       const costPerView = getCostPerView(ad.frequency);
       const newSpent = ad.spent + costPerView;
-      
+
       await executeQuery(
         'UPDATE ads SET spent = ? WHERE id = ?',
         [newSpent, adId]
@@ -891,7 +955,7 @@ app.post('/quiz/answer', authenticateToken, async (req, res) => {
       isCorrect = userAnswer.includes(correctAnswer) || correctAnswer.includes(userAnswer);
     }
 
-    res.json({ 
+    res.json({
       correct: isCorrect,
       message: isCorrect ? 'Correct answer!' : 'Incorrect answer'
     });
@@ -916,7 +980,7 @@ app.get('/ad/:id/quiz/random', authenticateToken, async (req, res) => {
     }
 
     const question = questions[0];
-    
+
     // Format response
     const formattedQuestion = {
       id: question.id,
@@ -1068,7 +1132,7 @@ app.use((error, req, res, next) => {
       return res.status(400).json({ error: 'File too large' });
     }
   }
-  
+
   console.error('Unhandled error:', error);
   res.status(500).json({ error: 'Internal server error' });
 });
