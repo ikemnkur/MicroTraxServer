@@ -866,7 +866,7 @@ app.post('/ad/:id/interactions', authenticateToken, async (req, res) => {
   console.log("Interaction data:", req.body);
   try {
     const adId = req.params.id;
-    const { interactionType, creditsEarned = 0 } = req.body;
+    const { interactionType, creditsEarned = 0, guest } = req.body;
 
     // Validate interaction type
     const validTypes = ['view', 'completion', 'skip', 'reward_claimed'];
@@ -886,10 +886,16 @@ app.post('/ad/:id/interactions', authenticateToken, async (req, res) => {
 
     const ad = ads[0];
 
+    let userId = req.user.user_id
+    if (guest) {
+      userId = 0;
+      creditsEarned = 0;
+    }
+
     // Record interaction
     await executeQuery(
       'INSERT INTO ad_interactions (ad_id, user_id, interaction_type, credits_earned) VALUES (?, ?, ?, ?)',
-      [adId, req.user.user_id, interactionType, creditsEarned]
+      [adId, userId, interactionType, creditsEarned]
     );
 
     // Update ad spent credits for views
@@ -913,7 +919,7 @@ app.post('/ad/:id/interactions', authenticateToken, async (req, res) => {
     if (interactionType === 'reward_claimed' && creditsEarned > 0) {
       await executeQuery(
         'UPDATE advertisers SET credits = credits + ? WHERE user_id = ?',
-        [creditsEarned, req.user.user_id]
+        [creditsEarned, userId]
       );
     }
 
