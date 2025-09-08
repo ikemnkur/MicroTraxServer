@@ -26,7 +26,7 @@ router.post('/send', authenticateToken, async (req, res) => {
     return res.status(500).json({ message: 'Server error: Insuffiecent spendable balance for Peer 2 Peer Sending' });
   }
 
-  if (sendingUsername == userData[0].username) {
+  if (recipientUsername == userData[0].username) {
     console.log("Sending coin to oneself");
     // console.error('Send-money data error:', error);
     return res.status(500).json({ message: 'Server error: Sending coins to yourself is not allowed.' });

@@ -767,6 +767,41 @@ app.post('/display', async (req, res) => {
 });
 
 
+// Get ads to display (for viewers)
+app.get('/display/:id', async (req, res) => {
+  const adId = req.params.id;
+  console.log("displaying ad id#: ", adId)
+  
+  try {
+    
+    let query = `
+      SELECT *
+      FROM ads
+      WHERE active = 1
+      AND spent < budget
+      AND id = ?
+    `;
+
+    const params = [adId];
+
+    const ads = await executeQuery(query, params);
+
+    console.log("fetch ad: ", ads[0].title)
+
+    // console.log("Display ads:", ads);
+    if (ads.length === 0) {
+      return res.status(404).json({ error: 'No ads available' });
+    }
+
+    res.json({ ads });
+  } catch (error) {
+    console.error('Get display ads error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+
 
 // Get ads to display (for viewers)
 app.get('/preview-ad/:id', async (req, res) => {
@@ -802,65 +837,6 @@ app.get('/preview-ad/:id', async (req, res) => {
 });
 
 
-// Record ad interaction
-app.post('/guest-ad/:id/interactions', async (req, res) => {
-  console.log("Record ad interaction for user ID:", 0);
-  console.log("Interaction data:", req.body);
-  try {
-    const adId = req.params.id;
-    const { interactionType } = req.body;
-
-    // Validate interaction type
-    const validTypes = ['view', 'completion', 'skip', 'reward_claimed'];
-    if (!validTypes.includes(interactionType)) {
-      return res.status(400).json({ error: 'Invalid interaction type' });
-    }
-
-    // Check if ad exists and is active
-    const ads = await executeQuery(
-      'SELECT * FROM ads WHERE id = ? AND active = 1',
-      [adId]
-    );
-
-    if (ads.length === 0) {
-      return res.status(404).json({ error: 'Ad not found or inactive' });
-    }
-
-    const ad = ads[0];
-
-    // Record interaction
-    await executeQuery(
-      'INSERT INTO ad_interactions (ad_id, user_id, interaction_type, credits_earned) VALUES (?, ?, ?, ?)',
-      [adId, 0, interactionType, 0]
-    );
-
-    // Update ad spent credits for views
-    if (interactionType === 'view') {
-      const costPerView = getCostPerView(ad.frequency);
-      const newSpent = ad.spent + costPerView;
-
-      await executeQuery(
-        'UPDATE ads SET spent = ? WHERE id = ?',
-        [newSpent, adId]
-      );
-
-      // Deduct credits from advertiser
-      await executeQuery(
-        'UPDATE advertisers SET credits = credits - ? WHERE user_id = ?',
-        [costPerView, ad.user_id]
-      );
-    }
-
-
-
-    res.json({ message: 'Interaction recorded successfully' });
-  } catch (error) {
-    console.error('Record interaction error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Record ad interaction
 app.post('/ad/:id/interactions', authenticateToken, async (req, res) => {
   console.log("Record ad interaction for user ID:", req.user.user_id);
   console.log("Interaction data:", req.body);

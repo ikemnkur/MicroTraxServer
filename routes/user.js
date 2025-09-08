@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const db = require('../config/db');
 const authenticateToken = require('../middleware/auth');
+// const { use } = require('react');
 
 const router = express.Router();
 
@@ -580,74 +581,177 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
   }
 });
 
-// 1. GET /user/:username/profile - Fetch any user profile by username
-router.get('/:username/profile', authenticateToken, async (req, res) => {
+
+async function fetchuserprofilebyidorusername(term, req_user_userId, res) {
+  let query, params;
+  let userIdOrUsername = term;
+  let username;
+  let mode = "username";
+  console.log("fetchuserprofilebyidorusername, term: ", term);
+    
   try {
-    const { username } = req.params;
-    let query, params;
-    console.log("get user profile: ", username);
 
-    const [userData] = await db.query(
-      `SELECT u.user_id, u.username, u.profilePic, u.bio, u.id
-       FROM users u
-       WHERE u.username = ?`,
-      [username]
-    );
+    // Check if the parameter is a numeric userId or a string (username)
+    if (/^\d+$/.test(userIdOrUsername) || (userIdOrUsername.length > 24 && userIdOrUsername.charAt(8) === '-')) {
+      // It's a userId
+      query = `
 
-    console.log("User Data: ", userData)
+        SELECT u.user_id, u.username, u.created_at, u.email,
+               a.balance, u.accountTier, u.favorites, u.bio,
+               u.rating, u.user_id, u.profilePic, last_activity, num_fav, advertising
 
-    let userId = userData[0].user_id
+        FROM users u
+        LEFT JOIN accounts a ON u.user_id = a.user_id
+        WHERE u.user_id = ?
+      `;
+      params = [userIdOrUsername];
+      mode = "userId";
+    } else {
+      // It's a username
+      // It's a username
+      query = `
+           SELECT u.user_id, u.username, u.created_at, u.email,
+               a.balance, u.accountTier, u.favorites, u.bio,
+               u.rating, u.user_id, u.profilePic, last_activity, num_fav, advertising
 
-    // Check if the parameter is a number (userId) or a string (username)
-
-    // It's a username
-    query = `
-        SELECT u.user_id, u.username, u.created_at, u.email, u.accountTier, u.favorites, u.bio, u.rating, u.user_id, u.profilePic
         FROM users u
         LEFT JOIN accounts a ON u.user_id = a.user_id
         WHERE u.username = ?
       `;
-    params = [username];
+      params = [userIdOrUsername];
+      mode = "username";
 
+    }
+
+     if (mode === "username") {
+      // Fetch user details, this mean the value userIdOrUsername is actually a username, but i want to use it as a user_id value
+      const [user_id] = await db.query(
+        'SELECT user_id FROM users WHERE username = ?',
+        [userIdOrUsername]
+      );
+
+      console.log("UserId provided instead of username, finding id; here is the user_id: ", user_id[0].user_id)
+      // the username has been moved to a different variable
+      username = userIdOrUsername
+      // this is the actual user_id
+      userIdOrUsername = user_id[0].user_id
+    }
+
+    if (mode === "userId") {
+      // Fetch user details
+      const [usernameDB] = await db.query(
+        'SELECT username FROM users WHERE user_id = ?',
+        [userIdOrUsername]
+      );
+
+      console.log("UserId provided instead of username, finding id; here is the user_id: ", usernameDB[0].username)
+      username = usernameDB[0].username
+    }
 
     // 1) Recalculate the average rating for content this user created
     const [ratingRows] = await db.query(
       'SELECT AVG(rating) AS avgRating FROM content_ratings WHERE user_id = ?',
-      [userId]
+      [userIdOrUsername]
     );
     const avgRating = ratingRows[0].avgRating || 0;
+     const [numofRatings] = await db.query(
+      'SELECT COUNT(*) AS numberOfRatings FROM content_ratings WHERE user_id = ? AND rating > 0',
+      [userIdOrUsername]
+    );
+    const numberOfRatings = numofRatings[0].numberOfRatings;
 
-    // 2) Count how many times like_status = 1 for this user
+    // 2A) Count how many times like_status = 1 for this user
     const [likes] = await db.query(
       'SELECT COUNT(*) AS numberOfLikes FROM content_ratings WHERE user_id = ? AND like_status = 1',
-      [userId]
+      [userIdOrUsername]
     );
     const numberOfLikes = likes[0].numberOfLikes;
 
-    // 2) Count how many times like_status = 1 for this user
+    const [avgLikes] = await db.query(
+      'SELECT AVG(likes) AS avgLikes FROM public_content WHERE host_user_id = ?',
+      [userIdOrUsername]
+    );
+
+    // 2B) Count how many times dislike_status = 1 for this user
+    const [dislikes] = await db.query(
+      'SELECT COUNT(*) AS numberOfDislikes FROM content_ratings WHERE user_id = ? AND like_status = -1',
+      [userIdOrUsername]
+    );
+    const numberOfDislikes = dislikes[0].numberOfDislikes;
+
+    const [avgDislike] = await db.query(
+      'SELECT AVG(dislikes) AS avgDislikes FROM public_content WHERE host_user_id = ?',
+      [userIdOrUsername]
+    );
+
+    // 2) Count how many times posts were created by this user
     const [posts] = await db.query(
       'SELECT COUNT(*) AS numberOfPosts FROM public_content WHERE host_user_id = ?',
-      [userId]
+      [userIdOrUsername]
     );
     const numberOfPosts = posts[0].numberOfPosts;
+
+    // 2) Count how many times posts were unlocked for this user
+    const [postsUnlocked] = await db.query(
+      'SELECT COUNT(*) AS numberOfPostsUnlocked FROM public_content WHERE host_user_id = ?',
+      [userIdOrUsername]
+    );
+    const [AvgTimesUnlocked] = await db.query(
+      'SELECT AVG(unlocks) AS avgUnlocks FROM public_content WHERE host_user_id = ?',
+      [userIdOrUsername]
+    );
+    const avgUnlocks = AvgTimesUnlocked[0].avgUnlocks || 0;
+
+    const numberOfPostsUnlocked = postsUnlocked[0].numberOfPostsUnlocked;
+
+    const totalUnlocks = numberOfPostsUnlocked * avgUnlocks;
+
+    // 2) Count how many times posts were viewed for this user
+    const [postsViewed] = await db.query(
+      'SELECT COUNT(*) AS numberOfPostsViewed FROM public_content WHERE host_user_id = ?',
+      [userIdOrUsername]
+    );
+    const [AvgTimesViewed] = await db.query(
+      'SELECT AVG(views) AS avgViews FROM public_content WHERE host_user_id = ?',
+      [userIdOrUsername]
+    );
+    const avgViews = AvgTimesViewed[0].avgViews || 0;
+
+    const numberOfPostsViewed = postsViewed[0].numberOfPostsViewed;
+
+    const totalViews = Math.ceil(numberOfPostsViewed * avgViews);
+    const totalLikes = Math.ceil(numberOfLikes * [avgLikes[0].avgLikes || 1]);
+    const totalDislikes = Math.ceil(numberOfDislikes * [avgDislike[0].avgDislikes || 1]);
+
+    console.log("Avg Rating: ", avgRating)
+    console.log("Number of Ratings: ", numberOfRatings)
+    console.log("Number of Likes: ", numberOfLikes)
+    console.log("Number of Dislikes: ", numberOfDislikes)
+    console.log("Number of Posts: ", numberOfPosts)
+    console.log("Total Unlocks: ", totalUnlocks)
+    console.log("Total Views: ", totalViews)
+    console.log("Total Likes: ", totalLikes)
+    console.log("Total Dislikes: ", totalDislikes)
 
     // 3) Fetch the user’s main record
     const [users] = await db.query(query, params);
     if (users.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
+      console.log("User not found");
+      // return res.status(404).json({ message: 'User not found' });
+      return { message: 'User not found' };
     }
 
 
-    // Fetch user details
+    // Fetch user details - get the favorites of the requester user (viewer)
     const [favorites] = await db.query(
       'SELECT favorites FROM users WHERE user_id = ?',
-      [req.user.user_id]
+      [req_user_userId]
     );
 
-    // Fetch user details
+    // Fetch user details - get the id of the user whose profile is being viewed
     const [id] = await db.query(
       'SELECT id FROM users WHERE user_id = ?',
-      [userId]
+      [userIdOrUsername]
     );
 
     console.log("ID#: ", id[0].id)
@@ -655,13 +759,22 @@ router.get('/:username/profile', authenticateToken, async (req, res) => {
 
     // 4) Add the rating and likes info to the user object
     users[0].avgRating = avgRating;
+    users[0].numberOfRatings = numberOfRatings;
+    users[0].totalLikes = totalLikes;
+    users[0].totalDislikes = totalDislikes;
     users[0].numberOfLikes = numberOfLikes;
+    users[0].numberOfDislikes = numberOfDislikes;
     users[0].numberOfPosts = numberOfPosts;
+    users[0].totalUnlocks = totalUnlocks;
+    users[0].totalViews = totalViews;
+
+
     // console.log("Favorites: ", favorites[0].favorites)
     let fav = favorites[0].favorites.replaceAll(" ", '');
     let favoriteList = fav.split(",");
     let favnum = favoriteList.length;
     // console.log("Favorites: ", favnum)
+
     users[0].numberOfFavorites = favnum;
 
     // console.log("#Posts: ", favs)
@@ -675,6 +788,114 @@ router.get('/:username/profile', authenticateToken, async (req, res) => {
     // Remove any sensitive details before sending
     delete user.password;
     delete user.salt;
+
+    return {user, isFavorite };
+  } catch (error) {
+    console.error(error);
+    return { message: 'Server error' };
+  }
+}
+
+
+
+// 1. GET /user/:username/profile - Fetch any user profile by username
+router.get('/:username/profile', authenticateToken, async (req, res) => {
+  try {
+
+    const { username } = req.params;
+    let query, params;
+    console.log("get user profile: ", username);
+
+    let { user, isFavorite } = await fetchuserprofilebyidorusername(username, req.user.user_id, res);
+
+    // const [userData] = await db.query(
+    //   `SELECT u.user_id, u.username, u.profilePic, u.bio, u.id
+    //    FROM users u
+    //    WHERE u.username = ?`,
+    //   [username]
+    // );
+
+    // console.log("User Data: ", userData)
+
+    // let userId = userData[0].user_id
+
+    // // Check if the parameter is a number (userId) or a string (username)
+
+    // // It's a username
+    // query = `
+    //     SELECT u.user_id, u.username, u.created_at, u.email, u.accountTier, u.favorites, u.bio, u.rating, u.user_id, u.profilePic
+    //     FROM users u
+    //     LEFT JOIN accounts a ON u.user_id = a.user_id
+    //     WHERE u.username = ?
+    //   `;
+    // params = [username];
+
+
+    // // 1) Recalculate the average rating for content this user created
+    // const [ratingRows] = await db.query(
+    //   'SELECT AVG(rating) AS avgRating FROM content_ratings WHERE user_id = ?',
+    //   [userId]
+    // );
+    // const avgRating = ratingRows[0].avgRating || 0;
+
+    // // 2) Count how many times like_status = 1 for this user
+    // const [likes] = await db.query(
+    //   'SELECT COUNT(*) AS numberOfLikes FROM content_ratings WHERE user_id = ? AND like_status = 1',
+    //   [userId]
+    // );
+    // const numberOfLikes = likes[0].numberOfLikes;
+
+    // // 2) Count how many times like_status = 1 for this user
+    // const [posts] = await db.query(
+    //   'SELECT COUNT(*) AS numberOfPosts FROM public_content WHERE host_user_id = ?',
+    //   [userId]
+    // );
+    // const numberOfPosts = posts[0].numberOfPosts;
+
+    // // 3) Fetch the user’s main record
+    // const [users] = await db.query(query, params);
+    // if (users.length === 0) {
+    //   return res.status(404).json({ message: 'User not found' });
+    // }
+
+
+    // // Fetch user details
+    // const [favorites] = await db.query(
+    //   'SELECT favorites FROM users WHERE user_id = ?',
+    //   [req.user.user_id]
+    // );
+
+    // // Fetch user details
+    // const [id] = await db.query(
+    //   'SELECT id FROM users WHERE user_id = ?',
+    //   [userId]
+    // );
+
+    // console.log("ID#: ", id[0].id)
+    // let favs = favorites[0].favorites
+
+    // // 4) Add the rating and likes info to the user object
+    // users[0].avgRating = avgRating;
+    // users[0].numberOfLikes = numberOfLikes;
+    // users[0].numberOfPosts = numberOfPosts;
+    // // console.log("Favorites: ", favorites[0].favorites)
+    // let fav = favorites[0].favorites.replaceAll(" ", '');
+    // let favoriteList = fav.split(",");
+    // let favnum = favoriteList.length;
+    // // console.log("Favorites: ", favnum)
+    // users[0].numberOfFavorites = favnum;
+
+    // // console.log("#Posts: ", favs)
+
+    // // Optionally check if user is in the current user's favorites
+    // const user = users[0];
+    // const isFavorite = favoriteList.includes(id[0].id.toString());
+    // //   ? JSON.parse(user.favorites).includes(req.user.user_id)
+    // //   : false;
+
+    // // Remove any sensitive details before sending
+    // delete user.password;
+    // delete user.salt;
 
     res.json({ ...user, isFavorite });
   } catch (error) {
@@ -683,106 +904,152 @@ router.get('/:username/profile', authenticateToken, async (req, res) => {
   }
 });
 
+
+
 // 1. GET /id/:userIdOrUsername/profile - Fetch other user profile by ID or Username
 router.get('/id/:userIdOrUsername/profile', authenticateToken, async (req, res) => {
   try {
     const { userIdOrUsername } = req.params;
     let query, params;
 
-    // Check if the parameter is a numeric userId or a string (username)
-    if (/^\d+$/.test(userIdOrUsername)) {
-      // It's a userId
-      query = `
+    let { user, isFavorite } = await fetchuserprofilebyidorusername(userIdOrUsername, req.user.user_id, res);
 
-        SELECT u.user_id, u.username, u.created_at, u.email,
-               a.balance, u.accountTier, u.favorites, u.bio,
-               u.rating, u.user_id, u.profilePic
+    // // Check if the parameter is a numeric userId or a string (username)
+    // if (/^\d+$/.test(userIdOrUsername) || (userIdOrUsername.length > 24 && userIdOrUsername.charAt(8) === '-')) {
+    //   // It's a userId
+    //   query = `
 
-        FROM users u
-        LEFT JOIN accounts a ON u.user_id = a.user_id
-        WHERE u.user_id = ?
-      `;
-      params = [userIdOrUsername];
-    } else {
-      // It's a username
-      // It's a username
-      query = `
-        SELECT u.user_id, u.username, u.created_at, u.email, u.accountTier, u.favorites, u.bio, u.rating, u.user_id, u.profilePic
-        FROM users u
-        LEFT JOIN accounts a ON u.user_id = a.user_id
-        WHERE u.username = ?
-      `;
-      params = [userIdOrUsername];
-    }
+    //     SELECT u.user_id, u.username, u.created_at, u.email,
+    //            a.balance, u.accountTier, u.favorites, u.bio,
+    //            u.rating, u.user_id, u.profilePic, last_activity
 
-    // 1) Recalculate the average rating for content this user created
-    const [ratingRows] = await db.query(
-      'SELECT AVG(rating) AS avgRating FROM content_ratings WHERE user_id = ?',
-      [userIdOrUsername]
-    );
-    const avgRating = ratingRows[0].avgRating || 0;
+    //     FROM users u
+    //     LEFT JOIN accounts a ON u.user_id = a.user_id
+    //     WHERE u.user_id = ?
+    //   `;
+    //   params = [userIdOrUsername];
+    // } else {
+    //   // It's a username
+    //   // It's a username
+    //   query = `
+    //     SELECT u.user_id, u.username, u.created_at, u.email, u.accountTier, u.favorites, u.bio, u.rating, u.user_id, u.profilePic, last_activity
+    //     FROM users u
+    //     LEFT JOIN accounts a ON u.user_id = a.user_id
+    //     WHERE u.username = ?
+    //   `;
+    //   params = [userIdOrUsername];
+    // }
 
-    // 2) Count how many times like_status = 1 for this user
-    const [likes] = await db.query(
-      'SELECT COUNT(*) AS numberOfLikes FROM content_ratings WHERE user_id = ? AND like_status = 1',
-      [userIdOrUsername]
-    );
-    const numberOfLikes = likes[0].numberOfLikes;
+    // // 1) Recalculate the average rating for content this user created
+    // const [ratingRows] = await db.query(
+    //   'SELECT AVG(rating) AS avgRating FROM content_ratings WHERE user_id = ?',
+    //   [userIdOrUsername]
+    // );
+    // const avgRating = ratingRows[0].avgRating || 0;
 
-    // 2) Count how many times like_status = 1 for this user
-    const [posts] = await db.query(
-      'SELECT COUNT(*) AS numberOfPosts FROM public_content WHERE host_user_id = ?',
-      [userIdOrUsername]
-    );
-    const numberOfPosts = posts[0].numberOfPosts;
+    // // 2) Count how many times like_status = 1 for this user
+    // const [likes] = await db.query(
+    //   'SELECT COUNT(*) AS numberOfLikes FROM content_ratings WHERE user_id = ? AND like_status = 1',
+    //   [userIdOrUsername]
+    // );
+    // const numberOfLikes = likes[0].numberOfLikes;
 
-    // 3) Fetch the user’s main record
-    const [users] = await db.query(query, params);
-    if (users.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    // // 2) Count how many times dislike_status = 1 for this user
+    // const [dislikes] = await db.query(
+    //   'SELECT COUNT(*) AS numberOfDislikes FROM content_ratings WHERE user_id = ? AND dislike_status = 1',
+    //   [userIdOrUsername]
+    // );
+    // const numberOfDislikes = dislikes[0].numberOfDislikes;
+
+    // // 2) Count how many times like_status = 1 for this user
+    // const [posts] = await db.query(
+    //   'SELECT COUNT(*) AS numberOfPosts FROM public_content WHERE host_user_id = ?',
+    //   [userIdOrUsername]
+    // );
+    // const numberOfPosts = posts[0].numberOfPosts;
+
+    //  // 2) Count how many times posts were unlocked for this user
+    // const [postsUnlocked] = await db.query(
+    //   'SELECT COUNT(*) AS numberOfPostsUnlocked FROM public_content WHERE host_user_id = ?',
+    //   [userIdOrUsername]
+    // );
+    // const [AvgTimesUnlocked] = await db.query(
+    //   'SELECT AVG(unlocks) AS avgUnlocks FROM content_ratings WHERE host_user_id = ?',
+    //   [userIdOrUsername]
+    // );
+    // const avgUnlocks = AvgTimesUnlocked[0].avgUnlocks || 0;
+
+    // const numberOfPostsUnlocked = postsUnlocked[0].numberOfPostsUnlocked;
+
+    // const totalUnlocks = numberOfPostsUnlocked * avgUnlocks;
+
+    //   // 2) Count how many times posts were viewed for this user
+    // const [postsViewed] = await db.query(
+    //   'SELECT COUNT(*) AS numberOfPostsViewed FROM public_content WHERE host_user_id = ?',
+    //   [userIdOrUsername]
+    // );
+    // const [AvgTimesViewed] = await db.query(
+    //   'SELECT AVG(views) AS avgViews FROM content_ratings WHERE host_user_id = ?',
+    //   [userIdOrUsername]
+    // );
+    // const avgViews = AvgTimesViewed[0].avgViews || 0;
+
+    // const numberOfPostsViewed = postsViewed[0].numberOfPostsViewed;
+
+    // const totalViews = numberOfPostsViewed * avgViews;
 
 
-    // Fetch user details
-    const [favorites] = await db.query(
-      'SELECT favorites FROM users WHERE user_id = ?',
-      [req.user.user_id]
-    );
 
-    // Fetch user details
-    const [id] = await db.query(
-      'SELECT id FROM users WHERE user_id = ?',
-      [userIdOrUsername]
-    );
-
-    console.log("ID#: ", id[0].id)
-    let favs = favorites[0].favorites
-
-    // 4) Add the rating and likes info to the user object
-    users[0].avgRating = avgRating;
-    users[0].numberOfLikes = numberOfLikes;
-    users[0].numberOfPosts = numberOfPosts;
+    // // 3) Fetch the user’s main record
+    // const [users] = await db.query(query, params);
+    // if (users.length === 0) {
+    //   return res.status(404).json({ message: 'User not found' });
+    // }
 
 
-    // console.log("Favorites: ", favorites[0].favorites)
-    let fav = favorites[0].favorites.replaceAll(" ", '');
-    let favoriteList = fav.split(",");
-    let favnum = favoriteList.length;
-    // console.log("Favorites: ", favnum)
+    // // Fetch user details
+    // const [favorites] = await db.query(
+    //   'SELECT favorites FROM users WHERE user_id = ?',
+    //   [req.user.user_id]
+    // );
 
-    users[0].numberOfFavorites = favnum;
+    // // Fetch user details
+    // const [id] = await db.query(
+    //   'SELECT id FROM users WHERE user_id = ?',
+    //   [userIdOrUsername]
+    // );
 
-    // console.log("#Posts: ", favs)
+    // console.log("ID#: ", id[0].id)
+    // let favs = favorites[0].favorites
 
-    // Optionally check if user is in the current user's favorites
-    const user = users[0];
-    const isFavorite = favoriteList.includes(id[0].id.toString());
-    //   ? JSON.parse(user.favorites).includes(req.user.user_id)
-    //   : false;
+    // // 4) Add the rating and likes info to the user object
+    // users[0].avgRating = avgRating;
+    // users[0].numberOfLikes = numberOfLikes;
+    // users[0].numberOfDislikes = numberOfDislikes;
+    // users[0].numberOfPosts = numberOfPosts;
+    // users[0].totalUnlocks = totalUnlocks;
+    // users[0].totalViews = totalViews;
 
-    // Remove any sensitive details before sending
-    delete user.password;
-    delete user.salt;
+
+    // // console.log("Favorites: ", favorites[0].favorites)
+    // let fav = favorites[0].favorites.replaceAll(" ", '');
+    // let favoriteList = fav.split(",");
+    // let favnum = favoriteList.length;
+    // // console.log("Favorites: ", favnum)
+
+    // users[0].numberOfFavorites = favnum;
+
+    // // console.log("#Posts: ", favs)
+
+    // // Optionally check if user is in the current user's favorites
+    // const user = users[0];
+    // const isFavorite = favoriteList.includes(id[0].id.toString());
+    // //   ? JSON.parse(user.favorites).includes(req.user.user_id)
+    // //   : false;
+
+    // // Remove any sensitive details before sending
+    // delete user.password;
+    // delete user.salt;
 
     res.json({ ...user, isFavorite });
   } catch (error) {
