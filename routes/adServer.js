@@ -211,14 +211,14 @@ app.post('/auth/login', async (req, res) => {
 // =================
 
 // Get user profile
-app.get('/advertiser/profile/:email', async (req, res) => {
+app.post('/advertiser/profile/:email', async (req, res) => {
   let email = req.params.email;
   try {
     console.log("Get advertiser profile for user ID:", req.user.user_id);
-    const advertisers = await executeQuery(
-      'SELECT id, name, email, credits, created_at FROM advertisers WHERE user_id = ?',
-      [req.user.user_id]
-    );
+    // const advertisers = await executeQuery(
+    //   'SELECT id, name, email, credits, created_at FROM advertisers WHERE user_id = ?',
+    //   [req.user.user_id]
+    // );
     console.log("Authenticated user email:", req.user);
     const advertisers2 = await executeQuery(
       'SELECT id, name, email, credits, created_at FROM advertisers WHERE email = ?',
@@ -722,8 +722,8 @@ app.patch('/ad/:id/toggle', authenticateToken, async (req, res) => {
 // Get ads to display (for viewers)
 app.post('/display', async (req, res) => {
   try {
-    const { format, excludeUserId } = req.body;
-    console.log("Get display ads with format:", format, "and excludeUserId:", excludeUserId);
+    const { format, mediaFormat, excludeUserId } = req.body;
+    console.log("Get display ads with format:", format, "and mediaFormat:", mediaFormat, "and excludeUserId:", excludeUserId);
 
     let query = `
       SELECT *
@@ -737,6 +737,11 @@ app.post('/display', async (req, res) => {
     if (format) {
       query += ' AND format = ?';
       params.push(format);
+    }
+
+    if (mediaFormat) {
+      query += ' AND mediaFormat = ?';
+      params.push(mediaFormat);
     }
 
     if (excludeUserId) {
