@@ -46,11 +46,12 @@ function publicUrl(bucket, filepath) {
 }
 
 // Allowed file types (both ext and mime)
-const ALLOWED = /^(jpeg|jpg|png|gif|mp4|webm|mp3|wav)$/i;
+const ALLOWED = /^(jpeg|jpg|png|webp|gif|mp4|webm|mp3|wav)$/i;
 const MIME_TO_EXT = {
   'image/jpeg': '.jpg',
   'image/jpg': '.jpg',
   'image/png': '.png',
+  'image/webp': '.webp',
   'image/gif': '.gif',
   'video/mp4': '.mp4',
   'video/webm': '.webm',
