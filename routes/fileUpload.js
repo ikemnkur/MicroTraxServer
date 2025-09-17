@@ -1,7 +1,7 @@
 // routes/fileUpload.js
 const express = require('express');
 const router = express.Router();
-
+const db = require('../config/db');
 const path = require('path');
 const moment = require('moment');
 const { v4: uuidv4 } = require('uuid');
@@ -24,6 +24,19 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
 });
+
+
+// // Database connection
+// const dbConfig = {
+//   host: process.env.DB_HOST,
+//   user: process.env.DB_USER,
+//   password: process.env.DB_PASSWORD,
+//   database: process.env.DB_4_ADS_NAME || "ad_system",
+//   waitForConnections: true,
+//   connectionLimit: 10,
+//   queueLimit: 0
+// };
+
 
 async function dbQuery(sql, params = []) {
   const [rows] = await pool.execute(sql, params);
@@ -276,7 +289,7 @@ router.post('/adFile', authenticateToken, async (req, res) => {
 // ######################## POST PROFILE PIC ###############################
 
 // Endpoint to handle profile picture upload
-router.post('/upload/profile-picture', authenticateToken, async (req, res) => {
+router.post('/profile-picture', authenticateToken, async (req, res) => {
   console.log("Profile picture upload request received");
 
   let busboy;
@@ -362,11 +375,175 @@ router.post('/upload/profile-picture', authenticateToken, async (req, res) => {
         });
 
         const imageUrl = publicUrl(BUCKET_NAME, gcsFilePath);
+        // main DB connection
+        const connection = await db.getConnection();
 
         // Optionally update user profilePic in DB
-        await dbQuery(
+        await connection.query(
           'UPDATE users SET profilePic = ? WHERE user_id = ?',
-          [imageUrl, userId]
+          [imageUrl, req.user.user_id]
+        );
+
+        console.log("Updated profile pic for userId:", userId, "to URL:", imageUrl);
+
+        if (!uploadDone) {
+          uploadDone = true;
+          return res.status(200).json({
+            message: 'File uploaded successfully',
+            url: imageUrl
+          });
+        }
+      } catch (err) {
+        console.error('Post-upload error:', err);
+        if (!uploadDone) {
+          uploadDone = true;
+          return res.status(500).json({ message: 'Server error' });
+        }
+      }
+    });
+  });
+
+  busboy.on('error', (err) => {
+    console.error('Busboy error:', err);
+    if (!uploadDone) {
+      uploadDone = true;
+      return res.status(400).json({ message: 'Malformed upload' });
+    }
+  });
+
+  busboy.on('partsLimit', () => {
+    aborted = true;
+    if (!uploadDone) {
+      uploadDone = true;
+      return res.status(400).json({ message: 'Too many parts in form data' });
+    }
+  });
+
+  busboy.on('filesLimit', () => {
+    aborted = true;
+    if (!uploadDone) {
+      uploadDone = true;
+      return res.status(400).json({ message: 'Too many files' });
+    }
+  });
+
+  busboy.on('fieldsLimit', () => {
+    aborted = true;
+    if (!uploadDone) {
+      uploadDone = true;
+      return res.status(400).json({ message: 'Too many fields' });
+    }
+  });
+
+  busboy.on('finish', () => {
+    if (aborted) return;
+    if (!hadFile && !uploadDone) {
+      uploadDone = true;
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+  });
+
+  req.pipe(busboy);
+});
+
+
+// ######################## POST TRANSACTION SCREENSHOT ###############################
+// todo: change the route below to /transaction-screenshot
+
+// Endpoint to handle transaction screenshot upload
+router.post('/transaction-screenshot', authenticateToken, async (req, res) => {
+  console.log("Transaction screenshot upload request received");
+
+  let busboy;
+  try {
+    busboy = Busboy({ headers: req.headers, limits: { fileSize: 5 * 1024 * 1024 } }); // 5 MB
+  } catch (e) {
+    console.error('Failed to init Busboy:', e);
+    return res.status(400).json({ message: 'Invalid multipart/form-data request' });
+  }
+
+  let uploadDone = false;
+  let writeStream;
+  let gcsFilePath = '';
+  let mimeTypeGlobal = '';
+  let username = '';
+  let userId = '';
+  let hadFile = false;
+  let aborted = false;
+
+  busboy.on('field', (fieldname, val) => {
+    if (fieldname === 'username') username = val;
+    if (fieldname === 'userId') userId = val;
+  });
+
+  busboy.on('file', (fieldname, file, info) => {
+    hadFile = true;
+
+    const { filename: rawFilename, mimeType } = info || {};
+    const originalName =
+      typeof rawFilename === 'string' && rawFilename.trim() ? rawFilename.trim() : 'profile';
+
+    // Validate by ext and mime
+    const extFromName = path.extname(originalName).toLowerCase().replace('.', '');
+    const extOk = !!extFromName && ALLOWED.test(extFromName);
+    const mimeOk = ALLOWED.test((mimeType || '').split('/').pop() || '');
+
+    if (!extOk && !mimeOk) {
+      file.resume();
+      aborted = true;
+      return res.status(400).json({ message: 'Error: Images Only!' });
+    }
+
+    const base = path
+      .basename(originalName)
+      .replace(/\s+/g, '_')
+      .replace(/[^A-Za-z0-9._-]/g, '');
+
+    const resolvedExt =
+      (extOk ? `.${extFromName}` : (MIME_TO_EXT[(mimeType || '').toLowerCase()] || '')) || '';
+
+    let finalBase = base;
+    if (!resolvedExt || !base.toLowerCase().endsWith(resolvedExt.toLowerCase())) {
+      finalBase = `${base}${resolvedExt}`;
+    }
+
+    const finalName = `${uuidv4()}_${finalBase}`;
+    gcsFilePath = `${DEST_PREFIX}/profile_pics/${finalName}`;
+    mimeTypeGlobal = mimeType || 'application/octet-stream';
+
+    const bucket = storage.bucket(BUCKET_NAME);
+    const gcsFile = bucket.file(gcsFilePath);
+
+    writeStream = gcsFile.createWriteStream({
+      metadata: { contentType: mimeTypeGlobal },
+      resumable: false,
+      validation: 'md5',
+    });
+
+    file.pipe(writeStream);
+
+    writeStream.on('error', (err) => {
+      console.error('GCS write error:', err);
+      if (!uploadDone) {
+        uploadDone = true;
+        return res.status(500).json({ message: 'Upload failed' });
+      }
+    });
+
+    writeStream.on('finish', async () => {
+      try {
+        await bucket.file(gcsFilePath).makePublic().catch((err) => {
+          if (err && err.code !== 400) throw err;
+        });
+
+        const imageUrl = publicUrl(BUCKET_NAME, gcsFilePath);
+        // main DB connection
+        const connection = await db.getConnection();
+
+        // Optionally update user profilePic in DB
+        await connection.query(
+          'UPDATE purchases SET transactionScreenshot = ? WHERE user_id = ? and transactionScreenshot IS NULL and status = "pending" and created_at >= NOW() - INTERVAL 1 HOUR ORDER BY created_at DESC LIMIT 1',
+          [imageUrl, req.user.user_id]
         );
 
         if (!uploadDone) {
