@@ -1,5 +1,7 @@
 const express = require('express');
 const db = require('../config/db');
+const axios = require('axios'); // Install axios: npm install axios
+
 const authenticateToken = require('../middleware/auth');
 
 const router = express.Router();
@@ -116,38 +118,160 @@ router.post('/stripe-reload', authenticateToken, async (req, res) => {
   }
 });
 
+// Map for deposit wallet addresses - these are the addresses your system expects users to send funds to
+const depositWalletAddressMap = {
+  BTC: { address: 'qrzx04h0r25x5x232z5d2y37t2420p9x9sh5x58q67', blockchain: 'bitcoin-cash' }, // Example for BCH
+  LTC: { address: 'ltc1qzx04hghmghmgh545456456t2420p9x9sh5x58q67', blockchain: 'litecoin' },
+  SOL: { address: 'RiKRqrmqXeJdeKAciYuyaJj7STZnHMggfnnnngfnfs', blockchain: 'solana' },
+  ETH: { address: '0xRiKRqrmqXeJdfbdfeKAciYuyaJj7STZnHMg6', blockchain: 'ethereum' },
+  XMR: { address: '44X8AgosuXFCuRmBoDRc66Vw1FeCaL6vRiKRqrmqXeJdeKAciYuyaJj7STZnHMg7x8icHJL6M1hzeAPqSh8NSC1GGC9bkCp', blockchain: 'monero' },
+  // Add other currencies and their corresponding Blockchair blockchain paths as needed
+};
+
+// --- Helper function to fetch all transactions for an address and filter by date ---
+async function getAllTransactionsForLastDay(depositAddress, blockchain) {
+  let allTransactions = [];
+  let offset = 0;
+  const limit = 100; // Max per Blockchair API request
+  const oneDayAgo = new Date();
+  oneDayAgo.setDate(oneDayAgo.getDate() - 1); // Get date 24 hours ago
+
+  while (true) {
+    const url = `https://api.blockchair.com/${blockchain}/dashboards/address/${depositAddress}?transaction_details=true&limit=${limit}&offset=${offset}`;
+    try {
+      const response = await axios.get(url);
+      const data = response.data;
+
+      // Ensure data and transactions exist and are in the expected format
+      if (!data || !data.data || !data.data[depositAddress] || !data.data[depositAddress].transactions) {
+        console.warn(`Blockchair API response for ${depositAddress} was incomplete or empty.`);
+        break; // Exit if no transactions found or data structure is unexpected
+      }
+
+      const fetchedTransactions = data.data[depositAddress].transactions;
+
+      if (fetchedTransactions.length === 0) {
+        break; // No more transactions
+      }
+
+      // Filter transactions from the last 24 hours
+      const recentTransactions = fetchedTransactions.filter(tx => {
+        const txDate = new Date(tx.time); // Blockchair provides 'time' as a string in ISO format
+        return txDate >= oneDayAgo;
+      });
+
+      allTransactions.push(...recentTransactions);
+
+      // If we got fewer than the limit, it means we've reached the end of recent transactions
+      if (fetchedTransactions.length < limit || recentTransactions.length < fetchedTransactions.length) {
+        break;
+      }
+
+      offset += limit;
+    } catch (error) {
+      console.error(`Error fetching transactions from Blockchair for ${depositAddress}:`, error.message);
+      // Handle API errors (e.g., rate limits, invalid address, network issues)
+      // You might want to throw an error here or return an empty array, depending on your error handling strategy
+      break;
+    }
+  }
+  return allTransactions;
+}
+
+
 router.post('/crypto-reload', authenticateToken, async (req, res) => {
-  const { username, userId, amount, date, key, transactionId, currency, walletAdress, email, session_id } = req.body;
+  const { username, userId, amount, date, key, transactionId, currency, walletAddress, email, session_id } = req.body;
   const data = req.body;
+
   console.log("Reloading amount: ", amount);
   console.log("userID: ", userId);
+  console.log("Currency: ", currency);
+  console.log("Submitted Transaction ID: ", transactionId);
+
+  // Validate the provided currency and get the deposit address and blockchain slug
+  const depositInfo = depositWalletAddressMap[currency];
+  if (!depositInfo) {
+    return res.status(400).json({ message: 'Unsupported cryptocurrency.' });
+  }
+
+  const { address: depositAddress, blockchain } = depositInfo;
+
+  let transactionIsValid = false;
+  let foundTransactionDetails = null; // To store details of the matched transaction
 
   try {
-    // Check for duplicates
-    const [rows, fields] = await db.query(
+    // Check for duplicates in your database *before* fetching from the blockchain
+    const [existingPurchases] = await db.query(
       'SELECT * FROM purchases WHERE username = ? AND amount = ? AND transactionId = ?',
       [username, amount, transactionId]
     );
 
-    console.log("Duplicate Check Result: ", rows);
+    console.log("Duplicate Check Result: ", existingPurchases);
 
-    if (rows.length > 0) {
+    if (existingPurchases.length > 0) {
       // Duplicate found, send a 409 Conflict response
       return res.status(409).json({ message: 'Duplicate purchase detected' });
     }
 
-    // Start a transaction
+    // Fetch transactions from the blockchain for the last day
+    const recentTransactions = await getAllTransactionsForLastDay(depositAddress, blockchain);
+
+    // Validate the transaction against the fetched history
+    // Find a transaction that matches the provided transactionId and amount (or close to it, considering fees)
+    if (recentTransactions && recentTransactions.length > 0) {
+      foundTransactionDetails = recentTransactions.find(tx => {
+        // Blockchair's 'id' is the transaction hash.
+        // It's crucial to correctly identify the received amount.
+        // For simplicity, we check if the transaction includes the deposit address as a receiver
+        // and if the sum of outputs to that address matches the expected amount.
+        // This logic can be more complex depending on the blockchain and specific transaction structure.
+
+        // Assuming Blockchair's 'destination' field in 'outputs' is the receiving address
+        // And 'value_usd' or 'value' (in satoshis/wei etc.) needs to be checked against 'amount'
+        const matchedOutputValue = tx.outputs.reduce((sum, output) => {
+          if (output.recipient === depositAddress) {
+            // Blockchair's 'value' is often in smallest units (satoshis, wei).
+            // Need to convert 'amount' (from req.body) to the same unit for comparison.
+            // For now, let's assume 'amount' is in the standard currency unit and Blockchair's 'value_usd' is available and reliable.
+            // Or you'd need a conversion factor: e.g., tx.outputs[i].value / 10^8 for Bitcoin
+            // For example, if 'amount' is USD and 'value_usd' is available:
+            return sum + parseFloat(output.value_usd);
+          }
+          return sum;
+        }, 0);
+
+        // Check if the transaction ID matches and the amount is approximately correct
+        // Using `toFixed` to handle floating-point precision issues
+        return tx.id === transactionId && parseFloat(matchedOutputValue).toFixed(2) === parseFloat(amount).toFixed(2);
+      });
+
+      if (foundTransactionDetails) {
+        transactionIsValid = true;
+        console.log("Transaction confirmed on blockchain:", foundTransactionDetails.id);
+      } else {
+        console.log("Transaction not found or amount mismatch in recent history.");
+      }
+    }
+
+    // Start a database transaction
     await db.query('START TRANSACTION');
+
+    // Determine the status based on validation
+    const transactionStatus = transactionIsValid ? "Pending" : "Rejected";
 
     // Insert into purchases table
     await db.query(
       'INSERT INTO purchases (username, userid, amount, reference_id, date, sessionID, transactionId, data, type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [username, req.user.user_id, amount, uuidv4(), date, session_id, transactionId, JSON.stringify(data), currency, "Pending"]
+      [username, req.user.user_id, amount, uuidv4(), date, session_id, transactionId, JSON.stringify(data), currency, transactionStatus]
     );
 
-    // const [recipientAccount] = await db.query('SELECT * FROM accounts WHERE user_id = ?', [userId]);
+    if (!transactionIsValid) {
+      await db.query('COMMIT'); // Commit the purchase record even if rejected
+      return res.status(409).json({ message: `${currency} Transaction of ${amount} to address: ${depositAddress} could not be confirmed on the blockchain.` });
+    }
 
-    const message = `${currency} order: ${amount}`
+    // Proceed only if the transaction was confirmed on the blockchain
+    const message = `${currency} order: ${amount}`;
 
     await db.query(
       'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -160,46 +284,173 @@ router.post('/crypto-reload', authenticateToken, async (req, res) => {
       [amount, req.user.user_id]
     );
 
-    // Create Notification
-    //  const { type, recipient_user_id, recipient_username, Nmessage, from_user, date } = req.body;
-    //  console.log("New notification: ", Nmessage);
-
-    // Fetch user details
-    const [user] = await db.query(
-      'SELECT * FROM users WHERE username = ?',
-      [username]
-    );
-
-
-
-    let notificationMsg = `Hoo-ray, Your ${currency} purchase  of ${amount} coins has been sumbitted, it will be reviewed and processed soon. !`
+    let notificationMsg = `Hoo-ray, Your ${currency} purchase of ${amount} coins has been submitted, it will be reviewed and processed soon. !`;
 
     try {
-      const [result] = await db.query(
+      const [notificationResult] = await db.query(
         `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
-    VALUES (?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?)`,
         ["purchase-submitted", req.user.user_id, notificationMsg, "0", username, new Date()]
       );
-
-      console.log("New notification successfully created:", notificationMsg);
-      // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
-    } catch (error) {
-      console.error('Error creating notification:', error);
-      // res.status(500).json({ message: 'Server error' });
+      console.log("New notification successfully created:", notificationMsg, "ID:", notificationResult.insertId);
+    } catch (notificationError) {
+      console.error('Error creating notification:', notificationError);
+      // Decide if you want to fail the whole request or just log this error
     }
 
-
-
-    // Commit the transaction
+    // Commit the database transaction
     await db.query('COMMIT');
-    res.json({ message: 'Wallet order logged successfully', ok: true });
+    res.json({ message: 'Wallet order logged and confirmed successfully', ok: true });
+
   } catch (error) {
     // If there's an error, rollback the transaction
     await db.query('ROLLBACK');
-    console.error('Error reloading wallet:', error);
+    console.error('Error processing crypto reload:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+
+// // router.post('/crypto-reload', authenticateToken, async (req, res) => {
+//   const { username, userId, amount, date, key, transactionId, currency, walletAdress, email, session_id } = req.body;
+//   const data = req.body;
+//   console.log("Reloading amount: ", amount);
+//   console.log("userID: ", userId);
+
+//    // Map for wallet addresses - examples for now
+//    const walletAddressMap = {
+//     BTC: 'qrzx04h0r25x5x232z5d2y37t2420p9x9sh5x58q67',
+//     LTC: 'qrzx04hghmghmgh545456456t2420p9x9sh5x58q67',
+//     SOL: 'RiKRqrmqXeJdeKAciYuyaJj7STZnHMggfnnnngfnfs',
+//     ETH: 'sdfsdfRiKRqrmqXeJdfbdfeKAciYuyaJj7STZnHMg6',
+//     XMR: '44X8AgosuXFCuRmBoDRc66Vw1FeCaL6vRiKRqrmqXeJdeKAciYuyaJj7STZnHMg7x8icHJL6M1hzeAPqSh8NSC1GGC9bkCp',
+//   };
+
+
+  
+//   // todo modify this function to fetch the lastest transaction from the last day
+//   function get_all_transactions(address, blockchain){
+//     let = all_transactions = []
+//     let = offset = 0
+//     let limit = 100
+//     while (True){
+//         let url = `https://api.blockchair.com/${blockchain}/dashboards/address/${address}?transaction_details=true&limit=${limit}&offset=${offset}`
+//         response = requests.get(url)
+//         data = response.json()
+
+//         if (data['data'][address]['transactions']){
+//           all_transactions.extend(data['data'][address]['transactions'])
+//             offset += limit
+//         }
+//         else{
+//           // # If no transactions are returned, we have reached the end.
+//             break
+//         }
+            
+            
+//     return all_transactions
+//     }
+      
+//   }
+
+//   let dayTransacations = get_all_transactions(walletAdress,currency)
+//   transactionValid = false;
+
+//   // Todo fix this function validate if the walletAdress and other transaction details in the req.body obj have been sen to on of the address in walletAddressMap[currency])
+//   function validateMutualTransactions (){
+//     if (dayTransacations['data'][address]['transactions'].includes(walletAddressMap[currency]))
+//     {
+//       transactionValid = true;
+//     }
+//   }
+  
+//   validateMutualTransactions()
+
+//   try {
+//     // Check for duplicates
+//     const [rows, fields] = await db.query(
+//       'SELECT * FROM purchases WHERE username = ? AND amount = ? AND transactionId = ?',
+//       [username, amount, transactionId]
+//     );
+
+//     console.log("Duplicate Check Result: ", rows);
+
+//     if (rows.length > 0) {
+//       // Duplicate found, send a 409 Conflict response
+//       return res.status(409).json({ message: 'Duplicate purchase detected' });
+//     }
+
+//     // Start a transaction
+//     await db.query('START TRANSACTION');
+
+//     // Insert into purchases table
+//     await db.query(
+//       'INSERT INTO purchases (username, userid, amount, reference_id, date, sessionID, transactionId, data, type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+//       [username, req.user.user_id, amount, uuidv4(), date, session_id, transactionId, JSON.stringify(data), currency, !transactionValid ? "Rejected":"Pending"]
+//     );
+
+//     // const [recipientAccount] = await db.query('SELECT * FROM accounts WHERE user_id = ?', [userId]);
+
+//       //if transaction can be validated cancel process
+//     if (!transactionValid) {
+//       await db.query('COMMIT');
+//       return res.status(409).json({ message: `${currency} Transaction of ${amount} to address: ${walletAddressMap[currency]} could not be confirmed.` });
+//     }
+//     const message = `${currency} order: ${amount}`
+
+//     await db.query(
+//       'INSERT INTO transactions (sender_account_id, recipient_account_id, amount, transaction_type, status, receiving_user, sending_user, message, reference_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+//       [0, userId, amount, 'purchase', 'pending', "System", "You", message, uuidv4()]
+//     );
+
+//     // Update user's spendable coin balance
+//     await db.query(
+//       'UPDATE accounts SET spendable = spendable + ? WHERE user_id = ?',
+//       [amount, req.user.user_id]
+//     );
+
+//     // Create Notification
+//     //  const { type, recipient_user_id, recipient_username, Nmessage, from_user, date } = req.body;
+//     //  console.log("New notification: ", Nmessage);
+
+//     // Fetch user details
+//     const [user] = await db.query(
+//       'SELECT * FROM users WHERE username = ?',
+//       [username]
+//     );
+
+
+
+
+
+//     let notificationMsg = `Hoo-ray, Your ${currency} purchase  of ${amount} coins has been sumbitted, it will be reviewed and processed soon. !`
+
+//     try {
+//       const [result] = await db.query(
+//         `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
+//     VALUES (?, ?, ?, ?, ?, ?)`,
+//         ["purchase-submitted", req.user.user_id, notificationMsg, "0", username, new Date()]
+//       );
+
+//       console.log("New notification successfully created:", notificationMsg);
+//       // res.status(201).json({ message: 'Notification created successfully', id: result.insertId });
+//     } catch (error) {
+//       console.error('Error creating notification:', error);
+//       // res.status(500).json({ message: 'Server error' });
+//     }
+
+
+
+//     // Commit the transaction
+//     await db.query('COMMIT');
+//     res.json({ message: 'Wallet order logged successfully', ok: true });
+//   } catch (error) {
+//     // If there's an error, rollback the transaction
+//     await db.query('ROLLBACK');
+//     console.error('Error reloading wallet:', error);
+//     res.status(500).json({ message: 'Server error' });
+//   }
+// });
 
 // router.get('/', authenticateToken, async (req, res) => {
 //   try {
