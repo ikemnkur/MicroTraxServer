@@ -115,6 +115,8 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+// Enable CORS for all origins and methods
+// app.use(cors()); 
 app.use(express.json());
 
 // Data storage for admin page

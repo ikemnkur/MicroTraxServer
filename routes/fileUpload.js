@@ -542,8 +542,8 @@ router.post('/transaction-screenshot', authenticateToken, async (req, res) => {
 
         // Optionally update user profilePic in DB
         await connection.query(
-          'UPDATE purchases SET transactionScreenshot = ? WHERE user_id = ? and transactionScreenshot IS NULL and status = "pending" and created_at >= NOW() - INTERVAL 1 HOUR ORDER BY created_at DESC LIMIT 1',
-          [imageUrl, req.user.user_id]
+          'UPDATE purchases SET transactionScreenshot = ? WHERE transactionScreenshot IS NULL and status = "pending" and created_at >= NOW() - INTERVAL 1 HOUR ORDER BY created_at DESC LIMIT 1',
+          [imageUrl]
         );
 
         if (!uploadDone) {
