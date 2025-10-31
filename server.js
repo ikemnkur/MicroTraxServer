@@ -747,7 +747,428 @@ module.exports = {
   sendPasswordResetEmail
 };
 
+// Crypto Payments Update
 
+app.post('/api/lookup-transaction', async (req, res) => {
+
+  FetchRecentTransactionsCron();
+
+  // wait a few seconds to allow the cron job to possibly update the database
+  // await new Promise((timeout) => setTimeout(timeout, 1000)); // wait 5 seconds for the cron to possibly update the DB
+
+
+  // key value pairs: ETH, BTC, LTC, SOL, XRP
+  const blockchainMap = {
+    "ethereum": "ETH",
+    "bitcoin": "BTC",
+    "litecoin": "LTC",
+    "solana": "SOL",
+    "xrp": "XRP"
+  };
+
+  try {
+    const { sendAddress, blockchain, transactionHash } = req.body;
+    console.log('Lookup transaction body -request:', { sendAddress, blockchain, transactionHash });
+    
+    let tx = [];
+    let result = null;
+    
+    if (blockchain === "bitcoin" || blockchain === "BTC") {
+      [tx] = await pool.execute(
+        `SELECT * FROM CryptoTransactions_BTC WHERE direction = 'IN' AND hash = ?`,
+        [transactionHash]
+      );
+      console.log('Lookup transaction result for bitcoin:', tx.length > 0 ? tx[0] : 'No transaction found');
+      
+      if (tx.length === 0) {
+        return res.status(404).json({ error: 'Transaction not found' });
+      }
+      result = tx[0];
+    }
+    else if (blockchain === "ethereum" || blockchain === "ETH") {
+      [tx] = await pool.execute(
+        `SELECT * FROM CryptoTransactions_ETH WHERE direction = 'IN' AND hash = ?`,
+        [ transactionHash]
+      );
+      console.log('Lookup transaction result for ethereum:', tx.length > 0 ? tx[0] : 'No transaction found');
+      
+      if (tx.length === 0) {
+        return res.status(404).json({ error: 'Transaction not found' });
+      }
+      result = tx[0];
+    }
+    else if (blockchain === "litecoin" || blockchain === "LTC") {
+      [tx] = await pool.execute(
+        `SELECT * FROM CryptoTransactions_LTC WHERE direction = 'IN' AND hash = ?`,
+        [transactionHash]
+      );
+      console.log('Lookup transaction result for litecoin:', tx.length > 0 ? tx[0] : 'No transaction found');
+      
+      if (tx.length === 0) {
+        return res.status(404).json({ error: 'Transaction not found' });
+      }
+      result = tx[0];
+    }
+    else if (blockchain === "solana" || blockchain === "SOL") {
+      [tx] = await pool.execute(
+        `SELECT * FROM CryptoTransactions_SOL WHERE direction = 'IN' AND hash = ?`,
+        [transactionHash]
+      );
+      console.log('Lookup transaction result for solana:', tx.length > 0 ? tx[0] : 'No transaction found');
+      
+      if (tx.length === 0) {
+        return res.status(404).json({ error: 'Transaction not found' });
+      }
+      result = tx[0];
+    }
+    else {
+      return res.status(400).json({ error: 'Unsupported blockchain. Use bitcoin, ethereum, litecoin, or solana' });
+    }
+
+    result.found = true;
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('Lookup transaction error:', error);
+    res.status(500).json({ error: 'Database error - transaction lookup failed' });
+  }
+
+});
+
+// --- Configurable backends (Esplora-compatible) ---
+const BTC_ESPLORA = process.env.BTC_ESPLORA || 'https://blockstream.info/api';
+const LTC_ESPLORA = process.env.LTC_ESPLORA || 'https://litecoinspace.org/api';
+const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY || '';
+const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+
+function ts(sec) {
+  if (!sec) return '';
+  return new Date(sec * 1000).toISOString().replace('T', ' ').replace('Z', ' UTC');
+}
+function fmt(amount, decimals) {
+  const d = BigInt(10) ** BigInt(decimals);
+  const n = BigInt(amount);
+  const whole = (n / d).toString();
+  const frac = (n % d).toString().padStart(decimals, '0');
+  return `${whole}.${frac}`.replace(/\.?0+$/, '');
+}
+
+// -------- BTC/LTC via Esplora (Blockstream/mempool/litecoinspace) --------
+// Docs: /api/address/:addr/txs (newest first, first page) and /txs/chain?last_seen=txid for paging.
+// BTC docs (Esplora): blockstream.info explorer API / mempool.space REST. LTC: litecoinspace.org API.
+async function fetchEsploraAddressTxs(baseUrl, address, limit = 100) {
+  // First page (newest): /address/:addr/txs returns up to ~25 (varies with deployment)
+  const rows = [];
+  const seen = new Set();
+  let url = `${baseUrl}/address/${address}/txs`;
+
+  while (rows.length < limit && url) {
+    const { data } = await axios.get(url, { timeout: 20000 });
+    if (!Array.isArray(data) || data.length === 0) break;
+
+    for (const tx of data) {
+      if (seen.has(tx.txid)) continue;
+      seen.add(tx.txid);
+
+      // Compute net sats for this address from vin/vout
+      let spent = 0n, recv = 0n;
+      for (const vin of tx.vin || []) {
+        const addrs = vin.prevout?.scriptpubkey_address ? [vin.prevout.scriptpubkey_address] : (vin.prevout?.address ? [vin.prevout.address] : []);
+        if (addrs.some(a => a && a.toLowerCase() === address.toLowerCase())) {
+          spent += BigInt(vin.prevout?.value ?? 0);
+        }
+      }
+      for (const vout of tx.vout || []) {
+        const addrs = vout.scriptpubkey_address ? [vout.scriptpubkey_address] : (vout.address ? [vout.address] : []);
+        if (addrs.some(a => a && a.toLowerCase() === address.toLowerCase())) {
+          recv += BigInt(vout.value ?? 0);
+        }
+      }
+      const net = recv - spent; // sats
+      const direction = net > 0n ? 'IN' : net < 0n ? 'OUT' : '—';
+
+      // crude counterparty guess
+      let fromAddr = null, toAddr = null;
+      if (direction === 'IN') {
+        const otherIn = tx.vin?.find(v => (v.prevout?.scriptpubkey_address || '').toLowerCase() !== address.toLowerCase());
+        fromAddr = otherIn?.prevout?.scriptpubkey_address || null;
+        toAddr = address;
+      } else if (direction === 'OUT') {
+        fromAddr = address;
+        const otherOut = tx.vout?.find(v => (v.scriptpubkey_address || '').toLowerCase() !== address.toLowerCase());
+        toAddr = otherOut?.scriptpubkey_address || null;
+      }
+
+      rows.push({
+        time: ts(tx.status?.block_time),
+        direction,
+        amount: fmt((net < 0n ? -net : net).toString(), 8),
+        from: fromAddr,
+        to: toAddr,
+        hash: tx.txid
+      });
+      if (rows.length >= limit) break;
+    }
+
+    if (rows.length >= limit || data.length === 0) break;
+    // Next page: /address/:addr/txs/chain/:last_txid  (Esplora supports last_seen)
+    const last = data[data.length - 1]?.txid;
+    if (!last) break;
+    url = `${baseUrl}/address/${address}/txs/chain/${last}`;
+  }
+
+  return rows.slice(0, limit);
+}
+
+// -------- ETH via Etherscan --------
+
+/**
+ * Fetch transactions for an address using Etherscan API V2.
+ * @param {string} address        - The wallet address to look up.
+ * @param {number} limit          - Max number of transactions to fetch.
+ * @param {number} chainId        - Numeric chain ID (e.g., 1 = Ethereum mainnet).
+ * @param {string} action         - E.g., "txlist", "getdeposittxs", etc.
+ * @param {object} extraParams    - Any extra query params (e.g., from-address filter).
+ */
+async function fetchEth({
+  address,
+  limit = 100,
+  chainId = 1,
+  action = "txlist",
+  extraParams = {}
+}) {
+  const url = `https://api.etherscan.io/v2/api`;
+  const params = {
+    apikey: ETHERSCAN_API_KEY,
+    chainid: chainId,
+    module: "account",            // adjust if other module
+    action,
+    address,
+    startblock: 0,
+    endblock: 99999999,
+    page: 1,
+    offset: Math.min(100, limit),
+    sort: "desc",
+    ...extraParams
+  };
+  console.log("Etherscan Address:", params.address, "Action:", action, "ChainID:", chainId);
+
+  try {
+    const { data } = await axios.get(url, { params, timeout: 20000 });
+
+    if (data.status !== "1") {
+      // handle “no results” vs error
+      if (data.message && data.message.includes("No transactions found")) {
+        return [];
+      }
+      throw new Error(`Etherscan V2 error: ${data.message} - ${JSON.stringify(data.result)}`);
+    }
+
+    // Ensure result is array
+    if (!Array.isArray(data.result)) {
+      throw new Error(`Unexpected result format: ${JSON.stringify(data.result)}`);
+    }
+
+    // Map over the results similarly to your previous logic
+    const me = address.toLowerCase();
+    return data.result.slice(0, limit).map(t => {
+      const from = (t.from || "").toLowerCase();
+      const to = (t.to || "").toLowerCase();
+      const dir = (to === me && from !== me) ? "IN"
+        : (from === me && to !== me) ? "OUT"
+          : "—";
+
+      //       // Example Response
+
+      //       {
+      //   "status": "1",
+      //   "message": "OK",
+      //   "result": [
+      //     {
+      //       "blockNumber": "23666665",
+      //       "blockHash": "0xabf940d34137c7104c7b1f1c4f1049433417d4b4c3e360024062f5066ad92a9f",
+      //       "timeStamp": "1761542519",
+      //       "hash": "0xb838805293426888a8e44c7a42a3775bf7e2b8c5a779bcd59544dc9cc0bdeaae",
+      //       "nonce": "1629552",
+      //       "transactionIndex": "88",
+      //       "from": "0x6081258689a75d253d87ce902a8de3887239fe80",
+      //       "to": "0x9a61f30347258a3d03228f363b07692f3cbb7f27",
+      //       "value": "1240860000000000",
+      //       "gas": "21000",
+      //       "gasPrice": "114277592",
+      //       "input": "0x",
+      //       "methodId": "0x",
+      //       "functionName": "",
+      //       "contractAddress": "",
+      //       "cumulativeGasUsed": "5026825",
+      //       "txreceipt_status": "1",
+      //       "gasUsed": "21000",
+      //       "confirmations": "20522",
+      //       "isError": "0"
+      //     }
+      //   ]
+      // }
+
+      console.log("Etherscan V2 tx:", t);
+
+      // Note: Ensure field names match what the V2 endpoint returns
+      return {
+        time: new Date(Number(t.timeStamp) * 1000).toISOString(),
+        direction: dir,
+        amount: t.value /* convert from t.value depending on decimals */,
+        from: t.from || null,
+        to: t.to || null,
+        hash: t.hash
+      };
+    });
+
+  } catch (error) {
+    console.error("fetchEtherscanV2 error:", error.message);
+    throw error;
+  }
+}
+
+// -------- SOL via JSON-RPC --------
+async function solRpc(method, params) {
+  const { data } = await axios.post(SOLANA_RPC_URL, { jsonrpc: '2.0', id: 1, method, params }, { timeout: 30000 });
+  if (data.error) throw new Error(data.error.message || String(data.error));
+  return data.result;
+}
+
+async function fetchSol(address, limit = 100) {
+  const sigs = await solRpc('getSignaturesForAddress', [address, { limit: Math.min(100, limit) }]) || [];
+  const out = [];
+  for (const s of sigs) {
+    const sig = s.signature;
+    const tx = await solRpc('getTransaction', [sig, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]);
+    if (!tx) continue;
+
+    const meta = tx.meta || {};
+    const msg = tx.transaction?.message || {};
+    const keys = (msg.accountKeys || []).map(k => (typeof k === 'string' ? k : k.pubkey));
+    const idx = keys.findIndex(k => (k || '').toLowerCase() === address.toLowerCase());
+    let net = 0n;
+    if (idx >= 0) {
+      const pre = BigInt(meta.preBalances?.[idx] ?? 0);
+      const post = BigInt(meta.postBalances?.[idx] ?? 0);
+      net = post - pre; // lamports, + is IN
+    }
+    const direction = net > 0n ? 'IN' : net < 0n ? 'OUT' : '—';
+    // simple counterparty
+    const cp = keys.find(k => (k || '').toLowerCase() !== address.toLowerCase()) || null;
+
+    out.push({
+      time: tx.blockTime ? ts(tx.blockTime) : '',
+      direction,
+      amount: fmt((net < 0n ? -net : net).toString(), 9),
+      from: direction === 'IN' ? cp : (direction === 'OUT' ? address : null),
+      to: direction === 'IN' ? address : (direction === 'OUT' ? cp : null),
+      signature: sig
+    });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+
+const walletAddressMap = {
+  BTC: 'bc1q4j9e7equq4xvlyu7tan4gdmkvze7wc0egvykr6',
+  LTC: 'ltc1qgg5aggedmvjx0grd2k5shg6jvkdzt9dtcqa4dh',
+  SOL: 'qaSpvAumg2L3LLZA8qznFtbrRKYMP1neTGqpNgtCPaU',
+  ETH: '0x9a61f30347258A3D03228F363b07692F3CBb7f27',
+};
+
+cron.schedule('*/30 * * * *', async () => {
+
+  FetchRecentTransactionsCron();
+
+});
+
+
+async function FetchRecentTransactionsCron() {
+  try {
+    console.log('🔄 Fetching recent transactions for all wallet addresses...');
+    // Iterate over walletAddressMap entries (key = chain, value = address) for the cron job
+    for (const [chainKey, addr] of Object.entries(walletAddressMap)) {
+      // const txs = await fetchRe,centTransactions(address);
+      const chain = String(chainKey || '').toUpperCase();
+      const address = String(addr || '').trim();
+      // Use a fixed reasonable limit for cron runs
+      const limit = 100;
+      try {
+
+        if (!address || !chain) {
+          console.log('No address or chain provided');
+          continue; // skip this entry
+        }
+        let rows = [];
+        if (chain === 'BTC') rows = await fetchEsploraAddressTxs(BTC_ESPLORA, address, limit);
+        else if (chain === 'LTC') rows = await fetchEsploraAddressTxs(LTC_ESPLORA, address, limit);
+        else if (chain === 'ETH') rows = await fetchEth({ address, limit, chainId: 1, action: "txlist", extraParams: {} });
+        else if (chain === 'SOL') rows = await fetchSol(address, limit);
+        else {
+          console.log('Unsupported chain. Use BTC, LTC, ETH, SOL');
+          continue;
+        }
+        // return res.status(400).json({ error: 'Unsupported chain. Use BTC, LTC, ETH, SOL' });
+
+        // res.json({ chain, address, count: rows.length, txs: rows });
+
+        let txs = {
+          chain,
+          address,
+          count: rows.length,
+          txs: rows
+        };
+        // console.log(`✅ Fetched ${rows.length} transactions for ${chain} address ${address}`);
+
+
+        for (const tx of txs.txs) {
+          const transactionId = tx.hash;
+
+          // console.log(`Time: ${tx.time}, Direction: ${tx.direction}, Amount: ${tx.amount}, From: ${tx.from}, To: ${tx.to}, Hash: ${tx.hash}`);
+
+          const [existingTxs] = await pool.execute(
+            `SELECT * FROM CryptoTransactions_${chain} WHERE hash = ?`,
+            [transactionId]
+          );
+
+          // Check if transaction already exists
+          if (existingTxs.length > 0) {
+            // console.log(`Transaction ${transactionId} already exists in the database. Skipping.`);
+            continue; // Skip to next transaction
+          }
+
+          // Insert new transaction
+          await pool.execute(
+            `INSERT INTO CryptoTransactions_${chain} (time, direction, amount, fromAddress, toAddress, hash) VALUES (?, ?, ?, ?, ?, ?)`,
+            [
+              tx.time,
+              tx.direction,
+              tx.amount,
+              tx.from,
+              tx.to,
+              tx.hash,
+            ]
+          );
+
+          // console.log(`Inserted transaction ${transactionId} into CryptoTransactions_${chain}`);
+        }
+
+
+      } catch (e) {
+        // res.status(500).json({ error: e.message || String(e) });
+        console.error(`❌ Error processing transactions for ${chain} address ${address}:`, e);
+        continue;
+      }
+      // console.log(`📈 Recent transactions for ${address}:`, txs);
+    }
+  } catch (error) {
+    console.error('❌ Error fetching recent transactions:', error);
+  }
+
+}
 
 // 
 //  ##########################  END OF SERVER.JS  #########################
