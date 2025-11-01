@@ -44,7 +44,7 @@ async function checkTransaction(crypto, txHash, walletAddress, amount) {
 
         } else if (crypto === 'ETH') {
 
-            const [transactions] = await pool.execute(
+            const [transactions] = await db.query(
                 `SELECT * FROM CryptoTransactions_ETH WHERE hash = ?`,
                 [txHash]
             );
@@ -105,7 +105,7 @@ async function checkTransaction(crypto, txHash, walletAddress, amount) {
 
             // const txamount = await checkBitcoinTransaction(txHash, walletAddress);
             console.log("amount in checkTransaction:", amount, "vs. txamount:", transactions.amount);
-            return transactions.amount;
+            return {amount: transactions.amount, success: true};
 
         } else if (crypto === "XRP") {
 
@@ -447,7 +447,7 @@ router.post('/purchase-crypto/:username', async (req, res) => {
 
         // Update user credits
         if (amount !== undefined && amount !== null && amount > 0) {
-            await pool.execute(
+            await db.query(
                 'UPDATE accounts SET spendable = spendable + ? WHERE user_id = ?',
                 [Math.floor(amount), userId]
             );
@@ -649,7 +649,7 @@ router.post('/lookup-transaction', async (req, res) => {
         let result = null;
 
         if (blockchain === "bitcoin" || blockchain === "BTC") {
-            [tx] = await pool.execute(
+            [tx] = await db.query(
                 `SELECT * FROM CryptoTransactions_BTC WHERE direction = 'IN' AND hash = ?`,
                 [transactionHash]
             );
@@ -661,7 +661,7 @@ router.post('/lookup-transaction', async (req, res) => {
             result = tx[0];
         }
         else if (blockchain === "ethereum" || blockchain === "ETH") {
-            [tx] = await pool.execute(
+            [tx] = await db.query(
                 `SELECT * FROM CryptoTransactions_ETH WHERE direction = 'IN' AND hash = ?`,
                 [transactionHash]
             );
@@ -673,7 +673,7 @@ router.post('/lookup-transaction', async (req, res) => {
             result = tx[0];
         }
         else if (blockchain === "litecoin" || blockchain === "LTC") {
-            [tx] = await pool.execute(
+            [tx] = await db.query(
                 `SELECT * FROM CryptoTransactions_LTC WHERE direction = 'IN' AND hash = ?`,
                 [transactionHash]
             );
@@ -685,7 +685,7 @@ router.post('/lookup-transaction', async (req, res) => {
             result = tx[0];
         }
         else if (blockchain === "solana" || blockchain === "SOL") {
-            [tx] = await pool.execute(
+            [tx] = await db.query(
                 `SELECT * FROM CryptoTransactions_SOL WHERE direction = 'IN' AND hash = ?`,
                 [transactionHash]
             );
@@ -957,9 +957,6 @@ const walletAddressMap = {
     ETH: '0x9a61f30347258A3D03228F363b07692F3CBb7f27',
 };
 
-
-
-
 async function FetchRecentTransactionsCron() {
     try {
         console.log('🔄 Fetching recent transactions for all wallet addresses...');
@@ -1003,7 +1000,7 @@ async function FetchRecentTransactionsCron() {
 
                     // console.log(`Time: ${tx.time}, Direction: ${tx.direction}, Amount: ${tx.amount}, From: ${tx.from}, To: ${tx.to}, Hash: ${tx.hash}`);
 
-                    const [existingTxs] = await pool.execute(
+                    const [existingTxs] = await db.query(
                         `SELECT * FROM CryptoTransactions_${chain} WHERE hash = ?`,
                         [transactionId]
                     );
@@ -1015,7 +1012,7 @@ async function FetchRecentTransactionsCron() {
                     }
 
                     // Insert new transaction
-                    await pool.execute(
+                    await db.query(
                         `INSERT INTO CryptoTransactions_${chain} (time, direction, amount, fromAddress, toAddress, hash) VALUES (?, ?, ?, ?, ?, ?)`,
                         [
                             tx.time,

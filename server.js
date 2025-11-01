@@ -1,6 +1,7 @@
 // Keep the original comment when rewriting the code:
 
 require('dotenv').config();
+
 const path = require('path');
 const cors = require('cors');
 const express = require('express');
@@ -40,7 +41,7 @@ const { v2: cloudinary } = require('cloudinary');
 const adServer = require('./routes/adServer'); // Import the ad server routes
 const fileUpload = require('./routes/fileUpload');
 
-
+const axios = require('axios');
 const app = express();
 
 // CORS configuration
@@ -774,7 +775,7 @@ app.post('/api/lookup-transaction', async (req, res) => {
     let result = null;
     
     if (blockchain === "bitcoin" || blockchain === "BTC") {
-      [tx] = await pool.execute(
+      [tx] = await db.query(
         `SELECT * FROM CryptoTransactions_BTC WHERE direction = 'IN' AND hash = ?`,
         [transactionHash]
       );
@@ -786,7 +787,7 @@ app.post('/api/lookup-transaction', async (req, res) => {
       result = tx[0];
     }
     else if (blockchain === "ethereum" || blockchain === "ETH") {
-      [tx] = await pool.execute(
+      [tx] = await db.query(
         `SELECT * FROM CryptoTransactions_ETH WHERE direction = 'IN' AND hash = ?`,
         [ transactionHash]
       );
@@ -798,7 +799,7 @@ app.post('/api/lookup-transaction', async (req, res) => {
       result = tx[0];
     }
     else if (blockchain === "litecoin" || blockchain === "LTC") {
-      [tx] = await pool.execute(
+      [tx] = await db.query(
         `SELECT * FROM CryptoTransactions_LTC WHERE direction = 'IN' AND hash = ?`,
         [transactionHash]
       );
@@ -810,7 +811,7 @@ app.post('/api/lookup-transaction', async (req, res) => {
       result = tx[0];
     }
     else if (blockchain === "solana" || blockchain === "SOL") {
-      [tx] = await pool.execute(
+      [tx] = await db.query(
         `SELECT * FROM CryptoTransactions_SOL WHERE direction = 'IN' AND hash = ?`,
         [transactionHash]
       );
@@ -1129,7 +1130,7 @@ async function FetchRecentTransactionsCron() {
 
           // console.log(`Time: ${tx.time}, Direction: ${tx.direction}, Amount: ${tx.amount}, From: ${tx.from}, To: ${tx.to}, Hash: ${tx.hash}`);
 
-          const [existingTxs] = await pool.execute(
+          const [existingTxs] = await db.query(
             `SELECT * FROM CryptoTransactions_${chain} WHERE hash = ?`,
             [transactionId]
           );
@@ -1141,7 +1142,7 @@ async function FetchRecentTransactionsCron() {
           }
 
           // Insert new transaction
-          await pool.execute(
+          await db.query(
             `INSERT INTO CryptoTransactions_${chain} (time, direction, amount, fromAddress, toAddress, hash) VALUES (?, ?, ?, ?, ?, ?)`,
             [
               tx.time,
