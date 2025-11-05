@@ -52,6 +52,22 @@ router.post('/register', async (req, res) => {
         'INSERT INTO user_tiers (user_id, tier_id, start_date) VALUES (?, ?, CURRENT_DATE())',
         [userId, defaultTierId]
       );
+
+      // Create Notification
+      let notificationMsg = `Welcome, ${username}, please start by funding your account, go to the wallet section to begin!`
+
+      try {
+        const [result] = await db.query(
+          `INSERT INTO notifications (type, recipient_user_id, message, \`from\`, recipient_username, date)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+          ["welcome", userId, notificationMsg, "0", username, new Date()]
+        );
+        console.log("New notification successfully created:", notificationMsg);
+      } catch (error) {
+        console.error('Error creating notification:', error);
+        // Continue with the transaction even if notification fails
+      }
+
       await connection.commit();
 
       // ✅ Fixed: Use the actual variables you have

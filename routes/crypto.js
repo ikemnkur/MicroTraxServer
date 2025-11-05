@@ -451,6 +451,7 @@ router.post('/purchase-crypto/:username', async (req, res) => {
                 'UPDATE accounts SET spendable = spendable + ? WHERE user_id = ?',
                 [Math.floor(amount), userId]
             );
+            console.log(`Updated spendable credits for user ${username} by ${amount} coins.`);
         }
 
         // Commit the transaction
